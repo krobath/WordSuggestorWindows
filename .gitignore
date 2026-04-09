@@ -1,0 +1,4 @@
+.dotnet/
+.appdata/
+bin/
+obj/

@@ -44,7 +44,7 @@ Exit criteria:
 - Porting work is staged by risk instead of attempting a direct AppKit-to-Windows rewrite.
 
 ### WSA-RT-001_windows_core_bridge_and_internal_editor
-Status: `Planned`
+Status: `In progress` (`phase 1 baseline implemented 2026-04-09`)
 
 Scope:
 
@@ -52,9 +52,29 @@ Scope:
 - Prove end-to-end local suggestions in an internal editor.
 - Bridge Windows app code to `WordSuggestorCore`.
 
+Implemented so far:
+
+- WPF solution scaffolded in `src/WordSuggestorWindows.App`.
+- First internal editor window implemented with local suggestion list.
+- Suggestion acceptance into the internal editor implemented.
+- `ISuggestionProvider` abstraction added so UI code is isolated from bridge details.
+- First `WordSuggestorCore` CLI bridge implemented using:
+  - prebuilt CLI if available,
+  - `swift run` fallback otherwise.
+- Reproducible local helper scripts added:
+  - `scripts/build_app.ps1`
+  - `scripts/test_core_cli.ps1`
+- Local Windows validation established:
+  - app build passes,
+  - core CLI path currently fails locally because `sqlite3.h` is not available to the Swift toolchain on this machine.
+
 Target outcome:
 
 - User can type in the Windows app and receive local WordSuggestor suggestions without cross-app integration.
+
+Current blocker:
+
+- Local `WordSuggestorCore` CLI execution is blocked by missing SQLite headers in the Windows Swift environment.
 
 ### WSA-RT-002_windows_overlay_panel_and_commit_path
 Status: `Planned`

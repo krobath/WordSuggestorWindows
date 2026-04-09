@@ -1,0 +1,168 @@
+<Window x:Class="WordSuggestorWindows.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="WordSuggestor Windows"
+        Height="700"
+        Width="1120"
+        MinHeight="640"
+        MinWidth="980">
+    <Grid Background="#F5F7FA">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Margin="24,24,24,16"
+                Padding="20"
+                CornerRadius="16"
+                Background="White"
+                BorderBrush="#D8DEE8"
+                BorderThickness="1">
+            <StackPanel>
+                <TextBlock FontSize="28"
+                           FontWeight="SemiBold"
+                           Text="WordSuggestor Windows" />
+                <TextBlock Margin="0,8,0,0"
+                           Foreground="#556070"
+                           Text="WSA-RT-001 baseline: internal editor and WordSuggestorCore bridge." />
+                <TextBlock Margin="0,10,0,0"
+                           Foreground="#2E5AAC"
+                           Text="{Binding ProviderDescription}" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="24,0,24,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Margin="0,0,16,0"
+                    Padding="18"
+                    CornerRadius="16"
+                    Background="White"
+                    BorderBrush="#D8DEE8"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Text="Internal editor" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Foreground="#556070"
+                                   Text="Type Danish text here. The app asks WordSuggestorCore for local suggestions as you type." />
+                    </StackPanel>
+
+                    <TextBox x:Name="EditorTextBox"
+                             Grid.Row="1"
+                             Padding="14"
+                             FontSize="18"
+                             AcceptsReturn="True"
+                             AcceptsTab="True"
+                             VerticalScrollBarVisibility="Auto"
+                             TextWrapping="Wrap"
+                             Text="{Binding EditorText, UpdateSourceTrigger=PropertyChanged}"
+                             SelectionChanged="EditorTextBox_OnSelectionChanged"
+                             PreviewKeyDown="EditorTextBox_OnPreviewKeyDown" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Padding="18"
+                    CornerRadius="16"
+                    Background="White"
+                    BorderBrush="#D8DEE8"
+                    BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="0,0,0,12">
+                        <TextBlock FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Text="Suggestions" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Foreground="#556070"
+                                   Text="Double-click or press Tab to accept the selected suggestion into the editor." />
+                    </StackPanel>
+
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding Suggestions}"
+                             SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}"
+                             MouseDoubleClick="SuggestionList_OnMouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,8"
+                                        Padding="12"
+                                        CornerRadius="10"
+                                        Background="#F7F9FC"
+                                        BorderBrush="#E4EAF2"
+                                        BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel>
+                                            <TextBlock FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding Term}" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Foreground="#667084"
+                                                       Text="{Binding Kind}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1"
+                                                   VerticalAlignment="Top"
+                                                   Foreground="#2E5AAC"
+                                                   Text="{Binding Score, StringFormat=F2}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                        <Button Height="42"
+                                FontWeight="SemiBold"
+                                Content="Accept selected suggestion"
+                                Command="{Binding AcceptSelectedSuggestionCommand}"
+                                Click="AcceptSelectedSuggestion_OnClick" />
+                        <TextBlock Margin="0,10,0,0"
+                                   Foreground="#556070"
+                                   TextWrapping="Wrap"
+                                   Text="{Binding StatusMessage}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Margin="24,0,24,24"
+                Padding="14"
+                CornerRadius="12"
+                Background="#0F172A">
+            <DockPanel>
+                <TextBlock Foreground="White"
+                           Text="{Binding StatusMessage}" />
+                <TextBlock DockPanel.Dock="Right"
+                           Foreground="#CBD5E1"
+                           Text="{Binding IsBusy, StringFormat=Busy: {0}}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
