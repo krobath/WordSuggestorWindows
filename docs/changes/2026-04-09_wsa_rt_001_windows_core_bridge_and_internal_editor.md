@@ -75,5 +75,6 @@ Implemented the first runnable Windows app baseline: a WPF app shell with an int
 ## Known Limitations / Follow-up
 
 - Follow-up on `2026-04-09`: local CLI bootstrap was added in `WSA-DX-002`, and `scripts/test_core_cli.ps1` now passes against the built Windows CLI.
-- Remaining next step is manual Windows UI smoke for the WPF app using the live bridge path.
+- Follow-up on `2026-04-09`: scripted smoke launch was added in `WSA-TS-001` via `scripts/run_app.ps1` and `docs/ManualSmoke.md`.
+- Remaining next step is operator-observed Windows UI smoke for the WPF app using the live bridge path.
 - External-app capture, caret tracking, and overlay placement are not part of this sprint yet.

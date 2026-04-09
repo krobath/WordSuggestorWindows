@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Input;
-using WordSuggestorWindows.App.Services;
 using WordSuggestorWindows.App.ViewModels;
 
 namespace WordSuggestorWindows.App;
@@ -9,11 +8,12 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
 
-    public MainWindow()
+    public MainWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
-        _viewModel = new MainWindowViewModel(new WordSuggestorCoreCliSuggestionProvider());
-        DataContext = _viewModel;
+        _viewModel = viewModel;
+        DataContext = viewModel;
+        Loaded += OnLoaded;
     }
 
     private void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
@@ -49,6 +49,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        EditorTextBox.Focus();
+        EditorTextBox.SelectionStart = _viewModel.CaretIndex;
+        EditorTextBox.SelectionLength = 0;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
         EditorTextBox.Focus();
         EditorTextBox.SelectionStart = _viewModel.CaretIndex;
         EditorTextBox.SelectionLength = 0;

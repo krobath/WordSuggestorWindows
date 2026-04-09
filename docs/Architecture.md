@@ -20,6 +20,13 @@ The Windows port should replace:
 - Commit-to-target behavior
 - Windows packaging and install/update flow
 
+The Windows port should preserve:
+
+- Core information architecture from the macOS app
+- Toolbar control ordering and feature entry points
+- Suggestion panel semantics (paging, candidate affordances, placement modes)
+- Internal editor semantics for analysis coloring and correction surfaces
+
 ## Architectural decision
 
 Do not port the current macOS app 1:1.
@@ -29,6 +36,14 @@ Instead:
 1. Keep `WordSuggestorCore` as the shared engine.
 2. Build a Windows-native host application in this repository.
 3. Recreate platform behavior through Windows adapters, not AppKit/App Accessibility code reuse.
+
+Windows should look Windows-native, but remain recognizably the same product as the macOS build.
+That means:
+
+- native Windows control chrome where it improves clarity,
+- the same major surface layout and control ordering as macOS,
+- the same shared app icon across platforms,
+- Windows-native icons when obvious equivalents exist, with SF Symbols allowed as fallback.
 
 ## Why
 
@@ -65,6 +80,14 @@ Responsibilities:
 - User settings
 - Request/response flow between UI and engine bridge
 - Feature gating and runtime policy
+- coordination across multiple simultaneous UI surfaces
+
+Primary surfaces:
+
+- Floating toolbar shell
+- Expandable internal editor surface
+- Floating suggestion overlay
+- Right-click correction/context popover
 
 ### 3. Windows platform adapter layer
 
@@ -77,40 +100,73 @@ Responsibilities:
 - Caret anchor extraction
 - Suggestion commit to target
 - Overlay panel placement
+- fallback from follow-caret to static placement when caret placement is not reliable
 
 ## Adapter surfaces
 
 The Windows implementation should converge on explicit interfaces for:
 
 - `SuggestionProvider`
+- `ToolbarShellHost`
+- `InternalEditorHost`
 - `InputCaptureAdapter`
 - `FocusedTextContextAdapter`
 - `CaretAnchorAdapter`
 - `SuggestionCommitAdapter`
 - `SuggestionPanelHost`
+- `CorrectionPopoverHost`
 - `SelectionImportAdapter`
 
 ## Delivery strategy
 
 ### Phase 1
 
-Internal editor only.
+Windows visual shell parity baseline.
 
 Use case:
 
-- Type inside the Windows app
-- Get local suggestions from `WordSuggestorCore`
-- Accept suggestions in-app
+- Launch into a floating top toolbar instead of a normal document window
+- Expand into the internal editor from the right-side chevron
+- Preserve macOS toolbar ordering and editor structure with Windows-native visuals
+- Reuse `WordSuggestorCore` through the existing CLI bridge
 
 ### Phase 2
 
-Windows-native suggestion overlay for the app shell.
+Windows-native suggestion overlay parity.
+
+Use case:
+
+- Show a separate suggestion overlay under the caret in the internal editor
+- Support static mode and follow-caret mode
+- Support `Ctrl+1` through `Ctrl+0` candidate shortcuts
+- Fall back to static placement when caret placement is unavailable or unreliable
 
 ### Phase 3
 
 Cross-app typing/caret/context integration on Windows.
 
 This phase is highest risk and should only begin after the internal editor path is stable.
+
+Priority external targets:
+
+- mainstream word processors
+- email clients
+- browsers needed for Google Docs
+
+Policy:
+
+- follow-caret is preferred
+- fallback to static placement when caret anchoring cannot be trusted
+
+### Phase 4
+
+Editor correction popover parity.
+
+Use case:
+
+- right-clicking an underlined or flagged word opens the correction/context popover
+- popover supports candidate insertion and word-level actions
+- hover-triggered popovers can be considered later after right-click parity is stable
 
 ## Bridge strategy to WordSuggestorCore
 
@@ -132,5 +188,5 @@ Later optimization path:
 
 - Direct port of `GlobalKeyCaptureManager.swift`
 - Direct port of `MacSuggestionPanelController.swift`
-- Full feature parity on day one
+- Full external-app parity on day one
 - Reworking the macOS repository into a shared multiplatform app shell before Windows value is proven

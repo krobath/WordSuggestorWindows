@@ -17,6 +17,7 @@ For this repository, the expected default area is:
 Typical track codes for the Windows port:
 
 - `DX` - repo/process/baseline
+- `UX` - Windows UI parity and visual shell work
 - `RT` - runtime/input/caret/panel/commit integration
 - `TS` - smoke tests and validation
 
@@ -74,7 +75,7 @@ Target outcome:
 
 Current next step:
 
-- Run a manual Windows UI smoke so the WPF app is verified against the now-working local CLI bridge.
+- Replace the temporary normal-window shell with the Windows floating toolbar shell defined in `WSA-UX-001`.
 
 ### WSA-DX-002_windows_core_cli_bootstrap
 Status: `Done` (`2026-04-09`)
@@ -101,14 +102,47 @@ Known note:
 
 - Modulemap bootstrap into `Program Files (x86)` is not writable in this user context, but the local CLI path still succeeds with the current script and pinned env normalization.
 
+### WSA-UX-001_windows_toolbar_shell_parity
+Status: `Planned`
+
+Scope:
+
+- Replace the temporary normal window with a floating top toolbar shell.
+- Preserve the macOS toolbar control ordering while using Windows-native look and feel.
+- Reuse the shared WordSuggestor app icon for the Windows shell.
+
+Target outcome:
+
+- Windows launches into a compact floating toolbar that is recognizably the same product as macOS.
+- The toolbar expands downward into the internal editor from the right-side chevron.
+
+### WSA-UX-002_windows_internal_editor_surface_parity
+Status: `Planned`
+
+Scope:
+
+- Rebuild the internal editor surface to match the macOS structure.
+- Add command row, status bar, and text-analyzer legend/panel layout.
+- Preserve the macOS word-class coloring and underline semantics with Windows-native rendering.
+
+Target outcome:
+
+- The internal editor no longer behaves like a generic textbox screen.
+- The Windows editor reflects the same information architecture as the macOS editor screenshots.
+
 ### WSA-RT-002_windows_overlay_panel_and_commit_path
 Status: `Planned`
 
 Scope:
 
-- Implement Windows suggestion panel behavior for the app shell.
-- Add suggestion acceptance and insertion behavior.
-- Align keyboard and panel interaction with the macOS UX contract where reasonable.
+- Implement the separate Windows suggestion overlay panel.
+- Support static placement and follow-caret placement.
+- Add `Ctrl+1` through `Ctrl+0` candidate shortcuts and page navigation.
+- Fall back to static placement whenever follow-caret is not reliable.
+
+Target outcome:
+
+- The suggestion overlay behaves like the macOS panel in the internal editor first.
 
 ### WSA-RT-003_windows_external_input_and_caret_integration
 Status: `Planned`
@@ -119,21 +153,64 @@ Scope:
 - Implement caret/selection/context extraction for supported targets.
 - Implement external-app commit path with guarded fallbacks.
 
-### WSA-TS-001_windows_smoke_and_regression_baseline
+Priority targets:
+
+- mainstream word processors
+- email clients
+- browsers needed for Google Docs
+
+Policy:
+
+- prefer follow-caret when supported
+- fall back to static placement when caret anchoring is not trustworthy
+
+### WSA-RT-004_windows_editor_right_click_correction_popover
 Status: `Planned`
+
+Scope:
+
+- Implement right-click correction/context popover inside the Windows internal editor.
+- Target unknown words, spelling markers, and later semantic/punctuation markers.
+- Defer hover-triggered correction popovers until right-click parity is stable.
+
+Target outcome:
+
+- Right-clicking a flagged word opens the same kind of corrective surface the macOS editor exposes.
+
+### WSA-TS-001_windows_smoke_and_regression_baseline
+Status: `Done` (`2026-04-09`)
 
 Scope:
 
 - Define local smoke commands and validation artifacts.
 - Add parity-focused regression checklist for Windows milestones.
 
+Implemented:
+
+- Added `scripts/run_app.ps1` to bootstrap the CLI, build the WPF app, and launch it with smoke-ready startup text.
+- Added `docs/ManualSmoke.md` with canonical commands, checklist, expected behavior, and failure triage.
+- Added startup sample text support so the app can open directly into a suggestion-validation state.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (launch initiated; process remained responsive)
+
+Known note:
+
+- Interactive GUI verification still depends on an operator-run smoke because the app window must be observed in a desktop session.
+
 ## Recommended implementation order
 
 1. `WSA-DX-001` - baseline docs and repo structure
 2. `WSA-RT-001` - internal editor + core bridge
-3. `WSA-RT-002` - in-app suggestion panel parity
-4. `WSA-RT-003` - external-app Windows integration
-5. `WSA-TS-001` - smoke and regression gates
+3. `WSA-TS-001` - smoke and regression gates
+4. `WSA-UX-001` - floating toolbar shell parity
+5. `WSA-UX-002` - internal editor surface parity
+6. `WSA-RT-002` - suggestion overlay parity
+7. `WSA-RT-004` - right-click correction popover
+8. `WSA-RT-003` - external-app Windows integration
 
 ## Working rules for this repo
 

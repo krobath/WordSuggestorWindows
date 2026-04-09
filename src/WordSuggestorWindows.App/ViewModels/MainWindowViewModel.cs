@@ -18,13 +18,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private int _caretIndex;
 
-    public MainWindowViewModel(ISuggestionProvider suggestionProvider)
+    public MainWindowViewModel(ISuggestionProvider suggestionProvider, string? initialEditorText = null)
     {
         _suggestionProvider = suggestionProvider;
         ProviderDescription = suggestionProvider.ProviderDescription;
-        _statusMessage = "Type in the editor to request local suggestions from WordSuggestorCore.";
+        _editorText = initialEditorText ?? string.Empty;
+        _caretIndex = _editorText.Length;
+        _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
+            ? "Type in the editor to request local suggestions from WordSuggestorCore."
+            : "Startup sample loaded. Suggestions will refresh automatically.";
         Suggestions = [];
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
+
+        if (!string.IsNullOrWhiteSpace(_editorText))
+        {
+            ScheduleSuggestionsRefresh();
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
