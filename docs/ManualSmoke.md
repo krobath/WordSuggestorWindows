@@ -9,7 +9,7 @@ Provide one repeatable manual smoke flow for the current Windows baseline:
 
 - bootstrapped `WordSuggestorCore` CLI
 - built WPF app
-- startup sample text ready for in-app suggestion verification
+- startup sample text ready for floating-overlay suggestion verification
 
 ## Primary commands
 
@@ -43,17 +43,21 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 2. Run `scripts\run_app.ps1`.
 3. Confirm the app opens as the floating toolbar shell rather than a standard document window.
 4. In smoke mode, confirm startup text is already inserted and the shell opens expanded into the internal editor.
-5. Confirm the live suggestion preview populates without typing another character.
-6. Confirm the status area reports successful suggestion retrieval rather than a bridge error.
-7. Press `Tab` or `Ctrl+1` to accept the first suggestion.
-8. Confirm the active token in the editor is replaced and the caret remains in the editor.
+5. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+6. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+7. Confirm the placement buttons switch between static placement and follow-caret mode.
+8. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+9. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+10. Confirm the active token in the editor is replaced and the caret remains in the editor.
 
 ## Expected current behavior
 
 - The app should launch as a floating toolbar shell.
 - `scripts\run_app.ps1` should open the shell expanded because it injects the default sample text `Jeg vil gerne skri`.
-- The current suggestion UX is a temporary in-app preview strip, not the final floating overlay panel.
-- The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion chip.
+- The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
+- The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
+- `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.
+- If caret anchoring is not available, the overlay should fall back to a stable static position near the editor.
 - External app typing, caret tracking, and overlay placement are not in scope for this smoke.
 
 ## Failure triage

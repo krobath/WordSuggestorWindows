@@ -45,7 +45,7 @@ Exit criteria:
 - Porting work is staged by risk instead of attempting a direct AppKit-to-Windows rewrite.
 
 ### WSA-RT-001_windows_core_bridge_and_internal_editor
-Status: `In progress` (`phase 1 baseline implemented 2026-04-09`)
+Status: `Done` (`2026-04-09`)
 
 Scope:
 
@@ -73,9 +73,14 @@ Target outcome:
 
 - User can type in the Windows app and receive local WordSuggestor suggestions without cross-app integration.
 
-Current next step:
+Validation:
 
-- Rebuild the expanded editor surface so it matches the macOS structure more closely in `WSA-UX-002`.
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+
+Known note:
+
+- The editor path is now backed by the dedicated overlay panel baseline from `WSA-RT-002`, but attributed-text styling and right-click correction parity remain follow-up work.
 
 ### WSA-DX-002_windows_core_cli_bootstrap
 Status: `Done` (`2026-04-09`)
@@ -132,25 +137,11 @@ Validation:
 
 Known note:
 
-- The current expanded editor still uses a temporary in-app suggestion preview strip instead of the dedicated floating overlay planned for `WSA-RT-002`.
+- The temporary in-app suggestion preview strip used in this sprint has since been replaced by the dedicated floating overlay delivered in `WSA-RT-002`.
 - Editor analyzer rows and legend are currently structural parity placeholders and not yet full attributed-text parity.
 
-### WSA-UX-002_windows_internal_editor_surface_parity
-Status: `Planned`
-
-Scope:
-
-- Rebuild the internal editor surface to match the macOS structure.
-- Add command row, status bar, and text-analyzer legend/panel layout.
-- Preserve the macOS word-class coloring and underline semantics with Windows-native rendering.
-
-Target outcome:
-
-- The internal editor no longer behaves like a generic textbox screen.
-- The Windows editor reflects the same information architecture as the macOS editor screenshots.
-
 ### WSA-RT-002_windows_overlay_panel_and_commit_path
-Status: `Planned`
+Status: `Done` (`2026-04-09`)
 
 Scope:
 
@@ -162,6 +153,41 @@ Scope:
 Target outcome:
 
 - The suggestion overlay behaves like the macOS panel in the internal editor first.
+
+Implemented:
+
+- Added a separate borderless `SuggestionOverlayWindow` instead of rendering suggestions inside the editor shell.
+- Added pagination semantics that preserve 10 visible suggestions per page and up to 4 pages by requesting up to 40 candidates from the CLI provider.
+- Added `Ctrl+1` through `Ctrl+0` candidate picking against the current overlay page.
+- Added `Ctrl+Left` and `Ctrl+Right` page navigation inside the editor.
+- Added placement mode switching between static and follow-caret from the overlay header.
+- Added automatic fallback to static anchor placement when the editor caret cannot be resolved reliably.
+- Removed the temporary in-shell suggestion preview strip from the expanded editor surface.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (overlay-enabled app launched; process remained responsive)
+
+Known note:
+
+- Follow-caret is currently implemented for the internal Windows editor surface only.
+- External app overlay anchoring and commit paths remain part of `WSA-RT-003`.
+- The current overlay matches product semantics first; richer visual styling parity still depends on later UI refinement.
+
+### WSA-UX-002_windows_internal_editor_surface_parity
+Status: `Planned`
+
+Scope:
+
+- Rebuild the internal editor surface so it matches the macOS structure.
+- Add command row, status bar, and text-analyzer legend/panel layout.
+- Preserve the macOS word-class coloring and underline semantics with Windows-native rendering.
+
+Target outcome:
+
+- The internal editor no longer behaves like a generic textbox screen.
+- The Windows editor reflects the same information architecture as the macOS editor screenshots.
 
 ### WSA-RT-003_windows_external_input_and_caret_integration
 Status: `Planned`
@@ -226,8 +252,8 @@ Known note:
 2. `WSA-RT-001` - internal editor + core bridge
 3. `WSA-TS-001` - smoke and regression gates
 4. `WSA-UX-001` - floating toolbar shell parity
-5. `WSA-UX-002` - internal editor surface parity
-6. `WSA-RT-002` - suggestion overlay parity
+5. `WSA-RT-002` - suggestion overlay parity
+6. `WSA-UX-002` - internal editor surface parity
 7. `WSA-RT-004` - right-click correction popover
 8. `WSA-RT-003` - external-app Windows integration
 

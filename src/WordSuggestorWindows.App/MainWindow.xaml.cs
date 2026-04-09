@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using WordSuggestorWindows.App.Models;
 using WordSuggestorWindows.App.ViewModels;
 
 namespace WordSuggestorWindows.App;
@@ -15,8 +14,12 @@ public partial class MainWindow : Window
     private const double CollapsedHeight = 68;
     private const double ExpandedWidth = 900;
     private const double ExpandedHeight = 640;
+    private const double OverlayVerticalGap = 10;
+    private const double StaticOverlayHorizontalOffset = 118;
+    private const double StaticOverlayVerticalOffset = 44;
     private readonly MainWindowViewModel _viewModel;
     private bool _isInitialPositionApplied;
+    private SuggestionOverlayWindow? _overlayWindow;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -25,6 +28,8 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         Loaded += OnLoaded;
         Closed += OnClosed;
+        LocationChanged += OnWindowLocationOrSizeChanged;
+        SizeChanged += OnWindowLocationOrSizeChanged;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
     }
 
@@ -37,6 +42,8 @@ public partial class MainWindow : Window
             _isInitialPositionApplied = true;
         }
 
+        SyncOverlayVisibility();
+
         if (_viewModel.IsEditorExpanded)
         {
             RefocusEditor();
@@ -46,18 +53,40 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
+        LocationChanged -= OnWindowLocationOrSizeChanged;
+        SizeChanged -= OnWindowLocationOrSizeChanged;
+
+        if (_overlayWindow is not null)
+        {
+            _overlayWindow.Close();
+            _overlayWindow = null;
+        }
     }
 
     private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(MainWindowViewModel.IsEditorExpanded))
+        switch (e.PropertyName)
         {
-            ApplyShellSize();
-            if (_viewModel.IsEditorExpanded)
-            {
-                Dispatcher.BeginInvoke(RefocusEditor);
-            }
+            case nameof(MainWindowViewModel.IsEditorExpanded):
+                ApplyShellSize();
+                SyncOverlayVisibility();
+                if (_viewModel.IsEditorExpanded)
+                {
+                    Dispatcher.BeginInvoke(RefocusEditor);
+                }
+                break;
+            case nameof(MainWindowViewModel.ShouldShowSuggestionOverlay):
+            case nameof(MainWindowViewModel.SuggestionPlacementMode):
+            case nameof(MainWindowViewModel.CurrentSuggestionPage):
+            case nameof(MainWindowViewModel.VisibleSuggestions):
+                SyncOverlayVisibility();
+                break;
         }
+    }
+
+    private void OnWindowLocationOrSizeChanged(object? sender, EventArgs e)
+    {
+        UpdateOverlayPosition();
     }
 
     private void PositionAtTopCenter()
@@ -191,23 +220,20 @@ public partial class MainWindow : Window
         RefocusEditor();
     }
 
-    private void SuggestionChip_OnClick(object sender, RoutedEventArgs e)
+    private void EditorTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (sender is Button { DataContext: SuggestionItem suggestion } &&
-            _viewModel.AcceptSuggestion(suggestion))
-        {
-            RefocusEditor();
-        }
+        UpdateOverlayPosition();
     }
 
     private void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
         _viewModel.CaretIndex = EditorTextBox.SelectionStart;
+        UpdateOverlayPosition();
     }
 
     private void EditorTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (TryHandleControlDigitSuggestion(e))
+        if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
         {
             return;
         }
@@ -251,10 +277,148 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private bool TryHandleControlPaging(KeyEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
+        {
+            return false;
+        }
+
+        if (e.Key == Key.Left)
+        {
+            _viewModel.ChangeSuggestionPage(-1);
+            e.Handled = true;
+            return true;
+        }
+
+        if (e.Key == Key.Right)
+        {
+            _viewModel.ChangeSuggestionPage(1);
+            e.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
     private void RefocusEditor()
     {
         EditorTextBox.Focus();
         EditorTextBox.SelectionStart = _viewModel.CaretIndex;
         EditorTextBox.SelectionLength = 0;
+        UpdateOverlayPosition();
+    }
+
+    private void SyncOverlayVisibility()
+    {
+        if (!_viewModel.ShouldShowSuggestionOverlay)
+        {
+            HideOverlayWindow();
+            return;
+        }
+
+        EnsureOverlayWindow();
+        UpdateOverlayPosition();
+
+        if (_overlayWindow is not null && !_overlayWindow.IsVisible)
+        {
+            _overlayWindow.Show();
+        }
+    }
+
+    private void EnsureOverlayWindow()
+    {
+        if (_overlayWindow is not null)
+        {
+            return;
+        }
+
+        _overlayWindow = new SuggestionOverlayWindow(_viewModel)
+        {
+            Owner = this
+        };
+    }
+
+    private void HideOverlayWindow()
+    {
+        if (_overlayWindow is not null && _overlayWindow.IsVisible)
+        {
+            _overlayWindow.Hide();
+        }
+    }
+
+    private void UpdateOverlayPosition()
+    {
+        if (_overlayWindow is null || !_viewModel.ShouldShowSuggestionOverlay)
+        {
+            return;
+        }
+
+        EnsureOverlayWindow();
+
+        var anchor = ResolveOverlayAnchor();
+        var width = _overlayWindow.Width;
+        var height = _overlayWindow.Height;
+        var workArea = SystemParameters.WorkArea;
+
+        var left = anchor.X - (width / 2);
+        var top = anchor.Y + OverlayVerticalGap;
+
+        if (left < workArea.Left + 8)
+        {
+            left = workArea.Left + 8;
+        }
+
+        if (left + width > workArea.Right - 8)
+        {
+            left = workArea.Right - width - 8;
+        }
+
+        if (top + height > workArea.Bottom - 8)
+        {
+            top = Math.Max(workArea.Top + 8, anchor.Y - height - 18);
+        }
+
+        _overlayWindow.Left = left;
+        _overlayWindow.Top = top;
+    }
+
+    private Point ResolveOverlayAnchor()
+    {
+        if (_viewModel.IsFollowCaretPlacementMode &&
+            TryGetCaretScreenRect(out var caretRect))
+        {
+            return new Point(caretRect.Left + (caretRect.Width / 2), caretRect.Bottom);
+        }
+
+        var staticOrigin = EditorTextBox.PointToScreen(new Point(StaticOverlayHorizontalOffset, StaticOverlayVerticalOffset));
+        return new Point(staticOrigin.X, staticOrigin.Y);
+    }
+
+    private bool TryGetCaretScreenRect(out Rect caretRect)
+    {
+        caretRect = Rect.Empty;
+
+        if (!EditorTextBox.IsLoaded)
+        {
+            return false;
+        }
+
+        var caretIndex = Math.Clamp(EditorTextBox.CaretIndex, 0, EditorTextBox.Text.Length);
+        var candidateRects = new[]
+        {
+            EditorTextBox.GetRectFromCharacterIndex(caretIndex, true),
+            EditorTextBox.GetRectFromCharacterIndex(caretIndex, false)
+        };
+
+        var rect = candidateRects.FirstOrDefault(r => !r.IsEmpty && r.Width >= 0 && r.Height >= 0);
+        if (rect.IsEmpty)
+        {
+            return false;
+        }
+
+        var topLeft = EditorTextBox.PointToScreen(new Point(rect.Left, rect.Top));
+        caretRect = new Rect(topLeft.X, topLeft.Y, Math.Max(1, rect.Width), Math.Max(20, rect.Height));
+        return true;
     }
 }

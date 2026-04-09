@@ -1,7 +1,7 @@
 # WordSuggestorWindows Architecture
 
 Last updated: `2026-04-09`
-Status: `Draft baseline`
+Status: `Draft baseline with overlay parity baseline validated`
 
 ## Goal
 
@@ -139,7 +139,13 @@ Use case:
 - Show a separate suggestion overlay under the caret in the internal editor
 - Support static mode and follow-caret mode
 - Support `Ctrl+1` through `Ctrl+0` candidate shortcuts
+- Support page navigation and static fallback when caret placement is unavailable or unreliable
 - Fall back to static placement when caret placement is unavailable or unreliable
+
+Current state:
+
+- Implemented for the internal editor baseline in `WSA-RT-002`.
+- External-app anchoring and commit behavior remain future work.
 
 ### Phase 3
 

@@ -244,7 +244,6 @@
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <Border Height="1"
@@ -344,6 +343,7 @@
                                              VerticalScrollBarVisibility="Auto"
                                              TextWrapping="Wrap"
                                              Text="{Binding EditorText, UpdateSourceTrigger=PropertyChanged}"
+                                             TextChanged="EditorTextBox_OnTextChanged"
                                              SelectionChanged="EditorTextBox_OnSelectionChanged"
                                              PreviewKeyDown="EditorTextBox_OnPreviewKeyDown" />
                                 </Border>
@@ -382,7 +382,6 @@
                         </Border>
 
                         <Border Grid.Row="4"
-                                Margin="0,0,0,10"
                                 Padding="12"
                                 CornerRadius="12"
                                 Background="#FBFCFD"
@@ -392,58 +391,12 @@
                                 <TextBlock FontSize="12"
                                            FontWeight="SemiBold"
                                            Foreground="#556070"
-                                           Text="{Binding SuggestionPreviewCaption}" />
+                                           Text="Separat ordforslagsboks" />
                                 <TextBlock Margin="0,4,0,10"
                                            FontSize="11"
                                            Foreground="#7A8491"
-                                           Text="Midlertidig in-app preview indtil den separate overlayboks i WSA-RT-002." />
+                                           Text="{Binding SuggestionPlacementSummary}" />
 
-                                <ItemsControl ItemsSource="{Binding Suggestions}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <WrapPanel />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Button Style="{StaticResource SuggestionChipButtonStyle}"
-                                                    Click="SuggestionChip_OnClick">
-                                                <StackPanel>
-                                                    <TextBlock FontWeight="SemiBold"
-                                                               Text="{Binding Term}" />
-                                                    <TextBlock FontSize="11"
-                                                               Foreground="#6B7480"
-                                                               Text="{Binding Kind}" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <TextBlock FontSize="11"
-                                           Foreground="#7A8491"
-                                           Text="Skriv i editoren for at hente live forslag fra WordSuggestorCore.">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding HasSuggestions}" Value="True">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Grid.Row="5"
-                                Padding="12"
-                                CornerRadius="12"
-                                Background="#FBFCFD"
-                                BorderBrush="#DCE0E7"
-                                BorderThickness="1">
-                            <StackPanel>
                                 <WrapPanel>
                                     <StackPanel Margin="0,0,14,6"
                                                 Orientation="Horizontal">
@@ -493,6 +446,10 @@
                                 </WrapPanel>
 
                                 <TextBlock Margin="0,8,0,0"
+                                           FontSize="11"
+                                           Foreground="#7A8491"
+                                           Text="{Binding SuggestionPageSummary}" />
+                                <TextBlock Margin="0,3,0,0"
                                            FontSize="11"
                                            Foreground="#7A8491"
                                            Text="{Binding ProviderDescription}" />

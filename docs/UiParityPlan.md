@@ -149,6 +149,11 @@ Deliver:
 - `Ctrl+1` through `Ctrl+0` candidate shortcuts
 - static fallback when caret placement is unreliable
 
+Status:
+
+- Implemented for the internal editor baseline on `2026-04-09`
+- External-app placement parity remains owned by `WSA-RT-003`
+
 ### WSA-RT-004_windows_editor_right_click_correction_popover
 
 Deliver:

@@ -8,7 +8,7 @@ namespace WordSuggestorWindows.App.Services;
 public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 {
     private const string DefaultLanguage = "da-DK";
-    private const int DefaultMaxSuggestions = 8;
+    private const int DefaultMaxSuggestions = 40;
     private readonly string _workspaceRoot;
     private readonly string _coreRepoPath;
     private readonly string _packPath;

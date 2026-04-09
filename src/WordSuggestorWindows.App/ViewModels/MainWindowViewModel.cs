@@ -10,6 +10,8 @@ namespace WordSuggestorWindows.App.ViewModels;
 
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
+    private const int SuggestionPageSize = 10;
+    private const int MaxSuggestionPages = 4;
     private readonly ISuggestionProvider _suggestionProvider;
     private readonly RelayCommand _acceptSelectedSuggestionCommand;
     private CancellationTokenSource? _suggestionCts;
@@ -20,10 +22,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private int _caretIndex;
     private bool _isEditorExpanded;
     private bool _isGlobalCaptureEnabled = true;
-    private string _selectedLanguageOption = "🇩🇰 Dansk";
+    private string _selectedLanguageOption = "DA";
     private bool _isAnalyzerColoringEnabled = true;
     private bool _isSemanticDiagnosticsEnabled;
     private bool _isPunctuationDiagnosticsEnabled;
+    private int _currentSuggestionPage;
+    private SuggestionPlacementMode _suggestionPlacementMode = SuggestionPlacementMode.FollowCaret;
 
     public MainWindowViewModel(ISuggestionProvider suggestionProvider, string? initialEditorText = null)
     {
@@ -34,7 +38,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
             ? "Windows toolbar shell klar. Udvid editoren for at skrive og hente forslag."
             : "Startup sample loaded. Suggestions will refresh automatically.";
-        LanguageOptions = ["🇩🇰 Dansk"];
+        LanguageOptions = ["DA"];
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
@@ -108,6 +112,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 OnPropertyChanged(nameof(ExpandCollapseGlyph));
                 OnPropertyChanged(nameof(ExpandCollapseToolTip));
+                OnPropertyChanged(nameof(ShouldShowSuggestionOverlay));
             }
         }
     }
@@ -160,12 +165,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string ExpandCollapseToolTip => IsEditorExpanded ? "Skjul editor" : "Vis editor";
 
-    public bool HasSuggestions => Suggestions.Count > 0;
-
-    public string SuggestionPreviewCaption => HasSuggestions
-        ? $"Live forslag ({Suggestions.Count})"
-        : "Live forslag";
-
     public int CharacterCount => EditorText.Length;
 
     public int WordCount => EditorText
@@ -175,6 +174,75 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int SpellingCount => 0;
 
     public int GrammarCount => 0;
+
+    public SuggestionPlacementMode SuggestionPlacementMode
+    {
+        get => _suggestionPlacementMode;
+        private set
+        {
+            if (SetProperty(ref _suggestionPlacementMode, value))
+            {
+                OnPropertyChanged(nameof(IsStaticPlacementMode));
+                OnPropertyChanged(nameof(IsFollowCaretPlacementMode));
+                OnPropertyChanged(nameof(SuggestionPlacementSummary));
+            }
+        }
+    }
+
+    public bool IsStaticPlacementMode => SuggestionPlacementMode == SuggestionPlacementMode.Static;
+
+    public bool IsFollowCaretPlacementMode => SuggestionPlacementMode == SuggestionPlacementMode.FollowCaret;
+
+    public string SuggestionPlacementSummary => IsFollowCaretPlacementMode
+        ? "Follow-caret aktiv"
+        : "Statisk placering aktiv";
+
+    public int CurrentSuggestionPage => _currentSuggestionPage;
+
+    public int TotalSuggestionCount => Suggestions.Count;
+
+    public int TotalSuggestionPages
+    {
+        get
+        {
+            if (Suggestions.Count == 0)
+            {
+                return 1;
+            }
+
+            var rawPages = (int)Math.Ceiling((double)Suggestions.Count / SuggestionPageSize);
+            return Math.Min(MaxSuggestionPages, Math.Max(1, rawPages));
+        }
+    }
+
+    public string SuggestionPageSummary => $"Side {CurrentSuggestionPage + 1}/{TotalSuggestionPages}";
+
+    public string SuggestionPanelCountSummary => $"{TotalSuggestionCount} forslag";
+
+    public IReadOnlyList<SuggestionOverlayEntry> VisibleSuggestions
+    {
+        get
+        {
+            if (Suggestions.Count == 0)
+            {
+                return [];
+            }
+
+            var start = CurrentSuggestionPage * SuggestionPageSize;
+            return Suggestions
+                .Skip(start)
+                .Take(SuggestionPageSize)
+                .Select((suggestion, index) => new SuggestionOverlayEntry(
+                    index,
+                    index == 9 ? "Ctrl+0" : $"Ctrl+{index + 1}",
+                    suggestion))
+                .ToArray();
+        }
+    }
+
+    public bool HasSuggestions => Suggestions.Count > 0;
+
+    public bool ShouldShowSuggestionOverlay => IsEditorExpanded && HasSuggestions;
 
     public bool AcceptSelectedSuggestion()
     {
@@ -193,14 +261,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return AcceptSelectedSuggestion();
     }
 
-    public bool AcceptSuggestionAtIndex(int index)
+    public bool AcceptSuggestionAtIndex(int visibleIndex)
     {
-        if (index < 0 || index >= Suggestions.Count)
+        var visible = VisibleSuggestions;
+        if (visibleIndex < 0 || visibleIndex >= visible.Count)
         {
             return false;
         }
 
-        SelectedSuggestion = Suggestions[index];
+        SelectedSuggestion = visible[visibleIndex].Suggestion;
         return AcceptSelectedSuggestion();
     }
 
@@ -260,6 +329,29 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void SetStatusMessage(string message)
     {
         StatusMessage = message;
+    }
+
+    public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
+    {
+        SuggestionPlacementMode = mode;
+        StatusMessage = mode == SuggestionPlacementMode.FollowCaret
+            ? "Ordforslagsboksen følger nu markøren, når caret-placering er tilgængelig."
+            : "Ordforslagsboksen bruger nu statisk placering.";
+    }
+
+    public void ChangeSuggestionPage(int delta)
+    {
+        if (TotalSuggestionPages <= 1)
+        {
+            return;
+        }
+
+        var next = (CurrentSuggestionPage + delta) % TotalSuggestionPages;
+        _currentSuggestionPage = next < 0 ? next + TotalSuggestionPages : next;
+        UpdateSuggestionPageState();
+
+        SelectedSuggestion = VisibleSuggestions.FirstOrDefault()?.Suggestion;
+        StatusMessage = $"Viser {SuggestionPageSummary.ToLowerInvariant()} i ordforslagsboksen.";
     }
 
     private void ExecuteAcceptSelectedSuggestion()
@@ -327,7 +419,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                     Suggestions.Add(suggestion);
                 }
 
-                SelectedSuggestion = Suggestions.FirstOrDefault();
+                SelectedSuggestion = VisibleSuggestions.FirstOrDefault()?.Suggestion;
                 StatusMessage = suggestions.Count == 0
                     ? "No suggestions returned for the current input."
                     : $"Received {suggestions.Count} suggestion(s) from WordSuggestorCore.";
@@ -353,8 +445,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void SuggestionsOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        var maxPageIndex = Math.Max(0, TotalSuggestionPages - 1);
+        if (_currentSuggestionPage > maxPageIndex)
+        {
+            _currentSuggestionPage = maxPageIndex;
+        }
+
+        UpdateSuggestionPageState();
+    }
+
+    private void UpdateSuggestionPageState()
+    {
+        OnPropertyChanged(nameof(CurrentSuggestionPage));
+        OnPropertyChanged(nameof(TotalSuggestionCount));
+        OnPropertyChanged(nameof(TotalSuggestionPages));
+        OnPropertyChanged(nameof(SuggestionPageSummary));
+        OnPropertyChanged(nameof(SuggestionPanelCountSummary));
+        OnPropertyChanged(nameof(VisibleSuggestions));
         OnPropertyChanged(nameof(HasSuggestions));
-        OnPropertyChanged(nameof(SuggestionPreviewCaption));
+        OnPropertyChanged(nameof(ShouldShowSuggestionOverlay));
     }
 
     private bool CanAcceptSelectedSuggestion() => SelectedSuggestion is not null;
