@@ -65,16 +65,41 @@ Implemented so far:
   - `scripts/build_app.ps1`
   - `scripts/test_core_cli.ps1`
 - Local Windows validation established:
-  - app build passes,
-  - core CLI path currently fails locally because `sqlite3.h` is not available to the Swift toolchain on this machine.
+  - app build passes.
+  - core CLI smoke now passes after local bootstrap follow-up in `WSA-DX-002`.
 
 Target outcome:
 
 - User can type in the Windows app and receive local WordSuggestor suggestions without cross-app integration.
 
-Current blocker:
+Current next step:
 
-- Local `WordSuggestorCore` CLI execution is blocked by missing SQLite headers in the Windows Swift environment.
+- Run a manual Windows UI smoke so the WPF app is verified against the now-working local CLI bridge.
+
+### WSA-DX-002_windows_core_cli_bootstrap
+Status: `Done` (`2026-04-09`)
+
+Scope:
+
+- Make local Windows `WordSuggestorCore` CLI execution reproducible in this workspace.
+- Mirror the relevant Windows portability bootstrap steps from CI.
+- Unblock the Windows app's local engine bridge.
+
+Implemented:
+
+- Added `scripts/bootstrap_core_cli.ps1`.
+- Added local SQLite dev artifact provisioning under `WordSuggestorWindows/.artifacts/sqlite-dev`.
+- Added Windows SDK path normalization to pin the Swift build to `10.0.22621.0`.
+- Updated `scripts/test_core_cli.ps1` to bootstrap and then invoke the built CLI executable directly.
+- Verified local CLI output for Danish prefix input (`skri`).
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+
+Known note:
+
+- Modulemap bootstrap into `Program Files (x86)` is not writable in this user context, but the local CLI path still succeeds with the current script and pinned env normalization.
 
 ### WSA-RT-002_windows_overlay_panel_and_commit_path
 Status: `Planned`

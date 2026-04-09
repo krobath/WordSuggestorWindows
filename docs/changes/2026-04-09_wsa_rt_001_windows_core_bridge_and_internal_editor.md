@@ -74,6 +74,6 @@ Implemented the first runnable Windows app baseline: a WPF app shell with an int
 
 ## Known Limitations / Follow-up
 
-- The Windows app shell compiles, but the live `WordSuggestorCore` runtime bridge is currently blocked by missing SQLite headers in the local Windows Swift environment.
-- Next step should focus on Windows SQLite/toolchain bootstrap for local `WordSuggestorCore` execution, or on pointing the app to a prebuilt CLI binary via `WORDSUGGESTOR_SUGGEST_CLI_PATH`.
+- Follow-up on `2026-04-09`: local CLI bootstrap was added in `WSA-DX-002`, and `scripts/test_core_cli.ps1` now passes against the built Windows CLI.
+- Remaining next step is manual Windows UI smoke for the WPF app using the live bridge path.
 - External-app capture, caret tracking, and overlay placement are not part of this sprint yet.

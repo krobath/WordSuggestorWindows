@@ -19,4 +19,5 @@ This repository is the delivery track for the Windows port of the macOS WordSugg
 - `docs/ParityMatrix.md` - macOS-to-Windows feature parity tracking
 - `docs/changes/` - per-sprint implementation notes
 - `scripts/build_app.ps1` - reproducible local WPF build on this Windows workspace
-- `scripts/test_core_cli.ps1` - local bridge diagnostic for `WordSuggestorCore`
+- `scripts/bootstrap_core_cli.ps1` - local Windows bootstrap for SQLite + Swift CLI build
+- `scripts/test_core_cli.ps1` - local bridge diagnostic for `WordSuggestorCore` using the bootstrapped CLI path

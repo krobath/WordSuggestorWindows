@@ -1,4 +1,5 @@
 .dotnet/
 .appdata/
+.artifacts/
 bin/
 obj/
