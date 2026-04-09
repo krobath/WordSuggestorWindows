@@ -1,6 +1,6 @@
 # WordSuggestorWindows Manual Smoke
 
-Last updated: `2026-04-09`
+Last updated: `2026-04-10`
 Owner: `Windows track`
 
 ## Goal
@@ -45,16 +45,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 4. In smoke mode, confirm startup text is already inserted and the shell opens expanded into the internal editor.
 5. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
 6. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-7. Confirm the placement buttons switch between static placement and follow-caret mode.
-8. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-9. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-10. Confirm the active token in the editor is replaced and the caret remains in the editor.
+7. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+8. Confirm the placement buttons switch between static placement and follow-caret mode.
+9. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+10. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+11. Confirm the active token in the editor is replaced and the caret remains in the editor.
 
 ## Expected current behavior
 
 - The app should launch as a floating toolbar shell.
 - `scripts\run_app.ps1` should open the shell expanded because it injects the default sample text `Jeg vil gerne skri`.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
+- The default first page should fit all 10 visible candidates without needing vertical scrolling.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.
 - If caret anchoring is not available, the overlay should fall back to a stable static position near the editor.

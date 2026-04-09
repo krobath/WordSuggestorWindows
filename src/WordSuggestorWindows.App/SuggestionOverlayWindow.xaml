@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WordSuggestor Suggestions"
         Width="292"
-        Height="438"
+        Height="520"
         Background="Transparent"
         AllowsTransparency="True"
         ShowActivated="False"
@@ -13,7 +13,7 @@
         WindowStyle="None">
     <Window.Resources>
         <Style x:Key="OverlayHeaderButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Padding" Value="5,1" />
             <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="Background" Value="#E7EDF5" />
             <Setter Property="BorderBrush" Value="#D0D9E6" />
@@ -23,7 +23,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Border"
-                                CornerRadius="6"
+                                CornerRadius="5"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
@@ -62,7 +62,7 @@
         </Style>
     </Window.Resources>
 
-    <Border Margin="10"
+    <Border Margin="9"
             Padding="0"
             CornerRadius="14"
             Background="#F5F8FC"
@@ -75,7 +75,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Border Padding="12,10,12,8"
+            <Border Padding="10,8,10,6"
                     Background="#EFF4FB"
                     CornerRadius="14,14,0,0"
                     BorderBrush="#D4DFEC"
@@ -88,17 +88,17 @@
 
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock FontSize="20"
+                            <TextBlock FontSize="18"
                                        FontWeight="SemiBold"
                                        Foreground="#2D3035"
                                        Text="Forslag" />
-                            <TextBlock Margin="10,4,0,0"
-                                       FontSize="12"
+                            <TextBlock Margin="8,3,0,0"
+                                       FontSize="11"
                                        Foreground="#7A8491"
                                        Text="{Binding SuggestionPageSummary}" />
                         </StackPanel>
-                        <TextBlock Margin="0,4,0,0"
-                                   FontSize="12"
+                        <TextBlock Margin="0,2,0,0"
+                                   FontSize="11"
                                    Foreground="#7A8491"
                                    Text="{Binding SuggestionPanelCountSummary}" />
                     </StackPanel>
@@ -109,13 +109,13 @@
                         <Button Style="{StaticResource OverlayHeaderButtonStyle}"
                                 ToolTip="Statisk placering"
                                 Click="StaticPlacementButton_OnClick">
-                            <TextBlock FontSize="12"
-                                       Text="📌" />
+                            <TextBlock FontSize="11"
+                                       Text="&#x1F4CC;" />
                         </Button>
                         <Button Style="{StaticResource OverlayHeaderButtonStyle}"
                                 ToolTip="Follow-caret"
                                 Click="FollowCaretButton_OnClick">
-                            <TextBlock FontSize="12"
+                            <TextBlock FontSize="11"
                                        FontWeight="SemiBold"
                                        Text="A|" />
                         </Button>
@@ -124,15 +124,16 @@
             </Border>
 
             <ScrollViewer Grid.Row="1"
+                          Margin="6,4,6,2"
                           VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding VisibleSuggestions}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Button Style="{StaticResource OverlayRowButtonStyle}"
                                     Click="SuggestionRow_OnClick">
-                                <Border Margin="8,6,8,0"
-                                        Padding="10,8"
-                                        CornerRadius="10"
+                                <Border Margin="0,2,0,0"
+                                        Padding="8,4"
+                                        CornerRadius="8"
                                         BorderBrush="#D3DEEB"
                                         BorderThickness="1"
                                         Background="#F9FBFE">
@@ -144,27 +145,29 @@
                                         </Grid.ColumnDefinitions>
 
                                         <TextBlock Grid.Column="0"
-                                                   Width="36"
-                                                   Margin="0,2,8,0"
-                                                   FontSize="12"
+                                                   Width="32"
+                                                   Margin="0,1,7,0"
+                                                   FontSize="11"
                                                    Foreground="#7A8491"
                                                    Text="{Binding ShortcutLabel}" />
 
                                         <StackPanel Grid.Column="1">
-                                            <TextBlock FontSize="16"
+                                            <TextBlock FontSize="14"
                                                        FontWeight="SemiBold"
                                                        Foreground="#272B31"
+                                                       TextTrimming="CharacterEllipsis"
                                                        Text="{Binding Suggestion.Term}" />
-                                            <TextBlock Margin="0,3,0,0"
-                                                       FontSize="12"
+                                            <TextBlock Margin="0,1,0,0"
+                                                       FontSize="11"
                                                        Foreground="#6F7986"
+                                                       TextTrimming="CharacterEllipsis"
                                                        Text="{Binding Suggestion.Kind}" />
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="2"
-                                                   Margin="10,0,0,0"
-                                                   VerticalAlignment="Top"
-                                                   FontSize="12"
+                                                   Margin="8,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="11"
                                                    Foreground="#6F7986"
                                                    Text="{Binding Suggestion.Score, StringFormat=F2}" />
                                     </Grid>
@@ -181,7 +184,7 @@
             </ScrollViewer>
 
             <Border Grid.Row="2"
-                    Padding="10,8"
+                    Padding="8,6"
                     CornerRadius="0,0,14,14"
                     Background="#EAF2FB"
                     BorderBrush="#D4DFEC"
@@ -194,34 +197,34 @@
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0"
-                            Width="28"
-                            Height="26"
+                            Width="24"
+                            Height="22"
                             Style="{StaticResource OverlayHeaderButtonStyle}"
                             Click="PreviousPageButton_OnClick">
                         <TextBlock FontFamily="Segoe Fluent Icons"
-                                   FontSize="12"
+                                   FontSize="11"
                                    Text="&#xE76B;" />
                     </Button>
 
                     <StackPanel Grid.Column="1"
                                 VerticalAlignment="Center">
-                        <TextBlock FontSize="11"
+                        <TextBlock FontSize="10"
                                    Foreground="#65707C"
                                    HorizontalAlignment="Center"
                                    Text="Klik eller Ctrl+1..Ctrl+0 vælger forslag" />
-                        <TextBlock FontSize="11"
+                        <TextBlock FontSize="10"
                                    Foreground="#65707C"
                                    HorizontalAlignment="Center"
                                    Text="Ctrl+Venstre/Højre skifter side" />
                     </StackPanel>
 
                     <Button Grid.Column="2"
-                            Width="28"
-                            Height="26"
+                            Width="24"
+                            Height="22"
                             Style="{StaticResource OverlayHeaderButtonStyle}"
                             Click="NextPageButton_OnClick">
                         <TextBlock FontFamily="Segoe Fluent Icons"
-                                   FontSize="12"
+                                   FontSize="11"
                                    Text="&#xE76C;" />
                     </Button>
                 </Grid>

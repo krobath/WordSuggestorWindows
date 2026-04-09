@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-09`
+Last updated: `2026-04-10`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -175,6 +175,32 @@ Known note:
 - External app overlay anchoring and commit paths remain part of `WSA-RT-003`.
 - The current overlay matches product semantics first; richer visual styling parity still depends on later UI refinement.
 
+### WSA-UX-003_windows_overlay_density_refinement
+Status: `Done` (`2026-04-10`)
+
+Scope:
+
+- Increase the usable vertical density of the floating suggestion overlay.
+- Make the first overlay page show all 10 suggestions without immediate scrolling in the normal editor scenario.
+- Bring row proportions closer to the macOS suggestion panel.
+
+Implemented:
+
+- Increased the overlay window height to better match the amount of content shown in the macOS panel.
+- Reduced row padding, margins, and font sizes in the suggestion list while keeping the two-line information layout.
+- Reduced header and footer chrome density so more vertical space is available to the suggestions themselves.
+- Kept page controls and placement controls intact while making them visually lighter.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (refined overlay app launched; process remained responsive)
+
+Known note:
+
+- This sprint improves the density and fit of the internal-editor overlay only.
+- Visual styling and per-row metadata parity can still be refined further during later UX passes.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Planned`
 
@@ -253,9 +279,10 @@ Known note:
 3. `WSA-TS-001` - smoke and regression gates
 4. `WSA-UX-001` - floating toolbar shell parity
 5. `WSA-RT-002` - suggestion overlay parity
-6. `WSA-UX-002` - internal editor surface parity
-7. `WSA-RT-004` - right-click correction popover
-8. `WSA-RT-003` - external-app Windows integration
+6. `WSA-UX-003` - overlay density refinement
+7. `WSA-UX-002` - internal editor surface parity
+8. `WSA-RT-004` - right-click correction popover
+9. `WSA-RT-003` - external-app Windows integration
 
 ## Working rules for this repo
 
