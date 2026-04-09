@@ -11,16 +11,16 @@ Status: `Parity plan aligned with macOS UI review`
 
 | Capability | macOS source | Windows strategy | Status |
 |---|---|---|---|
-| Shared app icon | `Assets.xcassets/AppIcon.appiconset` | Reuse same app icon asset on Windows | `Planned` |
-| Floating top toolbar shell | `FloatingToolbarView` + `FloatingToolbarPanel` | Rebuild with Windows-native chrome and same control ordering | `Planned` |
-| Toolbar control ordering | `FloatingToolbarView` | Preserve macOS ordering, allow Windows-native icons where obvious | `Planned` |
-| Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Planned` |
+| Shared app icon | `Assets.xcassets/AppIcon.appiconset` | Reuse same app icon asset on Windows | `Baseline done` |
+| Floating top toolbar shell | `FloatingToolbarView` + `FloatingToolbarPanel` | Rebuild with Windows-native chrome and same control ordering | `Baseline done` |
+| Toolbar control ordering | `FloatingToolbarView` | Preserve macOS ordering, allow Windows-native icons where obvious | `Baseline done` |
+| Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
 | Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
 | Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared` |
-| Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done, parity pending` |
+| Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done inside toolbar shell` |
 | Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned` |
 | Right-click correction/context popover | `MacTextEditorRepresentable.swift` | Start with right-click popover on flagged words | `Planned` |
-| Suggestion list rendering | `SuggestionPanelView.swift` semantics | Recreate with Windows-native UI | `Planned` |
+| Suggestion list rendering | `SuggestionPanelView.swift` semantics | Recreate with Windows-native UI | `Temporary in-app preview only` |
 | In-app suggestion accept | `AppState` + local commit path | New Windows impl | `Baseline done, parity pending` |
 | Suggestion pagination | `AppState.pageSize` + `SuggestionPanelView` | Preserve 10-per-page and up to 4 pages | `Planned` |
 | Static/follow-caret placement toggle | `SuggestionPanelView` + `AppState` | Preserve both modes in Windows overlay | `Planned` |

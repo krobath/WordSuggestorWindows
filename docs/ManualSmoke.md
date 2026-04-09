@@ -41,17 +41,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 
 1. Run `scripts\test_core_cli.ps1` and confirm the CLI returns Danish suggestions.
 2. Run `scripts\run_app.ps1`.
-3. Confirm the app opens with startup text already inserted in the internal editor.
-4. Confirm the suggestion list populates without typing another character.
-5. Confirm the status area reports successful suggestion retrieval rather than a bridge error.
-6. Press `Tab` to accept the selected suggestion.
-7. Confirm the active token in the editor is replaced and the caret remains in the editor.
+3. Confirm the app opens as the floating toolbar shell rather than a standard document window.
+4. In smoke mode, confirm startup text is already inserted and the shell opens expanded into the internal editor.
+5. Confirm the live suggestion preview populates without typing another character.
+6. Confirm the status area reports successful suggestion retrieval rather than a bridge error.
+7. Press `Tab` or `Ctrl+1` to accept the first suggestion.
+8. Confirm the active token in the editor is replaced and the caret remains in the editor.
 
 ## Expected current behavior
 
-- The app should launch with the default sample text `Jeg vil gerne skri`.
-- The selected suggestion should be accepted with `Tab`, button click, or double-click.
-- The flow is internal-editor only. External app typing, caret tracking, and overlay placement are not in scope for this smoke.
+- The app should launch as a floating toolbar shell.
+- `scripts\run_app.ps1` should open the shell expanded because it injects the default sample text `Jeg vil gerne skri`.
+- The current suggestion UX is a temporary in-app preview strip, not the final floating overlay panel.
+- The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion chip.
+- External app typing, caret tracking, and overlay placement are not in scope for this smoke.
 
 ## Failure triage
 

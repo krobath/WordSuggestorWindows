@@ -75,7 +75,7 @@ Target outcome:
 
 Current next step:
 
-- Replace the temporary normal-window shell with the Windows floating toolbar shell defined in `WSA-UX-001`.
+- Rebuild the expanded editor surface so it matches the macOS structure more closely in `WSA-UX-002`.
 
 ### WSA-DX-002_windows_core_cli_bootstrap
 Status: `Done` (`2026-04-09`)
@@ -103,7 +103,7 @@ Known note:
 - Modulemap bootstrap into `Program Files (x86)` is not writable in this user context, but the local CLI path still succeeds with the current script and pinned env normalization.
 
 ### WSA-UX-001_windows_toolbar_shell_parity
-Status: `Planned`
+Status: `Done` (`2026-04-09`)
 
 Scope:
 
@@ -115,6 +115,25 @@ Target outcome:
 
 - Windows launches into a compact floating toolbar that is recognizably the same product as macOS.
 - The toolbar expands downward into the internal editor from the right-side chevron.
+
+Implemented:
+
+- Replaced the initial standard WPF document window with a borderless floating toolbar shell.
+- Added the shared app icon from the macOS asset catalog to the Windows app project and shell UI.
+- Preserved the toolbar control ordering from the macOS product model with Windows-friendly chrome.
+- Added expand/collapse behavior that keeps the toolbar pinned at the top while the editor opens downward.
+- Moved the existing internal editor baseline into the expanded shell instead of a separate generic screen.
+- Added early `Ctrl+1` through `Ctrl+0` in-editor suggestion picking support ahead of the overlay sprint.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (updated shell launched; process remained responsive)
+
+Known note:
+
+- The current expanded editor still uses a temporary in-app suggestion preview strip instead of the dedicated floating overlay planned for `WSA-RT-002`.
+- Editor analyzer rows and legend are currently structural parity placeholders and not yet full attributed-text parity.
 
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Planned`
