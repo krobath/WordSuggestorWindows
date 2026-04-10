@@ -1,7 +1,7 @@
 # WordSuggestorWindows Architecture
 
 Last updated: `2026-04-09`
-Status: `Draft baseline with overlay parity baseline validated`
+Status: `Draft baseline with overlay and editor-shell parity baselines validated`
 
 ## Goal
 

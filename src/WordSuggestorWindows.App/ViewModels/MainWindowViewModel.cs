@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -59,6 +59,30 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<string> LanguageOptions { get; }
 
     public string ProviderDescription { get; }
+
+    public IReadOnlyList<EditorStatusMetric> StatusMetrics =>
+    [
+        new("Aa", "Tegn", CharacterCount.ToString()),
+        new("â‰¡", "Ord", WordCount.ToString()),
+        new("âš ", "Stavefejl", SpellingCount.ToString()),
+        new("â—Ž", "Grammatik/tegnsÃ¦tning", GrammarCount.ToString())
+    ];
+
+    public IReadOnlyList<AnalyzerLegendMetric> AnalyzerLegendMetrics =>
+    [
+        new("Substantiver", 0, "#C26AF7"),
+        new("Egennavne", 0, "#F45A85"),
+        new("Verber", 0, "#2CBCCB"),
+        new("TillÃ¦gsord", 0, "#F5A14E"),
+        new("Biord", 0, "#758BFF"),
+        new("Pronomen", 0, "#5BC878"),
+        new("Determiner", 0, "#A97B58"),
+        new("PrÃ¦positioner", 0, "#4BB6E8"),
+        new("Konjunktioner", 0, "#48C7B3"),
+        new("Staveforslag", 0, "#E24A4A", true),
+        new("Semantik", 0, "#4A7DF0", true),
+        new("TegnsÃ¦tning", 0, "#4A7DF0", true)
+    ];
 
     public string EditorText
     {
@@ -125,8 +149,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _isGlobalCaptureEnabled, value))
             {
                 StatusMessage = value
-                    ? "Global forslag er slået til. Cross-app integration kommer i WSA-RT-003."
-                    : "Global forslag er slået fra i Windows-shell'en.";
+                    ? "Global forslag er slÃ¥et til. Cross-app integration kommer i WSA-RT-003."
+                    : "Global forslag er slÃ¥et fra i Windows-shell'en.";
             }
         }
     }
@@ -138,7 +162,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetProperty(ref _selectedLanguageOption, value))
             {
-                StatusMessage = "Dansk er aktivt sprog i den nuværende Windows-baseline.";
+                StatusMessage = "Dansk er aktivt sprog i den nuvÃ¦rende Windows-baseline.";
             }
         }
     }
@@ -196,6 +220,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string SuggestionPlacementSummary => IsFollowCaretPlacementMode
         ? "Follow-caret aktiv"
         : "Statisk placering aktiv";
+
+    public string EditorReadinessSummary => IsAnalyzerColoringEnabled
+        ? "Farvekodning og analysepanel er synlige i Windows-baseline."
+        : "Farvekodning er slÃ¥et fra i Windows-baseline.";
+
+    public string AnalyzerToggleSummary =>
+        $"Farver: {(IsAnalyzerColoringEnabled ? "til" : "fra")} Â· Semantik: {(IsSemanticDiagnosticsEnabled ? "til" : "fra")} Â· TegnsÃ¦tning: {(IsPunctuationDiagnosticsEnabled ? "til" : "fra")}";
+
+    public string OverlaySupportSummary =>
+        $"{SuggestionPlacementSummary} Â· {SuggestionPageSummary} Â· {ProviderDescription}";
 
     public int CurrentSuggestionPage => _currentSuggestionPage;
 
@@ -277,7 +311,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         IsEditorExpanded = !IsEditorExpanded;
         StatusMessage = IsEditorExpanded
-            ? "Editor åbnet i Windows toolbar shell."
+            ? "Editor Ã¥bnet i Windows toolbar shell."
             : "Editor skjult. Toolbar shell er tilbage i kompakt tilstand.";
     }
 
@@ -291,7 +325,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             "speechToText" => "Speech-to-text er ikke porteret endnu i Windows-sporet.",
             "textToSpeech" => "Text-to-speech er ikke porteret endnu i Windows-sporet.",
             "insights" => "Error insights bliver porteret i et senere Windows UI-sprint.",
-            "settings" => "Settings-parity følger efter den primære toolbar/editor shell.",
+            "settings" => "Settings-parity fÃ¸lger efter den primÃ¦re toolbar/editor shell.",
             _ => StatusMessage
         };
     }
@@ -299,6 +333,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void ToggleAnalyzerColoring()
     {
         IsAnalyzerColoringEnabled = !IsAnalyzerColoringEnabled;
+        NotifyEditorSurfaceStateChanged();
         StatusMessage = IsAnalyzerColoringEnabled
             ? "Farvekodning er markeret som aktiv i Windows-shell'en."
             : "Farvekodning er markeret som inaktiv i Windows-shell'en.";
@@ -307,17 +342,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void ToggleSemanticDiagnostics()
     {
         IsSemanticDiagnosticsEnabled = !IsSemanticDiagnosticsEnabled;
+        NotifyEditorSurfaceStateChanged();
         StatusMessage = IsSemanticDiagnosticsEnabled
-            ? "Semantik-knappen er slået til som del af editor-parity baseline."
-            : "Semantik-knappen er slået fra som del af editor-parity baseline.";
+            ? "Semantik-knappen er slÃ¥et til som del af editor-parity baseline."
+            : "Semantik-knappen er slÃ¥et fra som del af editor-parity baseline.";
     }
 
     public void TogglePunctuationDiagnostics()
     {
         IsPunctuationDiagnosticsEnabled = !IsPunctuationDiagnosticsEnabled;
+        NotifyEditorSurfaceStateChanged();
         StatusMessage = IsPunctuationDiagnosticsEnabled
-            ? "Tegnsætningsknappen er slået til som del af editor-parity baseline."
-            : "Tegnsætningsknappen er slået fra som del af editor-parity baseline.";
+            ? "TegnsÃ¦tningsknappen er slÃ¥et til som del af editor-parity baseline."
+            : "TegnsÃ¦tningsknappen er slÃ¥et fra som del af editor-parity baseline.";
     }
 
     public void RefreshSuggestionsPreview()
@@ -334,8 +371,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
     {
         SuggestionPlacementMode = mode;
+        OnPropertyChanged(nameof(OverlaySupportSummary));
         StatusMessage = mode == SuggestionPlacementMode.FollowCaret
-            ? "Ordforslagsboksen følger nu markøren, når caret-placering er tilgængelig."
+            ? "Ordforslagsboksen fÃ¸lger nu markÃ¸ren, nÃ¥r caret-placering er tilgÃ¦ngelig."
             : "Ordforslagsboksen bruger nu statisk placering.";
     }
 
@@ -351,6 +389,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         UpdateSuggestionPageState();
 
         SelectedSuggestion = VisibleSuggestions.FirstOrDefault()?.Suggestion;
+        OnPropertyChanged(nameof(OverlaySupportSummary));
         StatusMessage = $"Viser {SuggestionPageSummary.ToLowerInvariant()} i ordforslagsboksen.";
     }
 
@@ -464,6 +503,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(VisibleSuggestions));
         OnPropertyChanged(nameof(HasSuggestions));
         OnPropertyChanged(nameof(ShouldShowSuggestionOverlay));
+        OnPropertyChanged(nameof(OverlaySupportSummary));
     }
 
     private bool CanAcceptSelectedSuggestion() => SelectedSuggestion is not null;
@@ -513,6 +553,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WordCount));
         OnPropertyChanged(nameof(SpellingCount));
         OnPropertyChanged(nameof(GrammarCount));
+        OnPropertyChanged(nameof(StatusMetrics));
+        OnPropertyChanged(nameof(AnalyzerLegendMetrics));
+    }
+
+    private void NotifyEditorSurfaceStateChanged()
+    {
+        OnPropertyChanged(nameof(EditorReadinessSummary));
+        OnPropertyChanged(nameof(AnalyzerToggleSummary));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -520,3 +568,4 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }
+

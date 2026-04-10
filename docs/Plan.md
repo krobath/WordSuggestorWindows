@@ -202,7 +202,7 @@ Known note:
 - Visual styling and per-row metadata parity can still be refined further during later UX passes.
 
 ### WSA-UX-002_windows_internal_editor_surface_parity
-Status: `Planned`
+Status: `Done` (`2026-04-10`)
 
 Scope:
 
@@ -214,6 +214,36 @@ Target outcome:
 
 - The internal editor no longer behaves like a generic textbox screen.
 - The Windows editor reflects the same information architecture as the macOS editor screenshots.
+
+Implemented:
+
+- Reworked the expanded editor shell into a clearer three-part structure:
+  - command row
+  - editor surface with contextual header/status strip
+  - metric row plus analyzer legend section
+- Replaced the old plain command strip with a Windows-native command/toggle row for:
+  - cut/copy/paste
+  - analyzer coloring
+  - semantic diagnostics
+  - punctuation diagnostics
+  - suggestion refresh
+- Added status metric cards for characters, words, spelling, and grammar/punctuation counts.
+- Added a dedicated analyzer legend section driven by reusable view-model data instead of static duplicated XAML blocks.
+- Added editor-surface summaries for:
+  - editor readiness
+  - analyzer toggle state
+  - overlay/provider support
+- Kept the floating suggestion overlay functional on top of the rebuilt editor surface.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (updated editor shell launched; process remained responsive)
+
+Known note:
+
+- This sprint establishes editor structure and layout parity, not full attributed-text rendering parity.
+- Word-class coloring, underline rendering, and flagged-word interaction still need later work on top of this shell baseline.
 
 ### WSA-RT-003_windows_external_input_and_caret_integration
 Status: `Planned`

@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-09`
+Last updated: `2026-04-10`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -138,6 +138,11 @@ Deliver:
 - editor surface structure parity
 - Windows-native attributed text rendering for analysis markers
 - command row, status bar, and analyzer summary layout
+
+Status:
+
+- Structure/layout baseline implemented on `2026-04-10`
+- Rich attributed-text parity remains follow-up work on top of the rebuilt editor shell
 
 ### WSA-RT-002_windows_overlay_panel_and_commit_path
 

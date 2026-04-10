@@ -1,6 +1,6 @@
 # WordSuggestor macOS -> Windows Parity Matrix
 
-Last updated: `2026-04-09`
+Last updated: `2026-04-10`
 Status: `Parity plan aligned with macOS UI review`
 
 ## Legend
@@ -17,8 +17,9 @@ Status: `Parity plan aligned with macOS UI review`
 | Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
 | Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
 | Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared` |
-| Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done inside toolbar shell` |
-| Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned` |
+| Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done inside structured editor shell` |
+| Editor surface structure | `WordSugestorApp.swift` + `TextAnalyzerPanelView.swift` | Rebuild command row, editor area, status row, and analyzer panel layout natively on Windows | `Baseline done` |
+| Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned on top of shell baseline` |
 | Right-click correction/context popover | `MacTextEditorRepresentable.swift` | Start with right-click popover on flagged words | `Planned` |
 | Suggestion list rendering | `SuggestionPanelView.swift` semantics | Recreate with Windows-native UI | `Baseline done in separate overlay window` |
 | In-app suggestion accept | `AppState` + local commit path | New Windows impl | `Baseline done in overlay` |
