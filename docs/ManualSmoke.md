@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The app should launch as a floating toolbar shell.
 - `scripts\run_app.ps1` should open the shell expanded because it injects the default sample text `Jeg vil gerne skri`.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
-- The default first page should fit all 10 visible candidates without needing vertical scrolling.
+- The default first page should fit all 10 visible candidates without needing vertical scrolling, and each row should read as visibly denser than the earlier overlay baseline.
 - The expanded editor should no longer feel like a plain textbox screen; it should expose the same core editor information architecture as macOS.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.

@@ -201,6 +201,31 @@ Known note:
 - This sprint improves the density and fit of the internal-editor overlay only.
 - Visual styling and per-row metadata parity can still be refined further during later UX passes.
 
+### WSA-UX-004_windows_overlay_row_height_refinement
+Status: `Done` (`2026-04-10`)
+
+Scope:
+
+- Reduce the per-row height in the floating suggestion overlay further.
+- Ensure the first page can show 10 visible candidates without requiring scroll in the default smoke scenario.
+- Preserve readability and the existing paging/placement controls.
+
+Implemented:
+
+- Reduced overlay row padding, row margins, and row typography further.
+- Reduced header and footer chrome slightly again so the list gets more usable vertical space.
+- Compressed the footer help into a single line to free height for suggestion rows.
+- Reduced shortcut and score text footprint to keep each candidate row tighter.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (refined overlay app launched; process remained responsive)
+
+Known note:
+
+- This sprint only tightens overlay row presentation; it does not change pagination logic or external-app behavior.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
 
