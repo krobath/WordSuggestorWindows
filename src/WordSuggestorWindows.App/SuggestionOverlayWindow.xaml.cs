@@ -1,6 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media;
 using WordSuggestorWindows.App.Models;
+using WordSuggestorWindows.App.Services;
 using WordSuggestorWindows.App.ViewModels;
 
 namespace WordSuggestorWindows.App;
@@ -8,12 +12,16 @@ namespace WordSuggestorWindows.App;
 public partial class SuggestionOverlayWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
+    private readonly OverlaySpeechService _speechService = new();
+
+    public event EventHandler<Point>? ManualPlacementCommitted;
 
     public SuggestionOverlayWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
+        Closed += OnClosed;
     }
 
     private void StaticPlacementButton_OnClick(object sender, RoutedEventArgs e)
@@ -36,11 +44,108 @@ public partial class SuggestionOverlayWindow : Window
         _viewModel.ChangeSuggestionPage(1);
     }
 
-    private void SuggestionRow_OnClick(object sender, RoutedEventArgs e)
+    private void DragSurface_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is Button { DataContext: SuggestionOverlayEntry entry })
+        if (!_viewModel.IsStaticPlacementMode ||
+            e.ChangedButton != MouseButton.Left ||
+            IsInteractiveElement(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        DragMove();
+        ManualPlacementCommitted?.Invoke(this, new Point(Left, Top));
+    }
+
+    private void SuggestionRow_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (IsInteractiveElement(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        if (sender is Border { DataContext: SuggestionOverlayEntry entry })
         {
             _viewModel.AcceptSuggestion(entry.Suggestion);
         }
+    }
+
+    private void SpeakButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: SuggestionOverlayEntry entry })
+        {
+            _speechService.Speak(entry.Suggestion.Term);
+            _viewModel.SetStatusMessage($"Læser '{entry.Suggestion.Term}' op via Windows TTS.");
+        }
+    }
+
+    private void InfoButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: SuggestionOverlayEntry entry } button)
+        {
+            return;
+        }
+
+        var infoPanel = new StackPanel
+        {
+            Margin = new Thickness(4)
+        };
+
+        infoPanel.Children.Add(new TextBlock
+        {
+            Text = entry.Suggestion.Term,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        foreach (var line in entry.InfoSummary.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+        {
+            infoPanel.Children.Add(new TextBlock
+            {
+                Text = line,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 2),
+                MaxWidth = 220
+            });
+        }
+
+        var menu = new ContextMenu
+        {
+            Placement = PlacementMode.Left,
+            PlacementTarget = button,
+            StaysOpen = false,
+            HasDropShadow = true
+        };
+
+        menu.Items.Add(new MenuItem
+        {
+            Header = infoPanel,
+            StaysOpenOnClick = true
+        });
+
+        menu.IsOpen = true;
+        _viewModel.SetStatusMessage($"Viser ordinfo for '{entry.Suggestion.Term}'.");
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        Closed -= OnClosed;
+        _speechService.Dispose();
+    }
+
+    private static bool IsInteractiveElement(DependencyObject? origin)
+    {
+        var current = origin;
+        while (current is not null)
+        {
+            if (current is ButtonBase or ScrollBar)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 }

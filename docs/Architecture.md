@@ -1,7 +1,7 @@
 # WordSuggestorWindows Architecture
 
-Last updated: `2026-04-09`
-Status: `Draft baseline with overlay and editor-shell parity baselines validated`
+Last updated: `2026-04-10`
+Status: `Draft baseline with richer overlay parity validated`
 
 ## Goal
 
@@ -100,6 +100,7 @@ Responsibilities:
 - Caret anchor extraction
 - Suggestion commit to target
 - Overlay panel placement
+- manual static overlay placement
 - fallback from follow-caret to static placement when caret placement is not reliable
 
 ## Adapter surfaces
@@ -145,6 +146,7 @@ Use case:
 Current state:
 
 - Implemented for the internal editor baseline in `WSA-RT-002`.
+- Richer row metadata, row actions, match-kind tinting, and manual static dragging were added in `WSA-RT-005`.
 - External-app anchoring and commit behavior remain future work.
 
 ### Phase 3

@@ -226,6 +226,69 @@ Known note:
 
 - This sprint only tightens overlay row presentation; it does not change pagination logic or external-app behavior.
 
+### WSA-RT-005_windows_overlay_static_drag_and_rich_rows
+Status: `Done` (`2026-04-10`)
+
+Scope:
+
+- Make static placement mean true manual placement chosen by the user.
+- Enrich each overlay row with macOS-style metadata and per-row actions.
+- Preserve Windows-native presentation while matching the macOS suggestion semantics more closely.
+
+Implemented:
+
+- Extended the shared `SuggestCLI` JSON contract so Windows receives `type`, `pos`, and `gram` alongside `term`, `score`, and `kind`.
+- Added a richer Windows suggestion presentation layer that maps match kinds to Danish labels, explanatory text, and row tint colors.
+- Rebuilt the overlay row template so each candidate now shows:
+  - term
+  - inline match label in parentheses
+  - metadata line with ordklasse and grammar tag when available
+  - speaker button
+  - info button
+- Added distinct background tinting for ordinary, phonetic, misspelling, and synonym suggestions.
+- Changed static placement behavior so the user can drag the overlay header while static mode is active, and the overlay stays at that absolute screen position until moved again.
+- Kept follow-caret as the preferred mode and preserved static fallback when caret anchoring is unavailable.
+- Added a Windows-native speech path for the row speaker button using a PowerShell/SAPI bridge.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (app launched; process remained responsive)
+
+Known note:
+
+- Manual static placement currently persists for the running session; persistence across app restarts is not implemented yet.
+- The info button currently shows runtime metadata available from the Windows bridge, not the fuller future word-insight surface from the editor correction popover.
+
+### WSA-RT-006_windows_overlay_crash_and_danish_utf8
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Fix the overlay crash that happened as soon as suggestion rows were rendered after short input.
+- Make Danish letters part of the bridge regression path.
+- Clarify the SQLite/pkg-config warning seen during bootstrap.
+
+Implemented:
+
+- Fixed the WPF `Run.Text` bindings in the overlay row template by making them explicit one-way bindings.
+- Updated the CLI bridge to write request files as UTF-8 and read CLI stdout/stderr as UTF-8.
+- Restored Danish UI labels in the overlay footer, TTS tooltip, and TTS status message.
+- Updated `scripts/test_core_cli.ps1` to smoke-test `skri`, `læ`, `ø`, `å`, `smør`, and `blå`.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Direct `WordSuggestorSuggestCLI` smoke with `læ`, `ø`, `å`, `smør`, and `blå` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap -SampleText "Jeg prøver at læ"` -> `PASS` (app launched; process remained responsive)
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- Application event log check after launch showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- `warning: couldn't find pc file for sqlite3` is a build/pkg-config discovery warning, not evidence that the Danish SQLite pack failed to load. The successful CLI output and `Pack opened ... da_lexicon.sqlite` log confirm the pack was loaded.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
 

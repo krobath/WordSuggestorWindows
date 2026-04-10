@@ -17,7 +17,18 @@ if (-not (Test-Path $packPath)) {
 
 & $bootstrapScript
 
-Set-Content $sampleInputPath "skri"
+$ae = [char]0x00E6
+$oe = [char]0x00F8
+$aa = [char]0x00E5
+
+Set-Content -Path $sampleInputPath -Encoding utf8 -Value @(
+    "skri",
+    "l$ae",
+    "$oe",
+    "$aa",
+    "sm${oe}r",
+    "bl$aa"
+)
 
 try {
     if ($env:WORDSUGGESTOR_SUGGEST_CLI_PATH -and (Test-Path $env:WORDSUGGESTOR_SUGGEST_CLI_PATH)) {

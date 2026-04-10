@@ -105,6 +105,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _selectedSuggestion, value))
             {
                 _acceptSelectedSuggestionCommand.NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(VisibleSuggestions));
             }
         }
     }
@@ -269,7 +270,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 .Select((suggestion, index) => new SuggestionOverlayEntry(
                     index,
                     index == 9 ? "Ctrl+0" : $"Ctrl+{index + 1}",
-                    suggestion))
+                    suggestion,
+                    SelectedSuggestion == suggestion))
                 .ToArray();
         }
     }

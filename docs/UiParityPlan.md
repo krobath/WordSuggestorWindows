@@ -159,6 +159,21 @@ Status:
 - Implemented for the internal editor baseline on `2026-04-09`
 - External-app placement parity remains owned by `WSA-RT-003`
 
+### WSA-RT-005_windows_overlay_static_drag_and_rich_rows
+
+Deliver:
+
+- true manual static placement for the suggestion overlay
+- richer candidate rows with inline match labels
+- metadata line with ordklasse and grammar
+- row-level speaker and info actions
+- kind-based row tinting aligned with the macOS suggestion semantics
+
+Status:
+
+- Implemented for the internal editor baseline on `2026-04-10`
+- static placement persistence currently lasts for the running session
+
 ### WSA-RT-004_windows_editor_right_click_correction_popover
 
 Deliver:

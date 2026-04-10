@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WordSuggestor Suggestions"
         Width="292"
-        Height="508"
+        Height="532"
         Background="Transparent"
         AllowsTransparency="True"
         ShowActivated="False"
@@ -12,6 +12,8 @@
         ResizeMode="NoResize"
         WindowStyle="None">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
         <Style x:Key="OverlayHeaderButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="4,1" />
             <Setter Property="Margin" Value="0,0,4,0" />
@@ -44,18 +46,32 @@
             </Setter>
         </Style>
 
-        <Style x:Key="OverlayRowButtonStyle" TargetType="Button">
+        <Style x:Key="OverlayActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}">
-                            <ContentPresenter />
+                        <Border x:Name="Border"
+                                CornerRadius="4"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#ECF2F9" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#E2EBF5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -79,7 +95,8 @@
                     Background="#EFF4FB"
                     CornerRadius="14,14,0,0"
                     BorderBrush="#D4DFEC"
-                    BorderThickness="0,0,0,1">
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="DragSurface_OnMouseLeftButtonDown">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -129,50 +146,68 @@
                 <ItemsControl ItemsSource="{Binding VisibleSuggestions}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Button Style="{StaticResource OverlayRowButtonStyle}"
-                                    Click="SuggestionRow_OnClick">
-                                <Border Margin="0,1,0,0"
-                                        Padding="7,3"
-                                        CornerRadius="7"
-                                        BorderBrush="#D3DEEB"
-                                        BorderThickness="1"
-                                        Background="#F9FBFE">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                            <Border Margin="0,1,0,0"
+                                    Padding="6,2"
+                                    CornerRadius="7"
+                                    BorderThickness="1"
+                                    BorderBrush="{Binding BorderBrush}"
+                                    Background="{Binding BackgroundBrush}"
+                                    ToolTip="{Binding MatchKindHelpText}"
+                                    PreviewMouseLeftButtonUp="SuggestionRow_OnPreviewMouseLeftButtonUp">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0"
-                                                   Width="28"
-                                                   Margin="0,1,6,0"
+                                    <TextBlock Grid.Column="0"
+                                               Width="28"
+                                               Margin="0,1,6,0"
+                                               FontSize="10"
+                                               Foreground="#697585"
+                                               Text="{Binding ShortcutLabel}" />
+
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#272B31"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Suggestion.Term, Mode=OneWay}" />
+                                            <Run Text=" " />
+                                            <Run Foreground="#6F7986"
+                                                 FontWeight="Regular"
+                                                 Text="{Binding KindInlineSummary, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock Margin="0,0,0,0"
                                                    FontSize="10"
-                                                   Foreground="#7A8491"
-                                                   Text="{Binding ShortcutLabel}" />
+                                                   Foreground="#697585"
+                                                   Text="{Binding MetadataSummary}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding HasMetadataSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    </StackPanel>
 
-                                        <StackPanel Grid.Column="1">
-                                            <TextBlock FontSize="13"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#272B31"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Text="{Binding Suggestion.Term}" />
-                                            <TextBlock Margin="0,0,0,0"
-                                                       FontSize="10"
-                                                       Foreground="#6F7986"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       Text="{Binding Suggestion.Kind}" />
-                                        </StackPanel>
-
-                                        <TextBlock Grid.Column="2"
-                                                   Margin="7,0,0,0"
-                                                   VerticalAlignment="Center"
-                                                   FontSize="10"
-                                                   Foreground="#6F7986"
-                                                   Text="{Binding Suggestion.Score, StringFormat=F2}" />
-                                    </Grid>
-                                </Border>
-                            </Button>
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Margin="6,0,0,0"
+                                                VerticalAlignment="Center">
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Læs ordet op"
+                                                Click="SpeakButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x1F50A;" />
+                                        </Button>
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Vis ordinfo"
+                                                Click="InfoButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x24D8;" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemsPanel>
@@ -211,7 +246,7 @@
                         <TextBlock FontSize="9"
                                    Foreground="#65707C"
                                    HorizontalAlignment="Center"
-                                   Text="Ctrl+1..0 vælger · Ctrl+Venstre/Højre skifter side" />
+                                   Text="Ctrl+1..0 vælger | Ctrl+Venstre/Højre skifter side" />
                     </StackPanel>
 
                     <Button Grid.Column="2"

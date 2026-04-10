@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using WordSuggestorWindows.App.Models;
 
@@ -43,7 +44,11 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 
         try
         {
-            await File.WriteAllTextAsync(tempInputPath, normalizedInput + Environment.NewLine, cancellationToken);
+            await File.WriteAllTextAsync(
+                tempInputPath,
+                normalizedInput + Environment.NewLine,
+                Encoding.UTF8,
+                cancellationToken);
 
             var startInfo = BuildStartInfo(tempInputPath);
             using var process = new Process { StartInfo = startInfo };
@@ -67,7 +72,13 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
             var firstRow = rows?.FirstOrDefault();
 
             return firstRow?.Suggestions?
-                .Select(static suggestion => new SuggestionItem(suggestion.Term, suggestion.Score, suggestion.Kind))
+                .Select(static suggestion => new SuggestionItem(
+                    suggestion.Term,
+                    suggestion.Score,
+                    suggestion.Kind,
+                    suggestion.Type,
+                    suggestion.Pos,
+                    suggestion.Gram))
                 .ToList()
                 ?? [];
         }
@@ -87,6 +98,8 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
                 Arguments = BuildCliArguments(inputPath),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WorkingDirectory = _coreRepoPath,
@@ -99,6 +112,8 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
             Arguments = $"run --package-path \"{_coreRepoPath}\" WordSuggestorSuggestCLI {BuildCliArguments(inputPath)}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
             UseShellExecute = false,
             CreateNoWindow = true,
             WorkingDirectory = _coreRepoPath,
@@ -188,6 +203,12 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         public required double Score { get; init; }
 
         public required string Kind { get; init; }
+
+        public string Type { get; init; } = "word";
+
+        public string? Pos { get; init; }
+
+        public string? Gram { get; init; }
     }
 
     private static class JsonOptions

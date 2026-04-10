@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private const double StaticOverlayVerticalOffset = 44;
     private readonly MainWindowViewModel _viewModel;
     private bool _isInitialPositionApplied;
+    private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
 
     public MainWindow(MainWindowViewModel viewModel)
@@ -76,9 +77,16 @@ public partial class MainWindow : Window
                 }
                 break;
             case nameof(MainWindowViewModel.ShouldShowSuggestionOverlay):
-            case nameof(MainWindowViewModel.SuggestionPlacementMode):
             case nameof(MainWindowViewModel.CurrentSuggestionPage):
             case nameof(MainWindowViewModel.VisibleSuggestions):
+                SyncOverlayVisibility();
+                break;
+            case nameof(MainWindowViewModel.SuggestionPlacementMode):
+                if (_viewModel.IsStaticPlacementMode)
+                {
+                    CaptureOrInitializeStaticOverlayPosition();
+                }
+
                 SyncOverlayVisibility();
                 break;
         }
@@ -337,6 +345,7 @@ public partial class MainWindow : Window
         {
             Owner = this
         };
+        _overlayWindow.ManualPlacementCommitted += OverlayWindowOnManualPlacementCommitted;
     }
 
     private void HideOverlayWindow()
@@ -356,11 +365,43 @@ public partial class MainWindow : Window
 
         EnsureOverlayWindow();
 
-        var anchor = ResolveOverlayAnchor();
         var width = _overlayWindow.Width;
         var height = _overlayWindow.Height;
-        var workArea = SystemParameters.WorkArea;
+        double left;
+        double top;
 
+        if (_viewModel.IsStaticPlacementMode)
+        {
+            var staticTopLeft = ClampOverlayTopLeft(_manualOverlayTopLeft ?? ResolveDefaultStaticOverlayTopLeft(), width, height);
+            _manualOverlayTopLeft = staticTopLeft;
+            left = staticTopLeft.X;
+            top = staticTopLeft.Y;
+        }
+        else
+        {
+            var anchor = ResolveOverlayAnchor();
+            (left, top) = ResolveFollowCaretTopLeft(anchor, width, height);
+        }
+
+        _overlayWindow.Left = left;
+        _overlayWindow.Top = top;
+    }
+
+    private Point ResolveOverlayAnchor()
+    {
+        if (_viewModel.IsFollowCaretPlacementMode &&
+            TryGetCaretScreenRect(out var caretRect))
+        {
+            return new Point(caretRect.Left + (caretRect.Width / 2), caretRect.Bottom);
+        }
+
+        var staticOrigin = EditorTextBox.PointToScreen(new Point(StaticOverlayHorizontalOffset, StaticOverlayVerticalOffset));
+        return new Point(staticOrigin.X, staticOrigin.Y);
+    }
+
+    private (double Left, double Top) ResolveFollowCaretTopLeft(Point anchor, double width, double height)
+    {
+        var workArea = SystemParameters.WorkArea;
         var left = anchor.X - (width / 2);
         var top = anchor.Y + OverlayVerticalGap;
 
@@ -379,20 +420,72 @@ public partial class MainWindow : Window
             top = Math.Max(workArea.Top + 8, anchor.Y - height - 18);
         }
 
-        _overlayWindow.Left = left;
-        _overlayWindow.Top = top;
+        return (left, top);
     }
 
-    private Point ResolveOverlayAnchor()
+    private Point ResolveDefaultStaticOverlayTopLeft()
     {
-        if (_viewModel.IsFollowCaretPlacementMode &&
-            TryGetCaretScreenRect(out var caretRect))
+        if (_overlayWindow is null)
         {
-            return new Point(caretRect.Left + (caretRect.Width / 2), caretRect.Bottom);
+            return new Point(Left + 24, Top + 88);
         }
 
-        var staticOrigin = EditorTextBox.PointToScreen(new Point(StaticOverlayHorizontalOffset, StaticOverlayVerticalOffset));
-        return new Point(staticOrigin.X, staticOrigin.Y);
+        var anchor = ResolveOverlayAnchor();
+        var topLeft = ResolveFollowCaretTopLeft(anchor, _overlayWindow.Width, _overlayWindow.Height);
+        return new Point(topLeft.Left, topLeft.Top);
+    }
+
+    private Point ClampOverlayTopLeft(Point candidate, double width, double height)
+    {
+        var workArea = SystemParameters.WorkArea;
+        var left = candidate.X;
+        var top = candidate.Y;
+
+        if (left < workArea.Left + 8)
+        {
+            left = workArea.Left + 8;
+        }
+
+        if (left + width > workArea.Right - 8)
+        {
+            left = workArea.Right - width - 8;
+        }
+
+        if (top < workArea.Top + 8)
+        {
+            top = workArea.Top + 8;
+        }
+
+        if (top + height > workArea.Bottom - 8)
+        {
+            top = workArea.Bottom - height - 8;
+        }
+
+        return new Point(left, top);
+    }
+
+    private void CaptureOrInitializeStaticOverlayPosition()
+    {
+        if (_overlayWindow is not null && _overlayWindow.IsVisible)
+        {
+            _manualOverlayTopLeft = new Point(_overlayWindow.Left, _overlayWindow.Top);
+            return;
+        }
+
+        _manualOverlayTopLeft ??= ResolveDefaultStaticOverlayTopLeft();
+    }
+
+    private void OverlayWindowOnManualPlacementCommitted(object? sender, Point topLeft)
+    {
+        if (_overlayWindow is null)
+        {
+            return;
+        }
+
+        _manualOverlayTopLeft = ClampOverlayTopLeft(topLeft, _overlayWindow.Width, _overlayWindow.Height);
+        _overlayWindow.Left = _manualOverlayTopLeft.Value.X;
+        _overlayWindow.Top = _manualOverlayTopLeft.Value.Y;
+        _viewModel.SetStatusMessage("Ordforslagsboksen blev flyttet i statisk placering.");
     }
 
     private bool TryGetCaretScreenRect(out Rect caretRect)

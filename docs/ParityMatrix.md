@@ -22,9 +22,13 @@ Status: `Parity plan aligned with macOS UI review`
 | Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned on top of shell baseline` |
 | Right-click correction/context popover | `MacTextEditorRepresentable.swift` | Start with right-click popover on flagged words | `Planned` |
 | Suggestion list rendering | `SuggestionPanelView.swift` semantics | Recreate with Windows-native UI | `Baseline done in separate overlay window` |
+| Suggestion row metadata | `SuggestionPanelView.swift` candidate rows | Show inline match label plus POS/grammar metadata in Windows overlay | `Baseline done in internal editor path` |
+| Suggestion row kind tinting | `SuggestionPanelView.swift` row background semantics | Preserve distinct visual treatment for ordinary / phonetic / misspelling / synonym | `Baseline done in internal editor path` |
+| Suggestion row speaker/info actions | `SuggestionPanelView.swift` row actions | Recreate with Windows-native action buttons | `Baseline done in internal editor path` |
 | In-app suggestion accept | `AppState` + local commit path | New Windows impl | `Baseline done in overlay` |
 | Suggestion pagination | `AppState.pageSize` + `SuggestionPanelView` | Preserve 10-per-page and up to 4 pages | `Baseline done in internal editor path` |
 | Static/follow-caret placement toggle | `SuggestionPanelView` + `AppState` | Preserve both modes in Windows overlay | `Baseline done in internal editor path` |
+| Manual static placement behavior | `AppState` placement control semantics | Let user drag overlay and keep absolute static placement until moved again | `Baseline done for session runtime` |
 | Follow-caret fallback policy | `AppState` + `MacSuggestionPanelController` | Fall back to static placement when caret confidence is low | `Baseline done in internal editor path` |
 | Windows candidate shortcuts | macOS option-based shortcuts | Use `Ctrl+1` through `Ctrl+0` on Windows | `Baseline done` |
 | Global key capture | `GlobalKeyCaptureManager.swift` | New Windows impl | `Deferred until overlay parity is stable` |
@@ -34,7 +38,8 @@ Status: `Parity plan aligned with macOS UI review`
 | Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Planned` |
 | OCR / screen snip | `ScreenSnipper.swift` | New Windows impl | `Deferred` |
 | Speech to text | `SpeechToTextService.swift` | New Windows impl | `Deferred` |
-| Text to speech | `NeuralTTSService.swift` / system TTS | New Windows impl | `Deferred` |
+| Suggestion row text to speech | `SuggestionPanelView.swift` + system TTS | New Windows impl for overlay row speaker action | `Baseline done in internal editor path` |
+| Full app text to speech feature | `NeuralTTSService.swift` / system TTS | New Windows impl | `Deferred` |
 | Error insights / diagnostics UI | macOS app views | New Windows impl, later milestone | `Deferred` |
 
 ## First milestone parity target
