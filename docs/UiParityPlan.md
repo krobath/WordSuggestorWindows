@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-10`
+Last updated: `2026-04-11`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -63,6 +63,12 @@ The first external targets for follow-caret and commit reliability are:
 Source references:
 
 - [WordSugestorApp.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/WordSugestorApp.swift)
+- [AppState.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/AppState.swift)
+- [ScreenSnipper.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/ScreenSnipper.swift)
+- [SpeechToTextService.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SpeechToTextService.swift)
+- [SpeechHighlighter.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SpeechHighlighter.swift)
+- [ErrorInsightsView.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/ErrorInsightsView.swift)
+- [SettingsView.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SettingsView.swift)
 
 Confirmed behavior:
 
@@ -78,6 +84,38 @@ Confirmed behavior:
   - insights
   - settings
   - expand/collapse chevron
+
+### Toolbar feature parity roadmap
+
+Source references:
+
+- [WordSugestorApp.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/WordSugestorApp.swift)
+- [AppState.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/AppState.swift)
+- [ScreenSnipper.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/ScreenSnipper.swift)
+- [SpeechToTextService.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SpeechToTextService.swift)
+- [SpeechHighlighter.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SpeechHighlighter.swift)
+- [ErrorInsightsView.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/ErrorInsightsView.swift)
+- [SettingsView.swift](c:/Users/mswin01/Code/WordSuggestor/WordSuggestor/WordSuggestor/SettingsView.swift)
+- [MainWindow.xaml](c:/Users/mswin01/Code/WordSuggestor/WordSuggestorWindows/src/WordSuggestorWindows.App/MainWindow.xaml)
+- [MainWindowViewModel.cs](c:/Users/mswin01/Code/WordSuggestor/WordSuggestorWindows/src/WordSuggestorWindows.App/ViewModels/MainWindowViewModel.cs)
+
+| Toolbar capability | macOS behavior confirmed | Windows parity strategy | Sprint |
+|---|---|---|---|
+| Toggle word suggestions on/off | `isGlobalCaptureEnabled` starts/stops `GlobalKeyCaptureManager` and persists the setting. | Connect the Windows toggle to global typing capture, focused text tracking, external commit, and overlay visibility. | `WSA-RT-003_windows_external_input_and_caret_integration` |
+| Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge. | `WSA-RT-009_windows_language_pack_selection` |
+| Word list manager | Toolbar button is a TODO; settings exposes `isDomainListsEnabled`, and the domain-list tab is a placeholder. | Match current macOS behavior first; keep as placeholder/settings entry until a shared domain-list manager design exists. | Future shared/domain-list sprint |
+| Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then Windows UI Automation `TextPattern`/`TextPattern2`, with guarded clipboard fallback. | `WSA-RT-010_windows_selection_import_to_editor` |
+| OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows-native screen capture/snipping plus OCR, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011_windows_ocr_snip_pipeline` |
+| Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` |
+| Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` |
+| Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` |
+| Settings | Opens the native macOS Settings scene with tabs for general, sound, writing, domain lists, and profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` |
+
+Implementation notes:
+
+- "Identical functionality" means matching user-visible behavior and product semantics, not reusing Apple-specific APIs.
+- Global input, OCR, speech-to-text, and TTS must be Windows-native implementations because the macOS code depends on AX, Vision, Speech, and AVSpeechSynthesizer.
+- The word-list toolbar button should not be overbuilt in Windows before macOS/shared functionality exists; parity currently means preserving the placeholder behavior and documenting the later shared design need.
 
 ### Internal editor
 
@@ -189,6 +227,67 @@ Deliver:
 - cross-app capture and caret extraction
 - initial support focus on word processors, mail clients, and Google Docs-capable browsers
 - fallback to static placement when follow-caret quality is insufficient
+
+### WSA-RT-009_windows_language_pack_selection
+
+Deliver:
+
+- supported-language selector parity with macOS
+- pack availability indicator
+- selected language and pack path routed into the Windows core bridge
+
+### WSA-RT-010_windows_selection_import_to_editor
+
+Deliver:
+
+- selected text import into the internal editor
+- internal-editor selection preference
+- Windows UI Automation selection extraction for external apps
+- guarded clipboard fallback for apps that do not expose reliable selection text
+
+### WSA-RT-011_windows_ocr_snip_pipeline
+
+Deliver:
+
+- Windows-native snipping/capture flow
+- OCR text extraction
+- clipboard copy and internal-editor ingest
+- editor analysis refresh after ingest
+
+### WSA-RT-012_windows_speech_to_text_pipeline
+
+Deliver:
+
+- toolbar microphone start/stop state
+- partial/final transcript handling
+- active editor range replacement
+- language-aware recognition where supported
+
+### WSA-RT-013_windows_text_to_speech_selection_pipeline
+
+Deliver:
+
+- toolbar-level selected/staged text reading
+- editor highlight integration while reading
+- external selection mirroring into the editor when needed
+- Windows-native speech synthesis service
+
+### WSA-RT-014_windows_error_insights_store_and_view
+
+Deliver:
+
+- local Windows error tracking store
+- accepted suggestion, backspace, and sentence aggregate capture
+- native insights view with totals, timelines, breakdowns, and frequent corrections
+
+### WSA-UX-010_windows_settings_window_parity
+
+Deliver:
+
+- Windows-native settings window
+- settings sections aligned with macOS semantics
+- domain-list and profile placeholders preserved where macOS is also placeholder-only
+- persisted Windows app settings ready for later shared profile alignment
 
 ## Guardrails
 

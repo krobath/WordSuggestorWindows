@@ -21,6 +21,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private int _caretIndex;
     private bool _isEditorExpanded;
+    private bool _isSuggestionOverlaySessionVisible;
     private bool _isGlobalCaptureEnabled = true;
     private string _selectedLanguageOption = "DA";
     private bool _isAnalyzerColoringEnabled = true;
@@ -91,7 +92,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _editorText, value))
             {
                 NotifyEditorMetricsChanged();
-                ScheduleSuggestionsRefresh();
+                if (ShouldClearSuggestionsForBoundaryText(_editorText))
+                {
+                    ClearSuggestionSession(keepOverlayVisible: _editorText.Length > 0);
+                }
+                else
+                {
+                    ScheduleSuggestionsRefresh();
+                }
             }
         }
     }
@@ -277,7 +285,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool HasSuggestions => Suggestions.Count > 0;
 
-    public bool ShouldShowSuggestionOverlay => IsEditorExpanded && HasSuggestions;
+    public bool ShouldShowSuggestionOverlay => IsEditorExpanded && _isSuggestionOverlaySessionVisible;
 
     public bool AcceptSelectedSuggestion()
     {
@@ -405,15 +413,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var nextText = ReplaceActiveToken(EditorText, CaretIndex, acceptedTerm, out var nextCaretIndex);
         EditorText = nextText;
         CaretIndex = nextCaretIndex;
-        ClearSuggestionSession();
+        ClearSuggestionSession(keepOverlayVisible: true);
         StatusMessage = $"Indsatte '{acceptedTerm}'. Skriv videre for nye forslag.";
     }
 
-    private void ClearSuggestionSession()
+    private void ClearSuggestionSession(bool keepOverlayVisible)
     {
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = null;
+        ClearSuggestionResults(keepOverlayVisible);
+    }
+
+    private void ClearSuggestionResults(bool keepOverlayVisible)
+    {
+        _isSuggestionOverlaySessionVisible = keepOverlayVisible;
         _currentSuggestionPage = 0;
         Suggestions.Clear();
         SelectedSuggestion = null;
@@ -443,21 +457,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private async Task RefreshSuggestionsAsync(string text, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (text.Length == 0)
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
-                Suggestions.Clear();
-                SelectedSuggestion = null;
-                IsBusy = false;
+                ClearSuggestionResults(keepOverlayVisible: false);
                 StatusMessage = "Skriv i editoren for at hente live forslag fra WordSuggestorCore.";
+            });
+            return;
+        }
+
+        if (!HasActiveSuggestionToken(text))
+        {
+            await App.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ClearSuggestionResults(keepOverlayVisible: true);
+                StatusMessage = "Ordforslagsboksen er klar til næste ord.";
             });
             return;
         }
 
         await App.Current.Dispatcher.InvokeAsync(() =>
         {
+            _isSuggestionOverlaySessionVisible = true;
             IsBusy = true;
+            UpdateSuggestionPageState();
             StatusMessage = "Requesting suggestions from WordSuggestorCore...";
         });
 
@@ -467,6 +491,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                _isSuggestionOverlaySessionVisible = true;
                 Suggestions.Clear();
                 foreach (var suggestion in suggestions)
                 {
@@ -486,8 +511,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
-                Suggestions.Clear();
-                SelectedSuggestion = null;
+                ClearSuggestionResults(keepOverlayVisible: false);
                 StatusMessage = $"Suggestion request failed: {ex.Message}";
             });
         }
@@ -549,6 +573,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private static bool IsTokenCharacter(char c) =>
         char.IsLetterOrDigit(c) || c is '\'' or '-';
+
+    private static bool ShouldClearSuggestionsForBoundaryText(string text) =>
+        text.Length == 0 || !HasActiveSuggestionToken(text);
+
+    private static bool HasActiveSuggestionToken(string text) =>
+        text.Length > 0 && IsTokenCharacter(text[^1]);
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {

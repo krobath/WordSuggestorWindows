@@ -107,6 +107,30 @@ Known note:
 
 - Modulemap bootstrap into `Program Files (x86)` is not writable in this user context, but the local CLI path still succeeds with the current script and pinned env normalization.
 
+### WSA-DX-003_windows_toolbar_feature_parity_roadmap
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Capture the macOS toolbar feature analysis as a Windows implementation roadmap.
+- Distinguish implemented macOS behavior from placeholder/TODO behavior before planning Windows parity work.
+- Split the remaining toolbar features into correctly named Windows sprints.
+
+Implemented:
+
+- Added the toolbar feature parity roadmap to `docs/UiParityPlan.md`.
+- Updated `docs/ParityMatrix.md` with per-button status for global suggestions, language selection, word lists, import, OCR, speech-to-text, text-to-speech, insights, and settings.
+- Added the new planned implementation sprints below so each toolbar capability can be implemented and documented independently.
+- Normalized the next Windows settings sprint to `WSA-UX-010_windows_settings_window_parity`, which is the next available Windows UX number after `WSA-UX-009`.
+
+Validation:
+
+- Documentation-only review; no app build required because this sprint changes planning documents only.
+
+Known note:
+
+- The "Fagordslister" toolbar button is a macOS TODO today. Windows parity should first preserve that current behavior rather than inventing a new manager before a shared word-list design exists.
+
 ### WSA-UX-001_windows_toolbar_shell_parity
 Status: `Done` (`2026-04-09`)
 
@@ -313,7 +337,34 @@ Validation:
 
 Known note:
 
-- Manual smoke should still confirm the visual overlay disappears immediately after `Tab`/`Ctrl+1` accept in the internal editor.
+- Superseded by `WSA-RT-008`: the accepted behavior is now that the overlay remains visible but empty after accept/boundary input.
+
+### WSA-RT-008_windows_empty_overlay_boundary_state
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Keep the floating suggestion overlay visible when the user presses `Space`, presses `Enter`, or accepts a suggestion.
+- Clear the previous candidates in those boundary states so stale suggestions are not shown.
+- Refill the overlay when the user begins typing the next token.
+
+Implemented:
+
+- Added `_isSuggestionOverlaySessionVisible` so overlay visibility no longer depends directly on `HasSuggestions`.
+- Changed `ShouldShowSuggestionOverlay` to use the overlay session state, allowing the box to remain visible with zero suggestions.
+- Added boundary-token detection so text ending in whitespace, newline, or another non-token character clears the candidates immediately and keeps the overlay visible.
+- Kept empty-document state hidden by clearing the session with `keepOverlayVisible: false`.
+- Updated accept handling to clear the candidate list while preserving the visible overlay box after the accepted word and trailing space are inserted.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after the launch smoke showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- Manual smoke should confirm the overlay remains visible but empty after `Space`, `Enter`, `Tab` accept, `Ctrl+1` accept, and overlay mouse-click accept.
 
 ### WSA-UX-005_windows_editor_ui_cleanup_and_shortcut_flow
 Status: `Done` (`2026-04-11`)
@@ -535,6 +586,101 @@ Target outcome:
 
 - Right-clicking a flagged word opens the same kind of corrective surface the macOS editor exposes.
 
+### WSA-RT-009_windows_language_pack_selection
+Status: `Planned`
+
+Scope:
+
+- Replace the current Danish-only Windows language selector with the same language choices exposed by the macOS toolbar.
+- Show pack availability clearly when a language pack is missing.
+- Route the selected language and pack path through the Windows `WordSuggestorCore` CLI bridge.
+
+Target outcome:
+
+- The Windows language selector matches macOS product behavior while using Windows-native control styling.
+
+### WSA-RT-010_windows_selection_import_to_editor
+Status: `Planned`
+
+Scope:
+
+- Implement the toolbar action that imports selected text into the internal editor.
+- Prefer internal editor selection when WordSuggestor owns the selection.
+- Use Windows UI Automation for external app selection, with guarded clipboard fallback only when WordSuggestor is not the foreground target.
+- Normalize the imported text and run the same editor analysis path used for OCR/imported text.
+
+Target outcome:
+
+- The Windows `TXT` toolbar action behaves like macOS `state.importSelectionForAnalysis()`.
+
+### WSA-RT-011_windows_ocr_snip_pipeline
+Status: `Planned`
+
+Scope:
+
+- Implement Windows-native screen/PDF/image snipping for OCR input.
+- Run OCR with a Windows-compatible OCR backend.
+- Copy recognized text to the clipboard and ingest it into the internal editor.
+- Trigger the existing editor analysis path after text is ingested.
+
+Target outcome:
+
+- The Windows `OCR` toolbar action matches the macOS `ScreenSnipper` product flow with Windows-native APIs.
+
+### WSA-RT-012_windows_speech_to_text_pipeline
+Status: `Planned`
+
+Scope:
+
+- Implement speech-to-text dictation into the internal editor.
+- Support start/stop state from the toolbar microphone button.
+- Apply partial transcripts into the active editor range and finalize the replacement when recognition completes.
+- Respect the active app language where the Windows speech API supports it.
+
+Target outcome:
+
+- The Windows `MIC` toolbar action matches the macOS `toggleSpeechToTextIntoEditor()` behavior.
+
+### WSA-RT-013_windows_text_to_speech_selection_pipeline
+Status: `Planned`
+
+Scope:
+
+- Implement toolbar-level text-to-speech for selected or staged editor text.
+- Prefer internal editor selection, then external app selection, then staged editor content.
+- Mirror external selection into the editor when needed so highlighting can be shown during playback.
+- Reuse or replace the current overlay-row SAPI bridge with a more direct Windows TTS service when practical.
+
+Target outcome:
+
+- The Windows `TTS` toolbar action matches the macOS `speakSelection()` behavior, including visible reading context in the editor.
+
+### WSA-RT-014_windows_error_insights_store_and_view
+Status: `Planned`
+
+Scope:
+
+- Implement the Windows equivalent of local error tracking for accepted suggestions, backspace activity, and sentence boundary events.
+- Store aggregate-oriented insight data locally with the same privacy posture as macOS.
+- Add the Windows insights view for totals, timeline, suggestion-kind breakdown, morphology breakdown, and frequent corrections.
+
+Target outcome:
+
+- The Windows `INS` toolbar action opens a native insights view backed by Windows-side tracking data.
+
+### WSA-UX-010_windows_settings_window_parity
+Status: `Planned`
+
+Scope:
+
+- Implement a Windows-native settings window with tabs/sections matching the macOS settings model.
+- Include settings for suggestions, editor behavior, speech/TTS, error tracking, text analysis, domain lists, diagnostics, and profile placeholders where macOS currently exposes placeholders.
+- Persist settings through the Windows app state in a way that can later align with shared cross-platform profile data.
+
+Target outcome:
+
+- The Windows settings button opens a native settings surface that preserves macOS semantics without copying AppKit/SwiftUI chrome.
+
 ### WSA-TS-001_windows_smoke_and_regression_baseline
 Status: `Done` (`2026-04-09`)
 
@@ -570,6 +716,13 @@ Known note:
 7. `WSA-UX-002` - internal editor surface parity
 8. `WSA-RT-004` - right-click correction popover
 9. `WSA-RT-003` - external-app Windows integration
+10. `WSA-RT-009` - language pack selection parity
+11. `WSA-RT-010` - selected text import into editor
+12. `WSA-RT-011` - OCR snip pipeline
+13. `WSA-RT-012` - speech-to-text dictation pipeline
+14. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+15. `WSA-RT-014` - error insights store and view
+16. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 
