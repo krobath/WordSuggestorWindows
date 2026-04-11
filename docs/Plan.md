@@ -289,6 +289,32 @@ Known note:
 
 - `warning: couldn't find pc file for sqlite3` is a build/pkg-config discovery warning, not evidence that the Danish SQLite pack failed to load. The successful CLI output and `Pack opened ... da_lexicon.sqlite` log confirm the pack was loaded.
 
+### WSA-RT-007_windows_clear_overlay_after_accept
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Clear the floating suggestion overlay immediately after the user accepts a suggestion in the internal editor.
+- Preserve the accepted-word insertion behavior from `WSA-UX-005`: accepted word, trailing space, caret after the space.
+- Ensure old candidates stay hidden until the user starts typing the next token.
+
+Implemented:
+
+- Added a shared `ClearSuggestionSession()` helper in `MainWindowViewModel`.
+- Updated `ExecuteAcceptSelectedSuggestion()` so every accept route (`Tab`, `Ctrl+1` through `Ctrl+0`, overlay click) clears the current candidate list after inserting the accepted term.
+- Cancelled the pending suggestion refresh that is scheduled by the `EditorText` update during accept, preventing stale suggestions from reappearing immediately after the inserted trailing space.
+- Reset selected suggestion, current page, busy state, and overlay-related property notifications through the existing suggestion page state path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after the launch smoke showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- Manual smoke should still confirm the visual overlay disappears immediately after `Tab`/`Ctrl+1` accept in the internal editor.
+
 ### WSA-UX-005_windows_editor_ui_cleanup_and_shortcut_flow
 Status: `Done` (`2026-04-11`)
 

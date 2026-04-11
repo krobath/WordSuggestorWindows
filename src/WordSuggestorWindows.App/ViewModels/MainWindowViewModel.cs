@@ -401,10 +401,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        var nextText = ReplaceActiveToken(EditorText, CaretIndex, SelectedSuggestion.Term, out var nextCaretIndex);
+        var acceptedTerm = SelectedSuggestion.Term;
+        var nextText = ReplaceActiveToken(EditorText, CaretIndex, acceptedTerm, out var nextCaretIndex);
         EditorText = nextText;
         CaretIndex = nextCaretIndex;
-        StatusMessage = $"Accepted suggestion '{SelectedSuggestion.Term}'.";
+        ClearSuggestionSession();
+        StatusMessage = $"Indsatte '{acceptedTerm}'. Skriv videre for nye forslag.";
+    }
+
+    private void ClearSuggestionSession()
+    {
+        _suggestionCts?.Cancel();
+        _suggestionCts?.Dispose();
+        _suggestionCts = null;
+        _currentSuggestionPage = 0;
+        Suggestions.Clear();
+        SelectedSuggestion = null;
+        IsBusy = false;
+        UpdateSuggestionPageState();
     }
 
     private void ScheduleSuggestionsRefresh()

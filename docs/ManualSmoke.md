@@ -62,6 +62,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 21. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
 22. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
 23. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+24. Confirm the floating suggestion overlay clears immediately after accepting the suggestion and stays empty until the next token is typed.
 
 ## Expected current behavior
 
@@ -79,6 +80,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Editor word coloring is currently a Windows-side baseline classifier that mirrors the POS color categories visually; full lexicon-backed analyzer parity remains follow-up work.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
 - Accepting a suggestion should insert a trailing space unless the following text already starts with whitespace.
+- Accepting a suggestion should clear the old suggestion list immediately, so stale candidates are not shown after the caret moves past the inserted space.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.
 - The editor should no longer show separate informational cards above or directly below the text input that duplicate toggle state or overlay placement state.
 - If caret anchoring is not available, the overlay should fall back to a stable static position near the editor.
