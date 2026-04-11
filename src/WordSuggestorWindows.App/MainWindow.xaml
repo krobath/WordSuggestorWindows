@@ -179,7 +179,7 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
                 <Border x:Name="ToolbarSurface"
@@ -283,8 +283,9 @@
                 <Border Grid.Row="1"
                         Padding="12,0,12,12"
                         Background="Transparent"
+                        VerticalAlignment="Stretch"
                         Visibility="{Binding IsEditorExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Grid>
+                    <Grid VerticalAlignment="Stretch">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -375,9 +376,9 @@
                         </Border>
 
                         <Border Grid.Row="3"
-                                Margin="0,8,0,8"
-                                Padding="10,5"
-                                CornerRadius="9"
+                                Margin="0,6,0,6"
+                                Padding="12,4"
+                                CornerRadius="8"
                                 Background="#FAFBFC"
                                 BorderBrush="#DCE0E7"
                                 BorderThickness="1">
@@ -391,16 +392,15 @@
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#5C6775" Text="{Binding Icon}" />
-                                            <TextBlock Margin="6,0,0,0" FontSize="11" Foreground="#6F7A87" Text="{Binding Label}" />
-                                            <TextBlock Margin="4,0,12,0" FontSize="11" FontWeight="SemiBold" Foreground="#3F4A57" Text="{Binding ValueText}" />
-                                            <Border Width="1" Height="12" Margin="0,0,12,0" Background="#DCE0E7" />
+                                            <TextBlock Margin="7,0,0,0" FontSize="11" FontWeight="SemiBold" Foreground="#3F4A57" Text="{Binding ValueText}" />
+                                            <TextBlock Margin="4,0,16,0" FontSize="11" Foreground="#6F7A87" Text="{Binding Label}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </Border>
 
-                        <Border Grid.Row="4" Padding="10,8" CornerRadius="10" Background="#FBFCFD" BorderBrush="#DCE0E7" BorderThickness="1">
+                        <Border Grid.Row="4" Padding="10,7" CornerRadius="10" Background="#FBFCFD" BorderBrush="#DCE0E7" BorderThickness="1">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />

@@ -46,20 +46,22 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 5. Open the editor manually and confirm the startup text is already inserted.
 6. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
 7. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
-8. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
-9. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-10. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-11. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
-12. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
-13. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-14. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-15. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-16. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-17. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-18. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-19. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-20. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-21. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+8. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
+9. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
+10. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+11. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+12. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+13. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+14. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+15. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+16. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+17. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+18. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+19. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+20. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+21. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+22. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+23. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
 
 ## Expected current behavior
 
@@ -72,6 +74,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The expanded editor should no longer feel like a plain textbox screen; it should expose the same core editor information architecture as macOS.
 - The editor input should be a fixed-size rich text surface inside the expanded shell, with vertical scrolling and horizontal wrapping.
 - The editor status metrics should appear as one compact status bar, not four separate cards.
+- The expanded editor body should stretch to the fixed expanded window height, so unused vertical space is given to the editor input rather than left below the legend.
 - The `Tekstanalyse` panel should only show the legend, not implementation-note copy.
 - Editor word coloring is currently a Windows-side baseline classifier that mirrors the POS color categories visually; full lexicon-backed analyzer parity remains follow-up work.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.

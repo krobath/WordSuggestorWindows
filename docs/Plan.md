@@ -407,6 +407,31 @@ Known note:
 
 - Visual micro-tuning may still be needed after comparing a fresh screenshot against the macOS reference, especially exact status-bar spacing and legend wrapping.
 
+### WSA-UX-009_windows_editor_vertical_space_and_statusbar_tuning
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Remove remaining unused vertical space below the editor/analyzer region by making the expanded editor body stretch to the fixed expanded window height.
+- Tune the compact status bar closer to the macOS/Word-like reference where each metric reads as a single inline status item.
+
+Implemented:
+
+- Changed the root shell grid's expanded editor row from `Auto` to `*`, allowing the editor body to consume the remaining expanded-window height.
+- Set the expanded editor body and inner grid to stretch vertically so the `RichTextBox` row now receives the extra space instead of leaving blank space below the analysis legend.
+- Tuned the status bar item layout from `Icon Label Value` to `Icon Value Label`, closer to the macOS reference format such as `Aa 69 tegn`.
+- Removed the status bar's per-item separator line and tightened the bar/legend vertical padding.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after the launch smoke showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- First build attempt was blocked by a still-running `WordSuggestorWindows.App.exe`; after stopping that local test process, the build passed.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
 
