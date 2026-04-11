@@ -289,6 +289,36 @@ Known note:
 
 - `warning: couldn't find pc file for sqlite3` is a build/pkg-config discovery warning, not evidence that the Danish SQLite pack failed to load. The successful CLI output and `Pack opened ... da_lexicon.sqlite` log confirm the pack was loaded.
 
+### WSA-UX-005_windows_editor_ui_cleanup_and_shortcut_flow
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Remove duplicated editor information boxes that should be represented by button state instead.
+- Restore visible Danish UI labels for æ/ø/å-sensitive strings touched by the Windows overlay/editor work.
+- Make suggestion acceptance and page navigation match the intended keyboard flow.
+
+Implemented:
+
+- Removed the informational card above the internal editor text field that duplicated analyzer/toggle state.
+- Removed the informational card directly below the editor text field that duplicated suggestion overlay placement/page/provider state.
+- Removed the lower analyzer panel cards for overlay placement and engine bridge state.
+- Kept analyzer and placement state visible through toggle-button visual state instead; the overlay placement buttons now render as checked toggle buttons.
+- Updated suggestion acceptance so a trailing space is inserted after the accepted word unless the following text already starts with whitespace.
+- Added window-level and overlay-level keyboard handling for `Ctrl+Left` and `Ctrl+Right` so paging still works when focus is not exactly inside the editor textbox.
+- Restored visible Danish UI labels in the command row, toolbar tooltips, and overlay footer.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap -SampleText "Jeg prøver at læ"` -> `PASS` (app launched; process remained responsive)
+- Recent Application event log check after launch showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- The next pass can focus on visual parity against the macOS screenshot now that the input/shortcut regressions are addressed.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
 

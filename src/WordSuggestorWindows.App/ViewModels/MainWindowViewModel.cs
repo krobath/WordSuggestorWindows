@@ -63,9 +63,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public IReadOnlyList<EditorStatusMetric> StatusMetrics =>
     [
         new("Aa", "Tegn", CharacterCount.ToString()),
-        new("â‰¡", "Ord", WordCount.ToString()),
-        new("âš ", "Stavefejl", SpellingCount.ToString()),
-        new("â—Ž", "Grammatik/tegnsÃ¦tning", GrammarCount.ToString())
+        new("≡", "Ord", WordCount.ToString()),
+        new("!", "Stavefejl", SpellingCount.ToString()),
+        new("●", "Grammatik/tegnsætning", GrammarCount.ToString())
     ];
 
     public IReadOnlyList<AnalyzerLegendMetric> AnalyzerLegendMetrics =>
@@ -73,15 +73,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         new("Substantiver", 0, "#C26AF7"),
         new("Egennavne", 0, "#F45A85"),
         new("Verber", 0, "#2CBCCB"),
-        new("TillÃ¦gsord", 0, "#F5A14E"),
+        new("Tillægsord", 0, "#F5A14E"),
         new("Biord", 0, "#758BFF"),
         new("Pronomen", 0, "#5BC878"),
         new("Determiner", 0, "#A97B58"),
-        new("PrÃ¦positioner", 0, "#4BB6E8"),
+        new("Præpositioner", 0, "#4BB6E8"),
         new("Konjunktioner", 0, "#48C7B3"),
         new("Staveforslag", 0, "#E24A4A", true),
         new("Semantik", 0, "#4A7DF0", true),
-        new("TegnsÃ¦tning", 0, "#4A7DF0", true)
+        new("Tegnsætning", 0, "#4A7DF0", true)
     ];
 
     public string EditorText
@@ -150,8 +150,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _isGlobalCaptureEnabled, value))
             {
                 StatusMessage = value
-                    ? "Global forslag er slÃ¥et til. Cross-app integration kommer i WSA-RT-003."
-                    : "Global forslag er slÃ¥et fra i Windows-shell'en.";
+                    ? "Global forslag er slået til. Cross-app integration kommer i WSA-RT-003."
+                    : "Global forslag er slået fra i Windows-shell'en.";
             }
         }
     }
@@ -163,7 +163,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetProperty(ref _selectedLanguageOption, value))
             {
-                StatusMessage = "Dansk er aktivt sprog i den nuvÃ¦rende Windows-baseline.";
+                StatusMessage = "Dansk er aktivt sprog i den nuværende Windows-baseline.";
             }
         }
     }
@@ -224,13 +224,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string EditorReadinessSummary => IsAnalyzerColoringEnabled
         ? "Farvekodning og analysepanel er synlige i Windows-baseline."
-        : "Farvekodning er slÃ¥et fra i Windows-baseline.";
+        : "Farvekodning er slået fra i Windows-baseline.";
 
     public string AnalyzerToggleSummary =>
-        $"Farver: {(IsAnalyzerColoringEnabled ? "til" : "fra")} Â· Semantik: {(IsSemanticDiagnosticsEnabled ? "til" : "fra")} Â· TegnsÃ¦tning: {(IsPunctuationDiagnosticsEnabled ? "til" : "fra")}";
+        $"Farver: {(IsAnalyzerColoringEnabled ? "til" : "fra")} · Semantik: {(IsSemanticDiagnosticsEnabled ? "til" : "fra")} · Tegnsætning: {(IsPunctuationDiagnosticsEnabled ? "til" : "fra")}";
 
     public string OverlaySupportSummary =>
-        $"{SuggestionPlacementSummary} Â· {SuggestionPageSummary} Â· {ProviderDescription}";
+        $"{SuggestionPlacementSummary} · {SuggestionPageSummary} · {ProviderDescription}";
 
     public int CurrentSuggestionPage => _currentSuggestionPage;
 
@@ -313,7 +313,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         IsEditorExpanded = !IsEditorExpanded;
         StatusMessage = IsEditorExpanded
-            ? "Editor Ã¥bnet i Windows toolbar shell."
+            ? "Editor åbnet i Windows toolbar shell."
             : "Editor skjult. Toolbar shell er tilbage i kompakt tilstand.";
     }
 
@@ -327,7 +327,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             "speechToText" => "Speech-to-text er ikke porteret endnu i Windows-sporet.",
             "textToSpeech" => "Text-to-speech er ikke porteret endnu i Windows-sporet.",
             "insights" => "Error insights bliver porteret i et senere Windows UI-sprint.",
-            "settings" => "Settings-parity fÃ¸lger efter den primÃ¦re toolbar/editor shell.",
+            "settings" => "Settings-parity følger efter den primære toolbar/editor shell.",
             _ => StatusMessage
         };
     }
@@ -346,8 +346,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IsSemanticDiagnosticsEnabled = !IsSemanticDiagnosticsEnabled;
         NotifyEditorSurfaceStateChanged();
         StatusMessage = IsSemanticDiagnosticsEnabled
-            ? "Semantik-knappen er slÃ¥et til som del af editor-parity baseline."
-            : "Semantik-knappen er slÃ¥et fra som del af editor-parity baseline.";
+            ? "Semantik-knappen er slået til som del af editor-parity baseline."
+            : "Semantik-knappen er slået fra som del af editor-parity baseline.";
     }
 
     public void TogglePunctuationDiagnostics()
@@ -355,8 +355,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IsPunctuationDiagnosticsEnabled = !IsPunctuationDiagnosticsEnabled;
         NotifyEditorSurfaceStateChanged();
         StatusMessage = IsPunctuationDiagnosticsEnabled
-            ? "TegnsÃ¦tningsknappen er slÃ¥et til som del af editor-parity baseline."
-            : "TegnsÃ¦tningsknappen er slÃ¥et fra som del af editor-parity baseline.";
+            ? "Tegnsætningsknappen er slået til som del af editor-parity baseline."
+            : "Tegnsætningsknappen er slået fra som del af editor-parity baseline.";
     }
 
     public void RefreshSuggestionsPreview()
@@ -375,7 +375,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         SuggestionPlacementMode = mode;
         OnPropertyChanged(nameof(OverlaySupportSummary));
         StatusMessage = mode == SuggestionPlacementMode.FollowCaret
-            ? "Ordforslagsboksen fÃ¸lger nu markÃ¸ren, nÃ¥r caret-placering er tilgÃ¦ngelig."
+            ? "Ordforslagsboksen følger nu markøren, når caret-placering er tilgængelig."
             : "Ordforslagsboksen bruger nu statisk placering.";
     }
 
@@ -528,7 +528,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         var prefix = text[..start];
         var suffix = text[end..];
-        var spacing = suffix.StartsWith(' ') || suffix.StartsWith(Environment.NewLine) || suffix.Length == 0 ? string.Empty : " ";
+        var spacing = suffix.StartsWith(' ') || suffix.StartsWith(Environment.NewLine) ? string.Empty : " ";
         var nextText = prefix + replacement + spacing + suffix;
         nextCaretIndex = (prefix + replacement + spacing).Length;
         return nextText;

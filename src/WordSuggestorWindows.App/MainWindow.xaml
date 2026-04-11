@@ -15,6 +15,7 @@
         ShowInTaskbar="True"
         Topmost="True"
         WindowStyle="None"
+        PreviewKeyDown="MainWindow_OnPreviewKeyDown"
         Icon="/Assets/AppIcon.png">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -229,10 +230,10 @@
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="TXT" />
                             </Button>
 
-                            <Button Tag="ocr"
-                                    Style="{StaticResource ToolbarIconButtonStyle}"
-                                    ToolTip="OCR / skaermudsnit"
-                                    Click="ToolbarAction_OnClick">
+                                    <Button Tag="ocr"
+                                            Style="{StaticResource ToolbarIconButtonStyle}"
+                                    ToolTip="OCR / skærmudsnit"
+                                            Click="ToolbarAction_OnClick">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="OCR" />
                             </Button>
 
@@ -245,7 +246,7 @@
 
                             <Button Tag="textToSpeech"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
-                                    ToolTip="Oplaes markeret tekst"
+                                    ToolTip="Oplæs markeret tekst"
                                     Click="ToolbarAction_OnClick">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="TTS" />
                             </Button>
@@ -317,7 +318,7 @@
                                     <Button Tag="copy" Style="{StaticResource CommandButtonStyle}" ToolTip="Kopier" Click="EditorCommand_OnClick">
                                         <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE8C8;" />
                                     </Button>
-                                    <Button Tag="paste" Style="{StaticResource CommandButtonStyle}" ToolTip="Indsaet" Click="EditorCommand_OnClick">
+                                    <Button Tag="paste" Style="{StaticResource CommandButtonStyle}" ToolTip="Indsæt" Click="EditorCommand_OnClick">
                                         <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE77F;" />
                                     </Button>
 
@@ -329,13 +330,12 @@
                                     <ToggleButton Tag="semantic" IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Semantik" Click="EditorCommand_OnClick">
                                         <TextBlock FontSize="12" FontWeight="SemiBold" Text="Semantik" />
                                     </ToggleButton>
-                                    <ToggleButton Tag="punctuation" IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Tegnsaetning" Click="EditorCommand_OnClick">
-                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Tegnsaetning" />
+                                    <ToggleButton Tag="punctuation" IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Tegnsætning" Click="EditorCommand_OnClick">
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Tegnsætning" />
                                     </ToggleButton>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Margin="0,0,10,0" VerticalAlignment="Center" FontSize="11" Foreground="#7A8491" Text="{Binding AnalyzerToggleSummary}" />
                                     <Button Tag="refreshSuggestions" Style="{StaticResource CommandButtonStyle}" ToolTip="Opdater forslag" Click="EditorCommand_OnClick">
                                         <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE72C;" />
                                     </Button>
@@ -350,28 +350,10 @@
                                 BorderThickness="1">
                             <Grid Margin="12">
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
-                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <Border Grid.Row="0" Margin="0,0,0,10" Padding="12,10" CornerRadius="10" Background="#F8FAFD" BorderBrush="#E0E6EF" BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#526073" Text="Intern editor" />
-                                            <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="#7A8491" Text="{Binding EditorReadinessSummary}" />
-                                        </StackPanel>
-                                        <Border Grid.Column="1" Padding="10,4" CornerRadius="8" Background="#E9EEF6">
-                                            <TextBlock FontSize="11" Foreground="#576579" Text="{Binding StatusMessage}" />
-                                        </Border>
-                                    </Grid>
-                                </Border>
-
-                                <Border Grid.Row="1" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
+                                <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
                                     <TextBox x:Name="EditorTextBox"
                                              Padding="16"
                                              BorderThickness="0"
@@ -387,9 +369,6 @@
                                              PreviewKeyDown="EditorTextBox_OnPreviewKeyDown" />
                                 </Border>
 
-                                <Border Grid.Row="2" Margin="0,10,0,0" Padding="10,8" CornerRadius="10" Background="#F8FAFD" BorderBrush="#E0E6EF" BorderThickness="1">
-                                    <TextBlock FontSize="11" Foreground="#6F7A88" Text="{Binding OverlaySupportSummary}" />
-                                </Border>
                             </Grid>
                         </Border>
 
@@ -429,11 +408,8 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
                                         <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#556070" Text="Tekstanalyse" />
-                                        <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="#7A8491" Text="Windows-editoren matcher nu macOS-strukturen med kommandoer, status og analyselegend." />
+                                    <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="#7A8491" Text="Windows-editoren matcher nu macOS-strukturen med kommandoer, status og analyselegend." />
                                     </StackPanel>
-                                    <Border Grid.Column="1" Padding="10,4" CornerRadius="8" Background="#EFF4FB">
-                                        <TextBlock FontSize="11" Foreground="#647182" Text="{Binding SuggestionPageSummary}" />
-                                    </Border>
                                 </Grid>
 
                                 <ItemsControl Grid.Row="1" Margin="0,12,0,0" ItemsSource="{Binding AnalyzerLegendMetrics}">
@@ -482,25 +458,6 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-
-                                <Grid Grid.Row="2" Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Border Margin="0,0,8,0" Padding="10,8" CornerRadius="10" Background="#F7F9FC" BorderBrush="#E2E7EF" BorderThickness="1">
-                                        <StackPanel>
-                                            <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#576476" Text="Ordforslagsboks" />
-                                            <TextBlock Margin="0,3,0,0" FontSize="11" Foreground="#748090" Text="{Binding SuggestionPlacementSummary}" />
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Grid.Column="1" Margin="8,0,0,0" Padding="10,8" CornerRadius="10" Background="#F7F9FC" BorderBrush="#E2E7EF" BorderThickness="1">
-                                        <StackPanel>
-                                            <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#576476" Text="Engine bridge" />
-                                            <TextBlock Margin="0,3,0,0" FontSize="11" Foreground="#748090" Text="{Binding ProviderDescription}" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
                             </Grid>
                         </Border>
                     </Grid>

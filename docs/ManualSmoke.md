@@ -1,6 +1,6 @@
 # WordSuggestorWindows Manual Smoke
 
-Last updated: `2026-04-10`
+Last updated: `2026-04-11`
 Owner: `Windows track`
 
 ## Goal
@@ -55,7 +55,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 14. Click the info button on a row and confirm a small info popup appears with match and grammar details.
 15. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
 16. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-17. Confirm the active token in the editor is replaced and the caret remains in the editor.
+17. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
 
 ## Expected current behavior
 
@@ -66,7 +66,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Each row should now present inline match type, secondary metadata, row-level TTS, and an info affordance.
 - The expanded editor should no longer feel like a plain textbox screen; it should expose the same core editor information architecture as macOS.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
+- Accepting a suggestion should insert a trailing space unless the following text already starts with whitespace.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.
+- The editor should no longer show separate informational cards above or directly below the text input that duplicate toggle state or overlay placement state.
 - If caret anchoring is not available, the overlay should fall back to a stable static position near the editor.
 - In static mode, dragging the overlay header should establish the new resting position for the remainder of the session.
 - External app typing, caret tracking, and overlay placement are not in scope for this smoke.

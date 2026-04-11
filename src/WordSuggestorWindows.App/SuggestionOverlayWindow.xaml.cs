@@ -70,6 +70,48 @@ public partial class SuggestionOverlayWindow : Window
         }
     }
 
+    private void SuggestionOverlayWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Left)
+        {
+            _viewModel.ChangeSuggestionPage(-1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Right)
+        {
+            _viewModel.ChangeSuggestionPage(1);
+            e.Handled = true;
+            return;
+        }
+
+        var index = e.Key switch
+        {
+            Key.D1 or Key.NumPad1 => 0,
+            Key.D2 or Key.NumPad2 => 1,
+            Key.D3 or Key.NumPad3 => 2,
+            Key.D4 or Key.NumPad4 => 3,
+            Key.D5 or Key.NumPad5 => 4,
+            Key.D6 or Key.NumPad6 => 5,
+            Key.D7 or Key.NumPad7 => 6,
+            Key.D8 or Key.NumPad8 => 7,
+            Key.D9 or Key.NumPad9 => 8,
+            Key.D0 or Key.NumPad0 => 9,
+            _ => -1,
+        };
+
+        if (index >= 0 && _viewModel.AcceptSuggestionAtIndex(index))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void SpeakButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: SuggestionOverlayEntry entry })

@@ -253,6 +253,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.OriginalSource == EditorTextBox)
+        {
+            return;
+        }
+
+        if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
+        {
+            RefocusEditor();
+        }
+    }
+
     private bool TryHandleControlDigitSuggestion(KeyEventArgs e)
     {
         if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
@@ -295,6 +308,7 @@ public partial class MainWindow : Window
         if (e.Key == Key.Left)
         {
             _viewModel.ChangeSuggestionPage(-1);
+            RefocusEditor();
             e.Handled = true;
             return true;
         }
@@ -302,6 +316,7 @@ public partial class MainWindow : Window
         if (e.Key == Key.Right)
         {
             _viewModel.ChangeSuggestionPage(1);
+            RefocusEditor();
             e.Handled = true;
             return true;
         }

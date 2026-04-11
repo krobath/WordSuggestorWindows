@@ -10,6 +10,7 @@
         ShowInTaskbar="False"
         Topmost="True"
         ResizeMode="NoResize"
+        PreviewKeyDown="SuggestionOverlayWindow_OnPreviewKeyDown"
         WindowStyle="None">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -76,6 +77,42 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="OverlayPlacementToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="4,1" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Background" Value="#E7EDF5" />
+            <Setter Property="BorderBrush" Value="#D0D9E6" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Border"
+                                CornerRadius="4"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#DDE7F4" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#D8E7F8" />
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#7197C8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="8"
@@ -123,19 +160,21 @@
                     <StackPanel Grid.Column="1"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Top">
-                        <Button Style="{StaticResource OverlayHeaderButtonStyle}"
-                                ToolTip="Statisk placering"
-                                Click="StaticPlacementButton_OnClick">
+                        <ToggleButton Style="{StaticResource OverlayPlacementToggleStyle}"
+                                      IsChecked="{Binding IsStaticPlacementMode, Mode=OneWay}"
+                                      ToolTip="Statisk placering"
+                                      Click="StaticPlacementButton_OnClick">
                             <TextBlock FontSize="10"
                                        Text="&#x1F4CC;" />
-                        </Button>
-                        <Button Style="{StaticResource OverlayHeaderButtonStyle}"
-                                ToolTip="Follow-caret"
-                                Click="FollowCaretButton_OnClick">
+                        </ToggleButton>
+                        <ToggleButton Style="{StaticResource OverlayPlacementToggleStyle}"
+                                      IsChecked="{Binding IsFollowCaretPlacementMode, Mode=OneWay}"
+                                      ToolTip="Follow-caret"
+                                      Click="FollowCaretButton_OnClick">
                             <TextBlock FontSize="10"
                                        FontWeight="SemiBold"
                                        Text="A|" />
-                        </Button>
+                        </ToggleButton>
                     </StackPanel>
                 </Grid>
             </Border>
