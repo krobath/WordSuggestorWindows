@@ -37,7 +37,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _caretIndex = _editorText.Length;
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
             ? "Windows toolbar shell klar. Udvid editoren for at skrive og hente forslag."
-            : "Startup sample loaded. Suggestions will refresh automatically.";
+            : "Startuptekst er klar. Åbn editoren for at vise og redigere teksten.";
         LanguageOptions = ["DA"];
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
@@ -45,7 +45,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         if (!string.IsNullOrWhiteSpace(_editorText))
         {
-            _isEditorExpanded = true;
             ScheduleSuggestionsRefresh();
         }
     }

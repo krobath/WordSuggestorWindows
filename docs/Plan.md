@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-10`
+Last updated: `2026-04-11`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -378,6 +378,34 @@ Validation:
 Known note:
 
 - The `pkg-config`/`sqlite3.pc` and Swift symlink warnings can still appear during core CLI bootstrap, but `scripts\test_core_cli.ps1` confirms the Danish SQLite pack loads and returns suggestions.
+
+### WSA-UX-008_windows_editor_layout_statusbar_startup_parity
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Keep the Windows shell collapsed on startup, even when `run_app.ps1` injects smoke sample text.
+- Remove implementation-note copy from the user-facing `Tekstanalyse` panel.
+- Rework the editor status metrics from four separate cards into one compact status bar.
+- Rebalance vertical spacing so the internal editor receives more of the expanded window height and the analyzer legend no longer leaves unnecessary bottom whitespace.
+
+Implemented:
+
+- Changed startup sample handling so initial editor text is preserved and suggestions can still refresh, but `IsEditorExpanded` remains collapsed until the user opens the editor.
+- Removed the descriptive Windows parity note from the `Tekstanalyse` UI.
+- Replaced the four-card status metric `UniformGrid` with a single bordered horizontal status bar using the existing `StatusMetrics` view model contract.
+- Tightened command row, editor container, status bar, and analyzer legend padding/margins to move more vertical space into the `RichTextBox` row.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (app launched after core CLI bootstrap; process remained responsive)
+
+Known note:
+
+- Visual micro-tuning may still be needed after comparing a fresh screenshot against the macOS reference, especially exact status-bar spacing and legend wrapping.
 
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)

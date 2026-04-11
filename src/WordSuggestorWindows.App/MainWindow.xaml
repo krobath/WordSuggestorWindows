@@ -298,8 +298,8 @@
                                 Background="#D7DBE2" />
 
                         <Border Grid.Row="1"
-                                Margin="0,0,0,12"
-                                Padding="10"
+                                Margin="0,0,0,8"
+                                Padding="8"
                                 CornerRadius="12"
                                 Background="#FBFCFD"
                                 BorderBrush="#DCE1E8"
@@ -348,14 +348,14 @@
                                 Background="#EEF1F6"
                                 BorderBrush="#D7DCE5"
                                 BorderThickness="1">
-                            <Grid Margin="12">
+                            <Grid Margin="8">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
 
                                 <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
                                     <RichTextBox x:Name="EditorTextBox"
-                                                 Padding="16"
+                                                 Padding="14"
                                                  BorderThickness="0"
                                                  Background="Transparent"
                                                  FontSize="20"
@@ -374,31 +374,35 @@
                             </Grid>
                         </Border>
 
-                        <ItemsControl Grid.Row="3" Margin="0,12,0,12" ItemsSource="{Binding StatusMetrics}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Columns="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="0,0,8,0" Padding="10,8" CornerRadius="10" Background="#FAFBFC" BorderBrush="#DCE0E7" BorderThickness="1">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#5C6775" Text="{Binding Icon}" />
-                                            <StackPanel Margin="8,0,0,0">
-                                                <TextBlock FontSize="11" Foreground="#7A8491" Text="{Binding Label}" />
-                                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#4B5664" Text="{Binding ValueText}" />
-                                            </StackPanel>
+                        <Border Grid.Row="3"
+                                Margin="0,8,0,8"
+                                Padding="10,5"
+                                CornerRadius="9"
+                                Background="#FAFBFC"
+                                BorderBrush="#DCE0E7"
+                                BorderThickness="1">
+                            <ItemsControl ItemsSource="{Binding StatusMetrics}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#5C6775" Text="{Binding Icon}" />
+                                            <TextBlock Margin="6,0,0,0" FontSize="11" Foreground="#6F7A87" Text="{Binding Label}" />
+                                            <TextBlock Margin="4,0,12,0" FontSize="11" FontWeight="SemiBold" Foreground="#3F4A57" Text="{Binding ValueText}" />
+                                            <Border Width="1" Height="12" Margin="0,0,12,0" Background="#DCE0E7" />
                                         </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
 
-                        <Border Grid.Row="4" Padding="12" CornerRadius="12" Background="#FBFCFD" BorderBrush="#DCE0E7" BorderThickness="1">
+                        <Border Grid.Row="4" Padding="10,8" CornerRadius="10" Background="#FBFCFD" BorderBrush="#DCE0E7" BorderThickness="1">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
@@ -410,11 +414,10 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
                                         <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#556070" Text="Tekstanalyse" />
-                                    <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="#7A8491" Text="Windows-editoren matcher nu macOS-strukturen med kommandoer, status og analyselegend." />
                                     </StackPanel>
                                 </Grid>
 
-                                <ItemsControl Grid.Row="1" Margin="0,12,0,0" ItemsSource="{Binding AnalyzerLegendMetrics}">
+                                <ItemsControl Grid.Row="1" Margin="0,6,0,0" ItemsSource="{Binding AnalyzerLegendMetrics}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel />
@@ -422,7 +425,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Margin="0,0,10,8" Padding="0" Background="Transparent">
+                                            <Border Margin="0,0,12,3" Padding="0" Background="Transparent">
                                                 <StackPanel Orientation="Horizontal">
                                                     <Grid Margin="0,0,6,0" VerticalAlignment="Center">
                                                         <Ellipse Width="8" Height="8" Fill="{Binding MarkerBrush}">
