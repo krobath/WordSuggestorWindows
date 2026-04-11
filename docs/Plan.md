@@ -319,6 +319,37 @@ Known note:
 
 - The next pass can focus on visual parity against the macOS screenshot now that the input/shortcut regressions are addressed.
 
+### WSA-UX-006_windows_rich_editor_surface_and_coloring_baseline
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Make the internal editor input field consume the maximum stable space available inside the expanded window while preserving the status bar and text analysis legend below it.
+- Ensure the editor wraps horizontally and scrolls vertically.
+- Add the first visible Windows-side word coloring baseline inside the editor.
+
+Implemented:
+
+- Replaced the plain WPF `TextBox` editor with a `RichTextBox` so individual words can receive independent styling.
+- Kept the editor in the `*` row between the command row and the status/analyzer panels so it fills the available expanded-window height.
+- Configured the editor with vertical scrolling and disabled horizontal scrolling so text wraps to the available width.
+- Added manual synchronization between the rich text document, `MainWindowViewModel.EditorText`, and caret index so the existing suggestion overlay and accept flow still work.
+- Added a first Windows-side POS-style token classifier that colors editor words using the same category colors as the analyzer legend.
+- Preserved the analyzer color toggle so the rich text coloring can be turned on and off from the command row.
+- Updated caret anchoring to use the `RichTextBox` caret rectangle instead of the former `TextBox.GetRectFromCharacterIndex` path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap -SampleText "Jeg skriver den blå bog og læser hurtigt"` -> `PASS` (app launched; process remained responsive)
+- Recent Application event log check after launch showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- The new editor coloring is a Windows-side baseline classifier intended to restore visible color behavior. It is not yet full macOS `TextAnalyzer` parity or lexicon-backed analysis.
+- Multi-paragraph caret indexing may need a dedicated follow-up if users rely heavily on long multi-paragraph internal-editor documents before the full analyzer port lands.
+
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
 

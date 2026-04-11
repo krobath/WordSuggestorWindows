@@ -47,15 +47,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 6. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
 7. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
 8. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-9. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-10. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-11. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-12. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-13. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-14. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-15. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-16. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-17. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+9. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+10. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+11. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+12. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+13. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+14. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+15. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+16. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+17. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+18. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+19. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
 
 ## Expected current behavior
 
@@ -65,6 +67,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The default first page should fit all 10 visible candidates without needing vertical scrolling, and each row should read as visibly denser than the earlier overlay baseline.
 - Each row should now present inline match type, secondary metadata, row-level TTS, and an info affordance.
 - The expanded editor should no longer feel like a plain textbox screen; it should expose the same core editor information architecture as macOS.
+- The editor input should be a fixed-size rich text surface inside the expanded shell, with vertical scrolling and horizontal wrapping.
+- Editor word coloring is currently a Windows-side baseline classifier that mirrors the POS color categories visually; full lexicon-backed analyzer parity remains follow-up work.
 - The selected suggestion should be accepted with `Tab`, `Ctrl+1` to `Ctrl+0`, or clicking a suggestion row in the overlay.
 - Accepting a suggestion should insert a trailing space unless the following text already starts with whitespace.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.

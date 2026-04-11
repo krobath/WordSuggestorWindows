@@ -354,19 +354,21 @@
                                 </Grid.RowDefinitions>
 
                                 <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
-                                    <TextBox x:Name="EditorTextBox"
-                                             Padding="16"
-                                             BorderThickness="0"
-                                             Background="Transparent"
-                                             FontSize="20"
-                                             AcceptsReturn="True"
-                                             AcceptsTab="True"
-                                             VerticalScrollBarVisibility="Auto"
-                                             TextWrapping="Wrap"
-                                             Text="{Binding EditorText, UpdateSourceTrigger=PropertyChanged}"
-                                             TextChanged="EditorTextBox_OnTextChanged"
-                                             SelectionChanged="EditorTextBox_OnSelectionChanged"
-                                             PreviewKeyDown="EditorTextBox_OnPreviewKeyDown" />
+                                    <RichTextBox x:Name="EditorTextBox"
+                                                 Padding="16"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 FontSize="20"
+                                                 AcceptsTab="True"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 HorizontalScrollBarVisibility="Disabled"
+                                                 TextChanged="EditorTextBox_OnTextChanged"
+                                                 SelectionChanged="EditorTextBox_OnSelectionChanged"
+                                                 PreviewKeyDown="EditorTextBox_OnPreviewKeyDown">
+                                        <FlowDocument PagePadding="0">
+                                            <Paragraph Margin="0" />
+                                        </FlowDocument>
+                                    </RichTextBox>
                                 </Border>
 
                             </Grid>

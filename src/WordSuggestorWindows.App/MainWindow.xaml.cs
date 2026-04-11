@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using WordSuggestorWindows.App.ViewModels;
@@ -19,6 +21,7 @@ public partial class MainWindow : Window
     private const double StaticOverlayVerticalOffset = 44;
     private readonly MainWindowViewModel _viewModel;
     private bool _isInitialPositionApplied;
+    private bool _isSynchronizingEditorDocument;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
 
@@ -44,6 +47,7 @@ public partial class MainWindow : Window
         }
 
         SyncOverlayVisibility();
+        SyncEditorDocumentFromViewModel(force: true);
 
         if (_viewModel.IsEditorExpanded)
         {
@@ -73,8 +77,15 @@ public partial class MainWindow : Window
                 SyncOverlayVisibility();
                 if (_viewModel.IsEditorExpanded)
                 {
+                    SyncEditorDocumentFromViewModel(force: true);
                     Dispatcher.BeginInvoke(RefocusEditor);
                 }
+                break;
+            case nameof(MainWindowViewModel.EditorText):
+                SyncEditorDocumentFromViewModel();
+                break;
+            case nameof(MainWindowViewModel.IsAnalyzerColoringEnabled):
+                ApplyEditorColoring();
                 break;
             case nameof(MainWindowViewModel.ShouldShowSuggestionOverlay):
             case nameof(MainWindowViewModel.CurrentSuggestionPage):
@@ -166,7 +177,7 @@ public partial class MainWindow : Window
         var current = origin;
         while (current is not null)
         {
-            if (current is ButtonBase or ComboBox or TextBox)
+            if (current is ButtonBase or ComboBox or TextBox or RichTextBox)
             {
                 return true;
             }
@@ -230,12 +241,19 @@ public partial class MainWindow : Window
 
     private void EditorTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
     {
+        if (!_isSynchronizingEditorDocument)
+        {
+            _viewModel.CaretIndex = GetEditorCaretIndex();
+            _viewModel.EditorText = GetEditorPlainText();
+            ApplyEditorColoring();
+        }
+
         UpdateOverlayPosition();
     }
 
     private void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
-        _viewModel.CaretIndex = EditorTextBox.SelectionStart;
+        _viewModel.CaretIndex = GetEditorCaretIndex();
         UpdateOverlayPosition();
     }
 
@@ -327,10 +345,277 @@ public partial class MainWindow : Window
     private void RefocusEditor()
     {
         EditorTextBox.Focus();
-        EditorTextBox.SelectionStart = _viewModel.CaretIndex;
-        EditorTextBox.SelectionLength = 0;
+        SetEditorCaretIndex(_viewModel.CaretIndex);
         UpdateOverlayPosition();
     }
+
+    private void SyncEditorDocumentFromViewModel(bool force = false)
+    {
+        if (_isSynchronizingEditorDocument)
+        {
+            return;
+        }
+
+        var desired = _viewModel.EditorText;
+        if (!force && string.Equals(GetEditorPlainText(), desired, StringComparison.Ordinal))
+        {
+            ApplyEditorColoring();
+            return;
+        }
+
+        _isSynchronizingEditorDocument = true;
+        try
+        {
+            var documentRange = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd)
+            {
+                Text = desired
+            };
+
+            foreach (var block in EditorTextBox.Document.Blocks.OfType<Paragraph>())
+            {
+                block.Margin = new Thickness(0);
+                block.LineHeight = double.NaN;
+            }
+        }
+        finally
+        {
+            _isSynchronizingEditorDocument = false;
+        }
+
+        ApplyEditorColoring();
+        SetEditorCaretIndex(_viewModel.CaretIndex);
+    }
+
+    private string GetEditorPlainText()
+    {
+        var text = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd).Text;
+        return NormalizeRichTextBoxText(text);
+    }
+
+    private int GetEditorCaretIndex()
+    {
+        var text = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.CaretPosition).Text;
+        return NormalizeRichTextBoxText(text).Length;
+    }
+
+    private void SetEditorCaretIndex(int index)
+    {
+        var pointer = GetTextPointerAtCharOffset(Math.Clamp(index, 0, GetEditorPlainText().Length));
+        EditorTextBox.CaretPosition = pointer;
+        EditorTextBox.Selection.Select(pointer, pointer);
+    }
+
+    private void ApplyEditorColoring()
+    {
+        if (_isSynchronizingEditorDocument)
+        {
+            return;
+        }
+
+        var text = GetEditorPlainText();
+        var caretIndex = Math.Clamp(GetEditorCaretIndex(), 0, text.Length);
+
+        _isSynchronizingEditorDocument = true;
+        try
+        {
+            var fullRange = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd);
+            fullRange.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Black);
+            fullRange.ApplyPropertyValue(Inline.TextDecorationsProperty, null);
+
+            if (_viewModel.IsAnalyzerColoringEnabled)
+            {
+                foreach (Match match in WordTokenRegex().Matches(text))
+                {
+                    var kind = ClassifyEditorToken(match.Value);
+                    var foreground = EditorBrushFor(kind);
+                    var start = GetTextPointerAtCharOffset(match.Index);
+                    var end = GetTextPointerAtCharOffset(match.Index + match.Length);
+                    var tokenRange = new TextRange(start, end);
+                    tokenRange.ApplyPropertyValue(TextElement.ForegroundProperty, foreground);
+
+                    if (kind == EditorTokenKind.Spelling)
+                    {
+                        tokenRange.ApplyPropertyValue(Inline.TextDecorationsProperty, TextDecorations.Underline);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _isSynchronizingEditorDocument = false;
+        }
+
+        SetEditorCaretIndex(caretIndex);
+    }
+
+    private TextPointer GetTextPointerAtCharOffset(int charOffset)
+    {
+        var remaining = Math.Max(0, charOffset);
+        var navigator = EditorTextBox.Document.ContentStart;
+
+        while (navigator is not null && navigator.CompareTo(EditorTextBox.Document.ContentEnd) < 0)
+        {
+            if (navigator.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+            {
+                var runText = navigator.GetTextInRun(LogicalDirection.Forward);
+                if (remaining <= runText.Length)
+                {
+                    return navigator.GetPositionAtOffset(remaining, LogicalDirection.Forward) ?? navigator;
+                }
+
+                remaining -= runText.Length;
+            }
+
+            navigator = navigator.GetNextContextPosition(LogicalDirection.Forward);
+        }
+
+        return EditorTextBox.Document.ContentEnd;
+    }
+
+    private static string NormalizeRichTextBoxText(string text)
+    {
+        if (text.EndsWith("\r\n", StringComparison.Ordinal))
+        {
+            return text[..^2];
+        }
+
+        if (text.EndsWith('\n'))
+        {
+            return text[..^1];
+        }
+
+        return text;
+    }
+
+    private static EditorTokenKind ClassifyEditorToken(string token)
+    {
+        var lower = token.ToLowerInvariant();
+
+        if (Determiners.Contains(lower))
+        {
+            return EditorTokenKind.Determiner;
+        }
+
+        if (Pronouns.Contains(lower))
+        {
+            return EditorTokenKind.Pronoun;
+        }
+
+        if (Prepositions.Contains(lower))
+        {
+            return EditorTokenKind.Preposition;
+        }
+
+        if (Conjunctions.Contains(lower))
+        {
+            return EditorTokenKind.Conjunction;
+        }
+
+        if (Adverbs.Contains(lower) || lower.EndsWith("vis", StringComparison.Ordinal))
+        {
+            return EditorTokenKind.Adverb;
+        }
+
+        if (Verbs.Contains(lower) ||
+            lower.EndsWith("er", StringComparison.Ordinal) ||
+            lower.EndsWith("ede", StringComparison.Ordinal) ||
+            lower.EndsWith("ende", StringComparison.Ordinal))
+        {
+            return EditorTokenKind.Verb;
+        }
+
+        if (Adjectives.Contains(lower) ||
+            lower.EndsWith("lig", StringComparison.Ordinal) ||
+            lower.EndsWith("isk", StringComparison.Ordinal) ||
+            lower.EndsWith("bar", StringComparison.Ordinal) ||
+            lower.EndsWith("fuld", StringComparison.Ordinal))
+        {
+            return EditorTokenKind.Adjective;
+        }
+
+        if (char.IsUpper(token[0]) && token.Length > 1)
+        {
+            return EditorTokenKind.ProperNoun;
+        }
+
+        if (token.Length >= 16)
+        {
+            return EditorTokenKind.Spelling;
+        }
+
+        return EditorTokenKind.Noun;
+    }
+
+    private static Brush EditorBrushFor(EditorTokenKind kind) =>
+        kind switch
+        {
+            EditorTokenKind.Noun => BrushFromHex("#C26AF7"),
+            EditorTokenKind.ProperNoun => BrushFromHex("#F45A85"),
+            EditorTokenKind.Verb => BrushFromHex("#2CBCCB"),
+            EditorTokenKind.Adjective => BrushFromHex("#F5A14E"),
+            EditorTokenKind.Adverb => BrushFromHex("#758BFF"),
+            EditorTokenKind.Pronoun => BrushFromHex("#5BC878"),
+            EditorTokenKind.Determiner => BrushFromHex("#A97B58"),
+            EditorTokenKind.Preposition => BrushFromHex("#4BB6E8"),
+            EditorTokenKind.Conjunction => BrushFromHex("#48C7B3"),
+            EditorTokenKind.Spelling => BrushFromHex("#E24A4A"),
+            _ => Brushes.Black
+        };
+
+    private static SolidColorBrush BrushFromHex(string hex) =>
+        (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+
+    [GeneratedRegex(@"[\p{L}\p{M}\p{Nd}][\p{L}\p{M}\p{Nd}'-]*", RegexOptions.CultureInvariant)]
+    private static partial Regex WordTokenRegex();
+
+    private enum EditorTokenKind
+    {
+        Noun,
+        ProperNoun,
+        Verb,
+        Adjective,
+        Adverb,
+        Pronoun,
+        Determiner,
+        Preposition,
+        Conjunction,
+        Spelling
+    }
+
+    private static readonly HashSet<string> Determiners = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "en", "et", "den", "det", "de", "din", "dit", "dine", "min", "mit", "mine", "vores", "jeres"
+    };
+
+    private static readonly HashSet<string> Pronouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "jeg", "du", "han", "hun", "vi", "i", "de", "mig", "dig", "ham", "hende", "os", "jer", "dem", "man"
+    };
+
+    private static readonly HashSet<string> Prepositions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "i", "på", "til", "fra", "med", "uden", "over", "under", "efter", "før", "for", "om", "af", "hos", "ved"
+    };
+
+    private static readonly HashSet<string> Conjunctions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "og", "eller", "men", "for", "så", "at", "hvis", "når", "fordi", "mens"
+    };
+
+    private static readonly HashSet<string> Adverbs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ikke", "meget", "lidt", "gerne", "altid", "aldrig", "ofte", "måske", "snart", "her", "der"
+    };
+
+    private static readonly HashSet<string> Verbs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "er", "var", "bliver", "blev", "har", "havde", "kan", "kunne", "skal", "skulle", "vil", "ville", "må", "måtte", "skrive", "læse"
+    };
+
+    private static readonly HashSet<string> Adjectives = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "god", "dårlig", "stor", "lille", "rød", "blå", "grøn", "gul", "sort", "hvid", "hurtig", "langsom", "ny", "gammel"
+    };
 
     private void SyncOverlayVisibility()
     {
@@ -512,14 +797,12 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var caretIndex = Math.Clamp(EditorTextBox.CaretIndex, 0, EditorTextBox.Text.Length);
-        var candidateRects = new[]
+        var rect = EditorTextBox.CaretPosition.GetCharacterRect(LogicalDirection.Forward);
+        if (rect.IsEmpty)
         {
-            EditorTextBox.GetRectFromCharacterIndex(caretIndex, true),
-            EditorTextBox.GetRectFromCharacterIndex(caretIndex, false)
-        };
+            rect = EditorTextBox.CaretPosition.GetCharacterRect(LogicalDirection.Backward);
+        }
 
-        var rect = candidateRects.FirstOrDefault(r => !r.IsEmpty && r.Width >= 0 && r.Height >= 0);
         if (rect.IsEmpty)
         {
             return false;
