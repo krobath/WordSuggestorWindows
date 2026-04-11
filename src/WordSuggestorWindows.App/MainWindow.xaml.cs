@@ -27,9 +27,9 @@ public partial class MainWindow : Window
 
     public MainWindow(MainWindowViewModel viewModel)
     {
-        InitializeComponent();
         _viewModel = viewModel;
-        DataContext = viewModel;
+        InitializeComponent();
+        DataContext = _viewModel;
         Loaded += OnLoaded;
         Closed += OnClosed;
         LocationChanged += OnWindowLocationOrSizeChanged;

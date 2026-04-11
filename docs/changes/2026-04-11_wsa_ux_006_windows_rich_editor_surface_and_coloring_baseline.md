@@ -39,5 +39,6 @@ Changed the internal Windows editor from a plain text box to a fixed-size rich t
 
 ## Follow-up
 
+- Startup crash regression discovered after this pass is fixed in `WSA-UX-007_windows_rich_editor_startup_fix`.
 - Replace the heuristic Windows-side coloring baseline with the full lexicon-backed analyzer semantics from the macOS `TextAnalyzer`.
 - Re-test and harden caret index mapping for long multi-paragraph documents.

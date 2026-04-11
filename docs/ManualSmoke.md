@@ -80,6 +80,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 ## Failure triage
 
 - If the app builds but suggestions fail immediately, run `scripts\test_core_cli.ps1` first.
+- If `scripts\run_app.ps1` prints the launch message and immediately returns without opening the app, inspect the Windows Application event log for recent `.NET Runtime`, `Application Error`, or `WordSuggestorWindows.App` entries.
 - If CLI build fails on Windows headers or SQLite, rerun `scripts\bootstrap_core_cli.ps1` in a fresh PowerShell session.
 - If the app opens but the list is empty, verify the startup text ends with an incomplete Danish token such as `skri`.
 - If bootstrap prints `warning: couldn't find pc file for sqlite3` but `scripts\test_core_cli.ps1` returns suggestions and logs `Pack opened ... da_lexicon.sqlite`, the SQLite pack is loading; the warning is from pkg-config discovery during the Swift build.

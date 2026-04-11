@@ -349,6 +349,35 @@ Known note:
 
 - The new editor coloring is a Windows-side baseline classifier intended to restore visible color behavior. It is not yet full macOS `TextAnalyzer` parity or lexicon-backed analysis.
 - Multi-paragraph caret indexing may need a dedicated follow-up if users rely heavily on long multi-paragraph internal-editor documents before the full analyzer port lands.
+- A startup crash discovered after this pass is tracked and fixed in `WSA-UX-007_windows_rich_editor_startup_fix`.
+
+### WSA-UX-007_windows_rich_editor_startup_fix
+Status: `Done` (`2026-04-11`)
+
+Scope:
+
+- Fix the startup regression where the Windows app exited immediately after `scripts\run_app.ps1` printed the launch message.
+- Preserve the new rich editor surface from `WSA-UX-006` instead of reverting it.
+- Document the event-log diagnosis for future Windows UI regression triage.
+
+Implemented:
+
+- Used the Windows Application event log to identify the crash as a `System.NullReferenceException` in `MainWindow.EditorTextBox_OnTextChanged`.
+- Confirmed the `RichTextBox.Document` assignment can raise `TextChanged` while XAML is still loading the window.
+- Moved `MainWindowViewModel` assignment before `InitializeComponent()` so early rich-editor events have access to the view model.
+- Kept `DataContext` assignment after component initialization, so XAML binding behavior remains unchanged while the event handler is safe during construction.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- `powershell -ExecutionPolicy Bypass -File WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild` -> `PASS` (app launched after core CLI bootstrap; process remained responsive)
+- Application event log check after the fixed launch showed no new `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- The `pkg-config`/`sqlite3.pc` and Swift symlink warnings can still appear during core CLI bootstrap, but `scripts\test_core_cli.ps1` confirms the Danish SQLite pack loads and returns suggestions.
 
 ### WSA-UX-002_windows_internal_editor_surface_parity
 Status: `Done` (`2026-04-10`)
