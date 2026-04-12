@@ -80,6 +80,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - In the current workspace, `DA` should be the only installed language because `WordSuggestorCore\Ressources\da_lexicon.sqlite` is the only local pack file.
 - The `TXT` toolbar button should import selected text from the internal editor first, then from a recent Windows UI Automation-compatible external selection when available, then by guarded clipboard fallback.
 - Clipboard fallback should restore WordSuggestor focus and best-effort restore the previous clipboard contents after the copy attempt.
+- App-specific selected-text import behavior should be recorded in `docs/SelectionImportCompatibilityMatrix.md` using the local diagnostic file `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` or debugger output lines prefixed with `WordSuggestor selection import:`.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
@@ -108,3 +109,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If CLI build fails on Windows headers or SQLite, rerun `scripts\bootstrap_core_cli.ps1` in a fresh PowerShell session.
 - If the app opens but the list is empty, verify the startup text ends with an incomplete Danish token such as `skri`.
 - If bootstrap prints `warning: couldn't find pc file for sqlite3` but `scripts\test_core_cli.ps1` returns suggestions and logs `Pack opened ... da_lexicon.sqlite`, the SQLite pack is loading; the warning is from pkg-config discovery during the Swift build.
+- If selected-text import works in one app but not another, use `docs/SelectionImportCompatibilityMatrix.md` to record whether UI Automation or clipboard fallback was blocked.

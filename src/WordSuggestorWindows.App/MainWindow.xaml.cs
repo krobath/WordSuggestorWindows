@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,6 +25,11 @@ public partial class MainWindow : Window
     private const double OverlayVerticalGap = 10;
     private const double StaticOverlayHorizontalOffset = 118;
     private const double StaticOverlayVerticalOffset = 44;
+    private static readonly string SelectionImportDiagnosticLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WordSuggestor",
+        "diagnostics",
+        "selection-import.log");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
@@ -42,6 +49,7 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(350)
         };
         _externalSelectionPollTimer.Tick += ExternalSelectionPollTimerOnTick;
+        _selectionImportService.DiagnosticEmitted += SelectionImportServiceOnDiagnosticEmitted;
         InitializeComponent();
         DataContext = _viewModel;
         Loaded += OnLoaded;
@@ -79,11 +87,35 @@ public partial class MainWindow : Window
         SizeChanged -= OnWindowLocationOrSizeChanged;
         _externalSelectionPollTimer.Stop();
         _externalSelectionPollTimer.Tick -= ExternalSelectionPollTimerOnTick;
+        _selectionImportService.DiagnosticEmitted -= SelectionImportServiceOnDiagnosticEmitted;
 
         if (_overlayWindow is not null)
         {
             _overlayWindow.Close();
             _overlayWindow = null;
+        }
+    }
+
+    private static void SelectionImportServiceOnDiagnosticEmitted(object? sender, SelectionImportDiagnostic diagnostic)
+    {
+        WriteSelectionImportDiagnostic(diagnostic);
+    }
+
+    private static void WriteSelectionImportDiagnostic(SelectionImportDiagnostic diagnostic)
+    {
+        var line = $"WordSuggestor selection import: {diagnostic}";
+        Debug.WriteLine(line);
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(SelectionImportDiagnosticLogPath)!);
+            File.AppendAllText(SelectionImportDiagnosticLogPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
         }
     }
 
@@ -251,11 +283,25 @@ public partial class MainWindow : Window
             return;
         }
 
-        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
-        var selection = liveExternalSelection ?? TryGetRecentExternalSelection();
-        if (selection is not null)
+        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
+            _windowHandle,
+            emitDiagnostics: true);
+        if (liveExternalSelection is not null)
         {
-            _viewModel.ImportTextIntoEditor(selection.Text, selection.Source);
+            _viewModel.ImportTextIntoEditor(liveExternalSelection.Text, liveExternalSelection.Source);
+            RefocusEditor();
+            return;
+        }
+
+        var recentExternalSelection = TryGetRecentExternalSelection();
+        if (recentExternalSelection is not null)
+        {
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "UIA",
+                "CachedSuccess",
+                $"Recent cached selection from {recentExternalSelection.Source} exposed {recentExternalSelection.Text.Length} characters."));
+            _viewModel.ImportTextIntoEditor(recentExternalSelection.Text, recentExternalSelection.Source);
             RefocusEditor();
             return;
         }

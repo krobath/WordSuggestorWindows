@@ -702,6 +702,37 @@ Known note:
 - Clipboard fallback is best-effort because some apps block synthetic copy, expose delayed clipboard formats, or do not allow WordSuggestor to bring them foreground programmatically.
 - This fallback deliberately uses a sentinel to avoid importing stale clipboard text when no copy actually happened.
 
+### WSA-TS-002_windows_selection_import_app_compatibility_matrix
+Status: `Done` (`2026-04-12`)
+
+Scope:
+
+- Add lightweight non-content diagnostics for the selected-text import path.
+- Create a manual compatibility matrix for identifying which Windows applications expose selected text and which block UI Automation or clipboard fallback.
+- Make the app-testing process repeatable before expanding the broader external-app integration sprint.
+
+Implemented:
+
+- Added `SelectionImportDiagnostic` as a non-content diagnostic model for selection-import stages and outcomes.
+- Emitted diagnostics from `WindowsSelectionImportService` for UI Automation selection, guarded clipboard fallback activation, synthetic copy, selection detection, and clipboard restoration.
+- Routed diagnostics from `MainWindow` to the debugger output stream and `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` using the prefix `WordSuggestor selection import:`.
+- Added `docs/SelectionImportCompatibilityMatrix.md` with result codes, priority app list, and a manual recording template.
+- Updated manual smoke and parity docs so selected-text import support is tracked as an empirical compatibility matrix.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- The diagnostics intentionally log only stage, outcome, target handle, and character counts. They must not log the selected text itself.
+- The matrix starts as `UNTESTED`; app-specific results should be filled in through manual desktop testing.
+- The first build validation was blocked by a still-running local `WordSuggestorWindows.App.exe`; after stopping that test process, the build passed.
+
 ### WSA-RT-011_windows_ocr_snip_pipeline
 Status: `Planned`
 
@@ -808,11 +839,12 @@ Known note:
 10. `WSA-RT-009` - language pack selection parity
 11. `WSA-RT-010` - selected text import into editor
 12. `WSA-RT-010A` - selected text import clipboard fallback
-13. `WSA-RT-011` - OCR snip pipeline
-14. `WSA-RT-012` - speech-to-text dictation pipeline
-15. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-16. `WSA-RT-014` - error insights store and view
-17. `WSA-UX-010` - settings window parity
+13. `WSA-TS-002` - selected text import app compatibility matrix
+14. `WSA-RT-011` - OCR snip pipeline
+15. `WSA-RT-012` - speech-to-text dictation pipeline
+16. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+17. `WSA-RT-014` - error insights store and view
+18. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

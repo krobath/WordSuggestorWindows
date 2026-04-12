@@ -14,18 +14,43 @@ public sealed class WindowsSelectionImportService
     private const ushort VirtualKeyControl = 0x11;
     private const ushort VirtualKeyC = 0x43;
 
+    public event EventHandler<SelectionImportDiagnostic>? DiagnosticEmitted;
+
     public IntPtr CurrentForegroundWindow => GetForegroundWindow();
 
-    public SelectionImportResult? TryReadSelectionFromForegroundWindow(IntPtr excludedWindowHandle)
+    public SelectionImportResult? TryReadSelectionFromForegroundWindow(
+        IntPtr excludedWindowHandle,
+        bool emitDiagnostics = false)
     {
         var foreground = GetForegroundWindow();
-        if (foreground == IntPtr.Zero || foreground == excludedWindowHandle)
+        if (foreground == IntPtr.Zero)
         {
+            EmitIf(emitDiagnostics, "UIA", "Skipped", "No foreground window is currently available.");
             return null;
         }
 
-        return TryReadFocusedSelection("Windows UI Automation focused element")
-            ?? TryReadSelectionFromWindow(foreground);
+        if (foreground == excludedWindowHandle)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Skipped", "Foreground window is WordSuggestor.");
+            return null;
+        }
+
+        var focusedSelection = TryReadFocusedSelection("Windows UI Automation focused element");
+        if (focusedSelection is not null)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Success", $"Focused element exposed {focusedSelection.Text.Length} characters.");
+            return focusedSelection;
+        }
+
+        var windowSelection = TryReadSelectionFromWindow(foreground);
+        if (windowSelection is not null)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Success", $"Foreground window 0x{foreground.ToInt64():X} exposed {windowSelection.Text.Length} characters.");
+            return windowSelection;
+        }
+
+        EmitIf(emitDiagnostics, "UIA", "NoSelection", $"Foreground window 0x{foreground.ToInt64():X} did not expose selected text through TextPattern.");
+        return null;
     }
 
     public async Task<SelectionImportResult?> TryReadSelectionWithClipboardFallbackAsync(
@@ -34,6 +59,7 @@ public sealed class WindowsSelectionImportService
     {
         if (targetWindowHandle == IntPtr.Zero || targetWindowHandle == returnWindowHandle)
         {
+            Emit("ClipboardFallback", "Skipped", "No external target window was available.");
             return null;
         }
 
@@ -44,21 +70,29 @@ public sealed class WindowsSelectionImportService
         {
             if (!TrySetClipboardSentinel(sentinel))
             {
+                Emit("ClipboardFallback", "Failed", "Could not place clipboard sentinel before Ctrl+C probe.");
                 return null;
             }
 
-            SetForegroundWindow(targetWindowHandle);
+            var foregroundChanged = SetForegroundWindow(targetWindowHandle);
+            Emit(
+                "ClipboardFallback",
+                foregroundChanged ? "TargetActivated" : "TargetActivationUnconfirmed",
+                $"Target window 0x{targetWindowHandle.ToInt64():X} was prepared for Ctrl+C.");
             await Task.Delay(ForegroundActivationDelayMs);
-            SendCopyShortcut();
+            var sentInputCount = SendCopyShortcut();
+            Emit("ClipboardFallback", "CopyShortcutSent", $"SendInput reported {sentInputCount} keyboard input events.");
             await Task.Delay(ClipboardCopyDelayMs);
 
             var copiedText = TryGetClipboardText();
             if (string.IsNullOrWhiteSpace(copiedText) ||
                 string.Equals(copiedText, sentinel, StringComparison.Ordinal))
             {
+                Emit("ClipboardFallback", "NoSelection", "Clipboard still contained sentinel or empty text after Ctrl+C.");
                 return null;
             }
 
+            Emit("ClipboardFallback", "Success", $"Copied {copiedText.Trim().Length} characters from external target.");
             return new SelectionImportResult(
                 copiedText.Trim(),
                 "ekstern app via clipboard fallback",
@@ -66,11 +100,28 @@ public sealed class WindowsSelectionImportService
         }
         finally
         {
-            RestoreClipboard(originalClipboard);
+            var clipboardRestored = RestoreClipboard(originalClipboard);
+            Emit(
+                "ClipboardFallback",
+                clipboardRestored ? "ClipboardRestored" : "ClipboardRestoreFailed",
+                originalClipboard is null ? "Original clipboard was empty or unavailable." : "Original clipboard data object was restored.");
             if (returnWindowHandle != IntPtr.Zero)
             {
-                SetForegroundWindow(returnWindowHandle);
+                _ = SetForegroundWindow(returnWindowHandle);
             }
+        }
+    }
+
+    private void Emit(string stage, string outcome, string detail) =>
+        DiagnosticEmitted?.Invoke(
+            this,
+            new SelectionImportDiagnostic(DateTimeOffset.Now, stage, outcome, detail));
+
+    private void EmitIf(bool shouldEmit, string stage, string outcome, string detail)
+    {
+        if (shouldEmit)
+        {
+            Emit(stage, outcome, detail);
         }
     }
 
@@ -204,27 +255,30 @@ public sealed class WindowsSelectionImportService
         }
     }
 
-    private static void RestoreClipboard(IDataObject? originalClipboard)
+    private static bool RestoreClipboard(IDataObject? originalClipboard)
     {
         try
         {
             if (originalClipboard is null)
             {
                 Clipboard.Clear();
-                return;
+                return true;
             }
 
             Clipboard.SetDataObject(originalClipboard, copy: true);
+            return true;
         }
         catch (COMException)
         {
+            return false;
         }
         catch (ExternalException)
         {
+            return false;
         }
     }
 
-    private static void SendCopyShortcut()
+    private static uint SendCopyShortcut()
     {
         var inputs = new[]
         {
@@ -234,7 +288,7 @@ public sealed class WindowsSelectionImportService
             KeyboardInput(VirtualKeyControl, keyUp: true)
         };
 
-        _ = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
     }
 
     private static INPUT KeyboardInput(ushort virtualKey, bool keyUp) =>
