@@ -49,28 +49,30 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 8. Mark text inside the internal editor, click `TXT`, and confirm the editor is replaced with the selected text.
 9. In a UI Automation-compatible external app, mark text, then click `TXT` quickly and confirm the recent external selection is imported into the editor.
 10. In an external app that does not expose UI Automation selection reliably, mark text, click `TXT`, and confirm the guarded clipboard fallback imports the selected text when the target app accepts `Ctrl+C`.
-11. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
-12. Open the editor manually and confirm the startup text is already inserted.
-13. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
-14. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
-15. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
-16. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
-17. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
-18. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-19. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-20. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
-21. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
-22. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-23. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-24. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-25. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-26. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-27. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-28. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-29. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-30. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
-31. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
-32. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
+11. Click `OCR`, select a visible screen region with text, and confirm the recognized text is copied to the clipboard and imported into the internal editor.
+12. Confirm the toolbar returns after the screen snip and the editor opens with the OCR text staged for analysis.
+13. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
+14. Open the editor manually and confirm the startup text is already inserted.
+15. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
+16. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
+17. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
+18. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
+19. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+20. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+21. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+22. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+23. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+24. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+25. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+26. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+27. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+28. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+29. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+30. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+31. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+32. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+33. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
+34. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
 
 ## Expected current behavior
 
@@ -81,6 +83,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The `TXT` toolbar button should import selected text from the internal editor first, then from a recent Windows UI Automation-compatible external selection when available, then by guarded clipboard fallback.
 - Clipboard fallback should restore WordSuggestor focus and best-effort restore the previous clipboard contents after the copy attempt.
 - App-specific selected-text import behavior should be recorded in `docs/SelectionImportCompatibilityMatrix.md` using the local diagnostic file `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` or debugger output lines prefixed with `WordSuggestor selection import:`.
+- The `OCR` toolbar button should hide WordSuggestor during Windows screen snip, OCR the captured clipboard image, copy the recognized text to the clipboard, and import it into the internal editor.
+- Direct PDF-file OCR import is not implemented yet; visible PDF content should be captured through the screen snip path.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
@@ -110,3 +114,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If the app opens but the list is empty, verify the startup text ends with an incomplete Danish token such as `skri`.
 - If bootstrap prints `warning: couldn't find pc file for sqlite3` but `scripts\test_core_cli.ps1` returns suggestions and logs `Pack opened ... da_lexicon.sqlite`, the SQLite pack is loading; the warning is from pkg-config discovery during the Swift build.
 - If selected-text import works in one app but not another, use `docs/SelectionImportCompatibilityMatrix.md` to record whether UI Automation or clipboard fallback was blocked.
+- If OCR returns no text, verify that Windows screen snip placed an image on the clipboard and that Windows OCR language support is installed for the active user profile.

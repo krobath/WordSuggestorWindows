@@ -369,7 +369,6 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             "wordList" => "Word list manager er planlagt til senere Windows-parity arbejde.",
             "import" => "Import af markering til editoren kommer med Windows selection adapters.",
-            "ocr" => "OCR er endnu ikke porteret til Windows.",
             "speechToText" => "Speech-to-text er ikke porteret endnu i Windows-sporet.",
             "textToSpeech" => "Text-to-speech er ikke porteret endnu i Windows-sporet.",
             "insights" => "Error insights bliver porteret i et senere Windows UI-sprint.",

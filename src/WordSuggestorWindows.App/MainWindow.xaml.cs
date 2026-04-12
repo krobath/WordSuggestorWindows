@@ -32,6 +32,7 @@ public partial class MainWindow : Window
         "selection-import.log");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
+    private readonly WindowsOcrService _ocrService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
     private IntPtr _windowHandle;
     private IntPtr _lastExternalWindowHandle;
@@ -254,8 +255,55 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (action == "ocr")
+            {
+                await RunOcrScreenSnipAsync();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
+    }
+
+    private async Task RunOcrScreenSnipAsync()
+    {
+        _viewModel.SetStatusMessage("Vælg et skærmudsnit til OCR.");
+        HideOverlayWindow();
+
+        var wasVisible = IsVisible;
+        if (wasVisible)
+        {
+            Hide();
+            await Task.Delay(150);
+        }
+
+        OcrImportResult? result = null;
+        try
+        {
+            result = await _ocrService.CaptureScreenAndRecognizeAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (wasVisible)
+            {
+                Show();
+            }
+
+            Activate();
+        }
+
+        if (result is null)
+        {
+            _viewModel.SetStatusMessage("OCR fandt ingen tekst, eller skærmudsnittet blev annulleret.");
+            SyncOverlayVisibility();
+            return;
+        }
+
+        _viewModel.ImportTextIntoEditor(result.Text, $"{result.Source} ({result.LineCount} linjer)");
+        RefocusEditor();
     }
 
     private void ExternalSelectionPollTimerOnTick(object? sender, EventArgs e)

@@ -734,7 +734,7 @@ Known note:
 - The first build validation was blocked by a still-running local `WordSuggestorWindows.App.exe`; after stopping that test process, the build passed.
 
 ### WSA-RT-011_windows_ocr_snip_pipeline
-Status: `Planned`
+Status: `Done` (`2026-04-12`)
 
 Scope:
 
@@ -742,6 +742,35 @@ Scope:
 - Run OCR with a Windows-compatible OCR backend.
 - Copy recognized text to the clipboard and ingest it into the internal editor.
 - Trigger the existing editor analysis path after text is ingested.
+
+Implemented:
+
+- Added `WindowsOcrService` for Windows-native OCR ingestion through the system screen snip clipboard path.
+- Added `OcrImportResult` as the Windows OCR import contract.
+- Wired the top toolbar `OCR` action to:
+  - hide the WordSuggestor toolbar while the screen area is captured,
+  - launch Windows screen snip through `ms-screenclip:`,
+  - wait for the captured image to appear on the clipboard,
+  - run Windows OCR through a local PowerShell/WinRT bridge,
+  - copy recognized text back to the clipboard,
+  - ingest recognized text into the internal editor through the same import/analyzer path used by selected-text import.
+- Added OCR text normalization for line endings, soft line wrapping, simple list breaks, and OCR hyphenation markers.
+- Kept the app on `net9.0-windows` and avoided a new `Microsoft.Windows.SDK.NET.Ref` package restore dependency by using a runtime bridge for Windows OCR.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Direct Windows OCR API smoke against a generated PNG containing `Hej OCR test` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warnings on existing Windows files)
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- This sprint implements the macOS-like screen snip path. Direct PDF-file OCR import is deferred; visible PDF content can be OCR'ed by selecting it with the screen snip.
+- The first attempt to compile directly against WinRT OCR required `Microsoft.Windows.SDK.NET.Ref`, which was not available offline in this workspace, so the implementation uses a local PowerShell/WinRT bridge instead.
+- The launch-smoke process was stopped after validation so the debug executable is not left locked.
 
 Target outcome:
 
