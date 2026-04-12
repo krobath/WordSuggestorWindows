@@ -212,9 +212,11 @@
 
                             <ComboBox Width="98"
                                       Margin="0,0,12,0"
+                                      DisplayMemberPath="ToolbarLabel"
                                       ItemsSource="{Binding LanguageOptions}"
                                       SelectedItem="{Binding SelectedLanguageOption, Mode=TwoWay}"
-                                      Style="{StaticResource ToolbarComboBoxStyle}" />
+                                      Style="{StaticResource ToolbarComboBoxStyle}"
+                                      ToolTip="{Binding SelectedLanguageOption.DisplayLabel}" />
 
                             <Button Tag="wordList"
                                     Style="{StaticResource ToolbarIconButtonStyle}"

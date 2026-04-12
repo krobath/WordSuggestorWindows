@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-11`
+Last updated: `2026-04-12`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -587,13 +587,47 @@ Target outcome:
 - Right-clicking a flagged word opens the same kind of corrective surface the macOS editor exposes.
 
 ### WSA-RT-009_windows_language_pack_selection
-Status: `Planned`
+Status: `Done` (`2026-04-12`)
 
 Scope:
 
 - Replace the current Danish-only Windows language selector with the same language choices exposed by the macOS toolbar.
 - Show pack availability clearly when a language pack is missing.
 - Route the selected language and pack path through the Windows `WordSuggestorCore` CLI bridge.
+
+Implemented:
+
+- Added a Windows `LanguageOption` model for language code, compact toolbar label, display label, pack tag, legacy pack filename, and resolved pack path.
+- Replaced the hardcoded `DA` selector with the macOS-supported language set:
+  - Danish
+  - English
+  - German
+  - French
+  - Spanish
+  - Italian
+  - Swedish
+  - Norwegian Bokmal
+  - Norwegian Nynorsk
+- Added Windows-side pack discovery that mirrors the core/macOS pack naming convention:
+  - `%APPDATA%\WordSuggestor\Packs\<tag>_pack_v*.sqlite`
+  - `%APPDATA%\WordSuggestor\Packs\<tag>_pack.sqlite`
+  - `WordSuggestorWindows\Packs\<tag>_pack*.sqlite`
+  - `WordSuggestorCore\Ressources\<tag>_pack*.sqlite`
+  - legacy `da_lexicon.sqlite` / `en_lexicon.sqlite`
+- Updated the CLI bridge to pass the selected language code and resolved pack path into `WordSuggestorSuggestCLI`.
+- Kept missing-pack languages selectable but safe: the toolbar shows an availability marker, the status message explains that the pack is missing, and suggestions remain empty instead of failing the app.
+- Updated the provider summary so the active language is visible in runtime diagnostics.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- The current workspace only contains the Danish legacy pack `WordSuggestorCore\Ressources\da_lexicon.sqlite`, so other languages correctly show as missing-pack options until their SQLite packs are installed.
 
 Target outcome:
 

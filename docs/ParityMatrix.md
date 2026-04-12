@@ -1,6 +1,6 @@
 # WordSuggestor macOS -> Windows Parity Matrix
 
-Last updated: `2026-04-11`
+Last updated: `2026-04-12`
 Status: `Parity plan aligned with macOS UI review`
 
 ## Legend
@@ -15,7 +15,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Floating top toolbar shell | `FloatingToolbarView` + `FloatingToolbarPanel` | Rebuild with Windows-native chrome and same control ordering | `Baseline done` |
 | Toolbar control ordering | `FloatingToolbarView` | Preserve macOS ordering, allow Windows-native icons where obvious | `Baseline done` |
 | Toolbar global suggestions toggle | `AppState.isGlobalCaptureEnabled` + `GlobalKeyCaptureManager` | Connect existing Windows toggle to global capture, focused text tracking, and overlay session control | `Planned: WSA-RT-003` |
-| Toolbar language selector | `FloatingToolbarView.supportedLanguages` + `SQLiteLanguagePackSource.defaultLocator` | Replace Danish-only Windows selector with language/pack-aware selector | `Planned: WSA-RT-009` |
+| Toolbar language selector | `FloatingToolbarView.supportedLanguages` + `SQLiteLanguagePackSource.defaultLocator` | Replace Danish-only Windows selector with language/pack-aware selector | `Baseline done: WSA-RT-009` |
 | Toolbar word-list button | `FloatingToolbarView` TODO + `SettingsView.domainTab` placeholder | Preserve placeholder/settings behavior until shared domain-list manager exists | `Placeholder parity only` |
 | Toolbar selected-text import | `AppState.importSelectionForAnalysis()` | Use internal editor selection first, then Windows UI Automation selection, then guarded clipboard fallback | `Planned: WSA-RT-010` |
 | Toolbar OCR action | `ScreenSnipper.swift` + `AppState.ingestOCRText()` | Windows-native snipping/capture, OCR, clipboard copy, editor ingest, analysis refresh | `Planned: WSA-RT-011` |
@@ -25,7 +25,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Toolbar settings action | SwiftUI `Settings` scene + `SettingsView.swift` | Windows-native settings window preserving macOS semantics | `Planned: WSA-UX-010` |
 | Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
 | Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
-| Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared; Windows selector dynamic routing planned in WSA-RT-009` |
+| Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared; Windows dynamic routing baseline done in WSA-RT-009` |
 | Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done inside structured editor shell` |
 | Editor surface structure | `WordSugestorApp.swift` + `TextAnalyzerPanelView.swift` | Rebuild command row, editor area, status row, and analyzer panel layout natively on Windows | `Baseline done` |
 | Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned on top of shell baseline` |

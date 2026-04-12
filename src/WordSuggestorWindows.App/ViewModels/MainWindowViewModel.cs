@@ -23,7 +23,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isEditorExpanded;
     private bool _isSuggestionOverlaySessionVisible;
     private bool _isGlobalCaptureEnabled = true;
-    private string _selectedLanguageOption = "DA";
+    private LanguageOption _selectedLanguageOption;
     private bool _isAnalyzerColoringEnabled = true;
     private bool _isSemanticDiagnosticsEnabled;
     private bool _isPunctuationDiagnosticsEnabled;
@@ -33,13 +33,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public MainWindowViewModel(ISuggestionProvider suggestionProvider, string? initialEditorText = null)
     {
         _suggestionProvider = suggestionProvider;
-        ProviderDescription = suggestionProvider.ProviderDescription;
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
             ? "Windows toolbar shell klar. Udvid editoren for at skrive og hente forslag."
             : "Startuptekst er klar. Åbn editoren for at vise og redigere teksten.";
-        LanguageOptions = ["DA"];
+        LanguageOptions = suggestionProvider.LanguageOptions;
+        _selectedLanguageOption = suggestionProvider.SelectedLanguage;
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
@@ -56,9 +56,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ICommand AcceptSelectedSuggestionCommand => _acceptSelectedSuggestionCommand;
 
-    public IReadOnlyList<string> LanguageOptions { get; }
+    public IReadOnlyList<LanguageOption> LanguageOptions { get; }
 
-    public string ProviderDescription { get; }
+    public string ProviderDescription => _suggestionProvider.ProviderDescription;
 
     public IReadOnlyList<EditorStatusMetric> StatusMetrics =>
     [
@@ -163,14 +163,38 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public string SelectedLanguageOption
+    public LanguageOption SelectedLanguageOption
     {
         get => _selectedLanguageOption;
         set
         {
+            if (value is null)
+            {
+                return;
+            }
+
             if (SetProperty(ref _selectedLanguageOption, value))
             {
-                StatusMessage = "Dansk er aktivt sprog i den nuværende Windows-baseline.";
+                _suggestionProvider.SetLanguage(value);
+                OnPropertyChanged(nameof(ProviderDescription));
+                OnPropertyChanged(nameof(OverlaySupportSummary));
+
+                if (!value.IsPackAvailable)
+                {
+                    ClearSuggestionSession(keepOverlayVisible: IsEditorExpanded && EditorText.Length > 0);
+                    StatusMessage = $"{value.DisplayName} er valgt, men sprogpakken mangler.";
+                    return;
+                }
+
+                StatusMessage = $"{value.DisplayName} er aktivt sprog. {value.PackAvailabilityLabel}.";
+                if (ShouldClearSuggestionsForBoundaryText(EditorText))
+                {
+                    ClearSuggestionSession(keepOverlayVisible: IsEditorExpanded && EditorText.Length > 0);
+                }
+                else
+                {
+                    ScheduleSuggestionsRefresh();
+                }
             }
         }
     }
@@ -473,6 +497,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 ClearSuggestionResults(keepOverlayVisible: true);
                 StatusMessage = "Ordforslagsboksen er klar til næste ord.";
+            });
+            return;
+        }
+
+        var selectedLanguage = _suggestionProvider.SelectedLanguage;
+        if (!selectedLanguage.IsPackAvailable)
+        {
+            await App.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ClearSuggestionResults(keepOverlayVisible: true);
+                StatusMessage = $"{selectedLanguage.DisplayName} er valgt, men sprogpakken mangler.";
             });
             return;
         }

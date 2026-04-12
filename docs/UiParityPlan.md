@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-11`
+Last updated: `2026-04-12`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -102,7 +102,7 @@ Source references:
 | Toolbar capability | macOS behavior confirmed | Windows parity strategy | Sprint |
 |---|---|---|---|
 | Toggle word suggestions on/off | `isGlobalCaptureEnabled` starts/stops `GlobalKeyCaptureManager` and persists the setting. | Connect the Windows toggle to global typing capture, focused text tracking, external commit, and overlay visibility. | `WSA-RT-003_windows_external_input_and_caret_integration` |
-| Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge. | `WSA-RT-009_windows_language_pack_selection` |
+| Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge. | `WSA-RT-009_windows_language_pack_selection` done for Windows pack-aware selector baseline |
 | Word list manager | Toolbar button is a TODO; settings exposes `isDomainListsEnabled`, and the domain-list tab is a placeholder. | Match current macOS behavior first; keep as placeholder/settings entry until a shared domain-list manager design exists. | Future shared/domain-list sprint |
 | Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then Windows UI Automation `TextPattern`/`TextPattern2`, with guarded clipboard fallback. | `WSA-RT-010_windows_selection_import_to_editor` |
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows-native screen capture/snipping plus OCR, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011_windows_ocr_snip_pipeline` |
@@ -235,6 +235,12 @@ Deliver:
 - supported-language selector parity with macOS
 - pack availability indicator
 - selected language and pack path routed into the Windows core bridge
+
+Status:
+
+- Implemented on `2026-04-12`
+- Danish resolves to the existing legacy pack `WordSuggestorCore\Ressources\da_lexicon.sqlite`
+- Other macOS-supported languages are visible but marked as missing until their SQLite packs are installed
 
 ### WSA-RT-010_windows_selection_import_to_editor
 

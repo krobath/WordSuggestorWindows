@@ -8,25 +8,38 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 {
-    private const string DefaultLanguage = "da-DK";
     private const int DefaultMaxSuggestions = 40;
     private readonly string _workspaceRoot;
     private readonly string _coreRepoPath;
-    private readonly string _packPath;
     private readonly string? _prebuiltCliPath;
+    private LanguageOption _selectedLanguage;
 
     public WordSuggestorCoreCliSuggestionProvider()
     {
         _workspaceRoot = ResolveWorkspaceRoot();
         _coreRepoPath = Path.Combine(_workspaceRoot, "WordSuggestorCore");
-        _packPath = Path.Combine(_coreRepoPath, "Ressources", "da_lexicon.sqlite");
         _prebuiltCliPath = ResolvePrebuiltCliPath();
+        LanguageOptions = BuildLanguageOptions();
+        _selectedLanguage = LanguageOptions.FirstOrDefault(option => option.LanguageCode == "da-DK")
+            ?? LanguageOptions.FirstOrDefault(option => option.IsPackAvailable)
+            ?? LanguageOptions.First();
     }
 
     public string ProviderDescription =>
         _prebuiltCliPath is not null
-            ? $"WordSuggestorCore CLI ({Path.GetFileName(_prebuiltCliPath)})"
-            : "WordSuggestorCore CLI (swift run fallback)";
+            ? $"WordSuggestorCore CLI ({SelectedLanguage.ShortLabel}, {Path.GetFileName(_prebuiltCliPath)})"
+            : $"WordSuggestorCore CLI ({SelectedLanguage.ShortLabel}, swift run fallback)";
+
+    public IReadOnlyList<LanguageOption> LanguageOptions { get; }
+
+    public LanguageOption SelectedLanguage => _selectedLanguage;
+
+    public void SetLanguage(LanguageOption language)
+    {
+        var next = LanguageOptions.FirstOrDefault(option => option.LanguageCode == language.LanguageCode)
+            ?? LanguageOptions.First();
+        _selectedLanguage = next;
+    }
 
     public async Task<IReadOnlyList<SuggestionItem>> SuggestAsync(
         string textBeforeCaret,
@@ -38,7 +51,13 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
             return [];
         }
 
-        EnsureCoreArtifactsExist();
+        var language = SelectedLanguage;
+        if (!language.IsPackAvailable)
+        {
+            return [];
+        }
+
+        EnsureCoreArtifactsExist(language);
 
         var tempInputPath = Path.Combine(Path.GetTempPath(), $"wsw_input_{Guid.NewGuid():N}.txt");
 
@@ -50,7 +69,7 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
                 Encoding.UTF8,
                 cancellationToken);
 
-            var startInfo = BuildStartInfo(tempInputPath);
+            var startInfo = BuildStartInfo(tempInputPath, language);
             using var process = new Process { StartInfo = startInfo };
 
             process.Start();
@@ -88,14 +107,14 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         }
     }
 
-    private ProcessStartInfo BuildStartInfo(string inputPath)
+    private ProcessStartInfo BuildStartInfo(string inputPath, LanguageOption language)
     {
         if (_prebuiltCliPath is not null)
         {
             return new ProcessStartInfo
             {
                 FileName = _prebuiltCliPath,
-                Arguments = BuildCliArguments(inputPath),
+                Arguments = BuildCliArguments(inputPath, language),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 StandardOutputEncoding = Encoding.UTF8,
@@ -109,7 +128,7 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         return new ProcessStartInfo
         {
             FileName = "swift",
-            Arguments = $"run --package-path \"{_coreRepoPath}\" WordSuggestorSuggestCLI {BuildCliArguments(inputPath)}",
+            Arguments = $"run --package-path \"{_coreRepoPath}\" WordSuggestorSuggestCLI {BuildCliArguments(inputPath, language)}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8,
@@ -120,22 +139,71 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         };
     }
 
-    private string BuildCliArguments(string inputPath)
+    private string BuildCliArguments(string inputPath, LanguageOption language)
     {
-        return $"--lang {DefaultLanguage} --pack \"{_packPath}\" --inputs \"{inputPath}\" --k {DefaultMaxSuggestions}";
+        return $"--lang {language.LanguageCode} --pack \"{language.PackPath}\" --inputs \"{inputPath}\" --k {DefaultMaxSuggestions}";
     }
 
-    private void EnsureCoreArtifactsExist()
+    private void EnsureCoreArtifactsExist(LanguageOption language)
     {
         if (!Directory.Exists(_coreRepoPath))
         {
             throw new DirectoryNotFoundException($"Could not locate WordSuggestorCore repository at '{_coreRepoPath}'.");
         }
 
-        if (!File.Exists(_packPath))
+        if (string.IsNullOrWhiteSpace(language.PackPath) || !File.Exists(language.PackPath))
         {
-            throw new FileNotFoundException($"Could not locate Danish pack at '{_packPath}'.", _packPath);
+            throw new FileNotFoundException(
+                $"Could not locate {language.DisplayName} pack for '{language.LanguageCode}'.",
+                language.PackPath);
         }
+    }
+
+    private IReadOnlyList<LanguageOption> BuildLanguageOptions() =>
+        SupportedLanguages
+            .Select(template => template with { PackPath = ResolvePackPath(template) })
+            .ToArray();
+
+    private string? ResolvePackPath(LanguageOption language)
+    {
+        var searchRoots = new List<string>();
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (!string.IsNullOrWhiteSpace(appData))
+        {
+            searchRoots.Add(Path.Combine(appData, "WordSuggestor", "Packs"));
+        }
+
+        searchRoots.Add(Path.Combine(_workspaceRoot, "WordSuggestorWindows", "Packs"));
+        searchRoots.Add(Path.Combine(_coreRepoPath, "Ressources"));
+
+        foreach (var root in searchRoots.Where(Directory.Exists))
+        {
+            var versioned = Directory
+                .EnumerateFiles(root, $"{language.PackTag}_pack_v*.sqlite", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (versioned is not null)
+            {
+                return versioned;
+            }
+
+            var alias = Path.Combine(root, $"{language.PackTag}_pack.sqlite");
+            if (File.Exists(alias))
+            {
+                return alias;
+            }
+
+            if (!string.IsNullOrWhiteSpace(language.LegacyPackFileName))
+            {
+                var legacy = Path.Combine(root, language.LegacyPackFileName);
+                if (File.Exists(legacy))
+                {
+                    return legacy;
+                }
+            }
+        }
+
+        return null;
     }
 
     private string ResolveWorkspaceRoot()
@@ -188,6 +256,19 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         {
         }
     }
+
+    private static readonly LanguageOption[] SupportedLanguages =
+    [
+        new("da-DK", "DA", "Dansk", "da_DK", "da_lexicon.sqlite"),
+        new("en-US", "EN", "English", "en_US", "en_lexicon.sqlite"),
+        new("de-DE", "DE", "Deutsch", "de_DE", null),
+        new("fr-FR", "FR", "Francais", "fr_FR", null),
+        new("es-ES", "ES", "Espanol", "es_ES", null),
+        new("it-IT", "IT", "Italiano", "it_IT", null),
+        new("sv-SE", "SV", "Svenska", "sv_SE", null),
+        new("nb-NO", "NB", "Norsk bokmal", "nb_NO", null),
+        new("nn-NO", "NN", "Norsk nynorsk", "nn_NO", null)
+    ];
 
     private sealed class CliRequestRow
     {

@@ -1,6 +1,6 @@
 # WordSuggestorWindows Manual Smoke
 
-Last updated: `2026-04-11`
+Last updated: `2026-04-12`
 Owner: `Windows track`
 
 ## Goal
@@ -42,32 +42,39 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 1. Run `scripts\test_core_cli.ps1` and confirm the CLI returns Danish suggestions, including rows for `læ`, `ø`, `å`, `smør`, and `blå`.
 2. Run `scripts\run_app.ps1`.
 3. Confirm the app opens as the floating toolbar shell rather than a standard document window.
-4. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
-5. Open the editor manually and confirm the startup text is already inserted.
-6. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
-7. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
-8. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
-9. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
-10. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
-11. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-12. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-13. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
-14. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
-15. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-16. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-17. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-18. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-19. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-20. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-21. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-22. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-23. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
-24. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
-25. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
+4. Confirm the language selector shows `DA` as the installed Danish baseline language.
+5. Open the language selector and confirm the macOS-supported languages are visible; languages without local SQLite packs should show a missing-pack marker such as `!`.
+6. Select a missing-pack language and confirm the app reports that the language pack is missing instead of crashing or showing stale Danish suggestions.
+7. Select `DA` again and confirm Danish suggestions resume for an incomplete Danish token.
+8. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
+9. Open the editor manually and confirm the startup text is already inserted.
+10. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
+11. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
+12. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
+13. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
+14. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+15. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+16. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+17. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+18. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+19. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+20. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+21. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+22. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+23. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+24. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+25. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+26. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+27. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+28. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
+29. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
 
 ## Expected current behavior
 
 - The app should launch as a floating toolbar shell.
+- The toolbar language selector should expose the macOS-supported language set.
+- The selector should route installed packs into the core CLI bridge and mark missing packs without making the app fail.
+- In the current workspace, `DA` should be the only installed language because `WordSuggestorCore\Ressources\da_lexicon.sqlite` is the only local pack file.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
