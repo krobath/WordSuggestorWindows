@@ -749,7 +749,7 @@ Implemented:
 - Added `OcrImportResult` as the Windows OCR import contract.
 - Wired the top toolbar `OCR` action to:
   - hide the WordSuggestor toolbar while the screen area is captured,
-  - launch Windows screen snip through `ms-screenclip:`,
+  - launch the Windows screen snip overlay through synthetic `Win+Shift+S`,
   - wait for the captured image to appear on the clipboard,
   - run Windows OCR through a local PowerShell/WinRT bridge,
   - copy recognized text back to the clipboard,
@@ -775,6 +775,33 @@ Known note:
 Target outcome:
 
 - The Windows `OCR` toolbar action matches the macOS `ScreenSnipper` product flow with Windows-native APIs.
+
+### WSA-RT-011A_windows_ocr_screen_snip_invocation_fix
+Status: `Done` (`2026-04-12`)
+
+Scope:
+
+- Fix OCR startup on Windows installations where the `ms-screenclip:` URI opens the Snipping Tool window instead of the direct capture overlay.
+- Preserve the OCR recognition, clipboard text copy, and internal-editor ingest path from `WSA-RT-011`.
+
+Implemented:
+
+- Replaced the `ms-screenclip:` URI launch with a native `SendInput` sequence for `Win+Shift+S`.
+- Kept the existing clipboard image wait, OCR bridge, text normalization, clipboard text copy, and editor import behavior unchanged.
+- Updated OCR documentation to describe the `Win+Shift+S` overlay invocation path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- Manual confirmation is still needed because the actual screen selection overlay is interactive.
+- The launch-smoke process was stopped after validation so the debug executable is not left locked.
 
 ### WSA-RT-012_windows_speech_to_text_pipeline
 Status: `Planned`

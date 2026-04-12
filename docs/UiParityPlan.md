@@ -295,7 +295,8 @@ Deliver:
 Status:
 
 - Implemented on `2026-04-12`
-- Uses Windows screen snip (`ms-screenclip:`) and a local PowerShell/WinRT OCR bridge to avoid adding an offline package restore dependency
+- Uses Windows screen snip via `Win+Shift+S` and a local PowerShell/WinRT OCR bridge to avoid adding an offline package restore dependency
+- `WSA-RT-011A` replaced the earlier `ms-screenclip:` URI invocation because it opened the Snipping Tool window on this Windows installation
 - Direct PDF-file OCR import is deferred; visible PDF content can be captured through the screen snip path
 
 ### WSA-RT-012_windows_speech_to_text_pipeline

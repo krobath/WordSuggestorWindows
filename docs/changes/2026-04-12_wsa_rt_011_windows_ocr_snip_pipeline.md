@@ -16,7 +16,7 @@ Implemented the first Windows OCR toolbar pipeline using Windows screen snip, Wi
 
 - Added `OcrImportResult` as the OCR import contract.
 - Added `WindowsOcrService` for:
-  - launching `ms-screenclip:`,
+  - launching the Windows screen snip overlay through `Win+Shift+S` after the `WSA-RT-011A` follow-up fix,
   - placing a temporary clipboard sentinel before capture,
   - waiting for the clipboard image produced by Windows screen snip,
   - saving the clipboard image as a temporary PNG,
@@ -64,4 +64,5 @@ No telemetry was added. OCR text is copied to the local clipboard and staged in 
 - Direct PDF-file OCR import is not implemented in this sprint. Visible PDF content can be captured through the screen snip path.
 - The implementation depends on Windows screen snip placing a bitmap on the clipboard and Windows OCR being available for the current user profile.
 - The first direct compile-time WinRT approach required `Microsoft.Windows.SDK.NET.Ref`, which was not available offline in this workspace; the final implementation uses a local PowerShell/WinRT bridge instead.
+- `WSA-RT-011A` replaced the original `ms-screenclip:` URI invocation with synthetic `Win+Shift+S`, because the URI opened the Snipping Tool window on this Windows installation.
 - The launch-smoke process was stopped after validation so the debug executable is not left locked.

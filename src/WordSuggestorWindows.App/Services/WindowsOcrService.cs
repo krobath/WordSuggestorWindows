@@ -12,6 +12,11 @@ public sealed class WindowsOcrService
 {
     private static readonly TimeSpan ClipboardImageTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ClipboardPollInterval = TimeSpan.FromMilliseconds(250);
+    private const uint InputKeyboard = 1;
+    private const uint KeyEventKeyUp = 0x0002;
+    private const ushort VirtualKeyLeftWindows = 0x5B;
+    private const ushort VirtualKeyShift = 0x10;
+    private const ushort VirtualKeyS = 0x53;
     private const string OcrBridgeScript = """
         param(
             [Parameter(Mandatory = $true)]
@@ -81,7 +86,7 @@ public sealed class WindowsOcrService
                 return null;
             }
 
-            if (!TryLaunchScreenClip())
+            if (!TryStartScreenSnipOverlay())
             {
                 return null;
             }
@@ -128,25 +133,19 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static bool TryLaunchScreenClip()
+    private static bool TryStartScreenSnipOverlay()
     {
-        try
+        var inputs = new[]
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "ms-screenclip:",
-                UseShellExecute = true
-            });
-            return true;
-        }
-        catch (InvalidOperationException)
-        {
-            return false;
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            return false;
-        }
+            KeyboardInput(VirtualKeyLeftWindows, keyUp: false),
+            KeyboardInput(VirtualKeyShift, keyUp: false),
+            KeyboardInput(VirtualKeyS, keyUp: false),
+            KeyboardInput(VirtualKeyS, keyUp: true),
+            KeyboardInput(VirtualKeyShift, keyUp: true),
+            KeyboardInput(VirtualKeyLeftWindows, keyUp: true)
+        };
+
+        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>()) == inputs.Length;
     }
 
     private static async Task<BitmapSource?> WaitForClipboardImageAsync(CancellationToken cancellationToken)
@@ -402,5 +401,46 @@ public sealed class WindowsOcrService
         catch (UnauthorizedAccessException)
         {
         }
+    }
+
+    private static INPUT KeyboardInput(ushort virtualKey, bool keyUp) =>
+        new()
+        {
+            type = InputKeyboard,
+            U = new InputUnion
+            {
+                ki = new KEYBDINPUT
+                {
+                    wVk = virtualKey,
+                    dwFlags = keyUp ? KeyEventKeyUp : 0
+                }
+            }
+        };
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT
+    {
+        public uint type;
+        public InputUnion U;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct InputUnion
+    {
+        [FieldOffset(0)]
+        public KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public UIntPtr dwExtraInfo;
     }
 }
