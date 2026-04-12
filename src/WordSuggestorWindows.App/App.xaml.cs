@@ -8,6 +8,12 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (WindowsOcrCallbackBridge.TryPersistStartupCallback(e.Args))
+        {
+            Shutdown(0);
+            return;
+        }
+
         base.OnStartup(e);
 
         var startupText = ResolveStartupText(e.Args);

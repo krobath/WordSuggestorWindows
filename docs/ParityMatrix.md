@@ -45,7 +45,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Caret anchor extraction | macOS AX | New Windows impl via Windows APIs | `Planned: WSA-RT-003` |
 | Floating suggestion panel | `MacSuggestionPanelController.swift` | New Windows impl | `Baseline done in internal editor path` |
 | Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Planned: WSA-UX-010` |
-| OCR / screen snip | `ScreenSnipper.swift` | New Windows impl using `Win+Shift+S` screen snip overlay and Windows OCR bridge | `Baseline done: WSA-RT-011; invocation fix: WSA-RT-011A` |
+| OCR / screen snip | `ScreenSnipper.swift` | New Windows impl using Snipping Tool protocol callback, shared-storage token redemption, and Windows OCR bridge | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B` |
 | Speech to text | `SpeechToTextService.swift` | New Windows impl | `Planned: WSA-RT-012` |
 | Suggestion row text to speech | `SuggestionPanelView.swift` + system TTS | New Windows impl for overlay row speaker action | `Baseline done in internal editor path` |
 | Full app text to speech feature | `NeuralTTSService.swift` / system TTS | New Windows impl | `Planned: WSA-RT-013` |

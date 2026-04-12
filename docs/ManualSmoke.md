@@ -83,7 +83,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The `TXT` toolbar button should import selected text from the internal editor first, then from a recent Windows UI Automation-compatible external selection when available, then by guarded clipboard fallback.
 - Clipboard fallback should restore WordSuggestor focus and best-effort restore the previous clipboard contents after the copy attempt.
 - App-specific selected-text import behavior should be recorded in `docs/SelectionImportCompatibilityMatrix.md` using the local diagnostic file `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` or debugger output lines prefixed with `WordSuggestor selection import:`.
-- The `OCR` toolbar button should hide WordSuggestor, start the Windows `Win+Shift+S` screen snip overlay, OCR the captured clipboard image, copy the recognized text to the clipboard, and import it into the internal editor.
+- The `OCR` toolbar button should hide WordSuggestor, start the Windows Snipping Tool protocol capture flow, receive the `wordsuggestor-ocr:` callback, OCR the returned image token, copy the recognized text to the clipboard, and import it into the internal editor.
 - Direct PDF-file OCR import is not implemented yet; visible PDF content should be captured through the screen snip path.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
@@ -115,3 +115,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If bootstrap prints `warning: couldn't find pc file for sqlite3` but `scripts\test_core_cli.ps1` returns suggestions and logs `Pack opened ... da_lexicon.sqlite`, the SQLite pack is loading; the warning is from pkg-config discovery during the Swift build.
 - If selected-text import works in one app but not another, use `docs/SelectionImportCompatibilityMatrix.md` to record whether UI Automation or clipboard fallback was blocked.
 - If OCR returns no text, verify that Windows screen snip placed an image on the clipboard and that Windows OCR language support is installed for the active user profile.
+- If OCR never returns to WordSuggestor after selecting a region, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-callback.log` and confirm the per-user `wordsuggestor-ocr:` protocol handler exists under `HKCU\Software\Classes\wordsuggestor-ocr`.

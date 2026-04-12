@@ -802,6 +802,49 @@ Known note:
 
 - Manual confirmation is still needed because the actual screen selection overlay is interactive.
 - The launch-smoke process was stopped after validation so the debug executable is not left locked.
+- Superseded by `WSA-RT-011B_windows_ocr_snipping_tool_protocol_callback`, which replaces hotkey injection with Microsofts Snipping Tool protocol callback flow.
+
+### WSA-RT-011B_windows_ocr_snipping_tool_protocol_callback
+Status: `Done` (`2026-04-12`)
+
+Scope:
+
+- Replace the fragile `Win+Shift+S` hotkey injection path from `WSA-RT-011A`.
+- Use Microsofts Snipping Tool protocol integration with redirect callback and shared-storage token retrieval.
+- Preserve OCR recognition, clipboard text copy, and internal-editor ingest behavior.
+
+Implemented:
+
+- Added `OcrScreenClipCallback` as the parsed Snipping Tool callback contract.
+- Added `WindowsOcrCallbackBridge` to:
+  - detect `wordsuggestor-ocr:` startup callbacks,
+  - reconstruct split callback URI arguments defensively,
+  - parse `code`, `reason`, `token`, and correlation id,
+  - persist callback URI data to `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks`,
+  - emit non-token diagnostics to `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-callback.log`.
+- Changed app startup so OCR callback processes are handled before normal WPF startup and exit without opening the main window.
+- Changed `WindowsOcrService` to:
+  - register `wordsuggestor-ocr:` under `HKCU\Software\Classes`,
+  - launch `ms-screenclip://capture/image?...` with `rectangle`, `enabledModes=RectangleSnip`, `auto-save=false`, `user-agent=WordSuggestor`, correlation id, and redirect URI,
+  - wait for the matching callback file,
+  - redeem the returned shared-storage token through a local PowerShell/WinRT bridge,
+  - run the existing Windows OCR bridge on the redeemed image,
+  - copy recognized text to the clipboard and import it into the editor.
+- Removed the `SendInput` hotkey injection path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- Manual confirmation is still needed because the Snipping Tool screen selection and redirect callback are interactive.
+- The protocol registration is per-user under HKCU and does not require admin rights.
+- The launch-smoke process was stopped after validation so the debug executable is not left locked.
 
 ### WSA-RT-012_windows_speech_to_text_pipeline
 Status: `Planned`

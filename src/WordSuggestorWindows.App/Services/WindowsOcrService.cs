@@ -3,20 +3,15 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
-using System.Windows.Media.Imaging;
+using Microsoft.Win32;
 using WordSuggestorWindows.App.Models;
 
 namespace WordSuggestorWindows.App.Services;
 
 public sealed class WindowsOcrService
 {
-    private static readonly TimeSpan ClipboardImageTimeout = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan ClipboardPollInterval = TimeSpan.FromMilliseconds(250);
-    private const uint InputKeyboard = 1;
-    private const uint KeyEventKeyUp = 0x0002;
-    private const ushort VirtualKeyLeftWindows = 0x5B;
-    private const ushort VirtualKeyShift = 0x10;
-    private const ushort VirtualKeyS = 0x53;
+    private static readonly TimeSpan SnippingToolCallbackTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan CallbackPollInterval = TimeSpan.FromMilliseconds(250);
     private const string OcrBridgeScript = """
         param(
             [Parameter(Mandatory = $true)]
@@ -72,34 +67,67 @@ public sealed class WindowsOcrService
             }
         }
         """;
+    private const string SharedStorageTokenBridgeScript = """
+        param(
+            [Parameter(Mandatory = $true)]
+            [string] $Token,
+
+            [Parameter(Mandatory = $true)]
+            [string] $OutputPath
+        )
+
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
+        Add-Type -AssemblyName System.Runtime.WindowsRuntime
+        $null = [Windows.ApplicationModel.DataTransfer.SharedStorageAccessManager, Windows.ApplicationModel.DataTransfer, ContentType = WindowsRuntime]
+        $null = [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+        $null = [Windows.Storage.StorageFolder, Windows.Storage, ContentType = WindowsRuntime]
+        $null = [Windows.Storage.NameCollisionOption, Windows.Storage, ContentType = WindowsRuntime]
+
+        function Await($Operation, [Type] $ResultType) {
+            $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() |
+                Where-Object { $_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1 } |
+                Select-Object -First 1
+            $task = $asTask.MakeGenericMethod($ResultType).Invoke($null, @($Operation))
+            $task.GetAwaiter().GetResult()
+        }
+
+        $outputDirectory = Split-Path -Parent $OutputPath
+        $outputName = Split-Path -Leaf $OutputPath
+        $folder = Await ([Windows.Storage.StorageFolder]::GetFolderFromPathAsync($outputDirectory)) ([Windows.Storage.StorageFolder])
+        $file = Await ([Windows.ApplicationModel.DataTransfer.SharedStorageAccessManager]::RedeemTokenForFileAsync($Token)) ([Windows.Storage.StorageFile])
+        $copy = Await ($file.CopyAsync($folder, $outputName, [Windows.Storage.NameCollisionOption]::ReplaceExisting)) ([Windows.Storage.StorageFile])
+        [Console]::Out.Write($copy.Path)
+        """;
 
     public async Task<OcrImportResult?> CaptureScreenAndRecognizeAsync(CancellationToken cancellationToken = default)
     {
-        var originalClipboard = TryGetClipboardDataObject();
-        var shouldRestoreClipboard = true;
-        var sentinel = $"__WordSuggestorOcrProbe_{Guid.NewGuid():N}__";
+        var correlationId = Guid.NewGuid().ToString("D");
+        WindowsOcrCallbackBridge.DeleteCallback(correlationId);
 
         try
         {
-            if (!TrySetClipboardText(sentinel))
+            if (!TryEnsureCallbackProtocolRegistration() || !TryLaunchSnippingToolProtocol(correlationId))
             {
                 return null;
             }
 
-            if (!TryStartScreenSnipOverlay())
+            var callback = await WaitForCallbackAsync(correlationId, cancellationToken);
+            if (callback is null || !callback.IsSuccess || callback.Token is null)
             {
                 return null;
             }
 
-            var image = await WaitForClipboardImageAsync(cancellationToken);
-            if (image is null)
-            {
-                return null;
-            }
-
-            var tempPath = SaveBitmapSourceToTempPng(image);
+            var tempPath = ResolveTempPngPath("wordsuggestor-ocr-snip");
             try
             {
+                var redeemedPath = await RedeemSharedStorageTokenAsync(callback.Token, tempPath, cancellationToken);
+                if (string.IsNullOrWhiteSpace(redeemedPath) || !File.Exists(redeemedPath))
+                {
+                    return null;
+                }
+
                 var text = await RecognizeTextFromImageAsync(tempPath, cancellationToken);
                 if (string.IsNullOrWhiteSpace(text))
                 {
@@ -112,7 +140,6 @@ public sealed class WindowsOcrService
                     return null;
                 }
 
-                shouldRestoreClipboard = false;
                 return new OcrImportResult(
                     normalized,
                     "Windows screen snip OCR",
@@ -126,61 +153,96 @@ public sealed class WindowsOcrService
         }
         finally
         {
-            if (shouldRestoreClipboard)
-            {
-                RestoreClipboard(originalClipboard);
-            }
+            WindowsOcrCallbackBridge.DeleteCallback(correlationId);
         }
     }
 
-    private static bool TryStartScreenSnipOverlay()
+    private static bool TryLaunchSnippingToolProtocol(string correlationId)
     {
-        var inputs = new[]
-        {
-            KeyboardInput(VirtualKeyLeftWindows, keyUp: false),
-            KeyboardInput(VirtualKeyShift, keyUp: false),
-            KeyboardInput(VirtualKeyS, keyUp: false),
-            KeyboardInput(VirtualKeyS, keyUp: true),
-            KeyboardInput(VirtualKeyShift, keyUp: true),
-            KeyboardInput(VirtualKeyLeftWindows, keyUp: true)
-        };
+        var query = string.Join(
+            "&",
+            "rectangle",
+            "api-version=1.0",
+            "enabledModes=RectangleSnip",
+            "auto-save=false",
+            $"user-agent={Uri.EscapeDataString("WordSuggestor")}",
+            $"x-request-correlation-id={Uri.EscapeDataString(correlationId)}",
+            $"redirect-uri={Uri.EscapeDataString(WindowsOcrCallbackBridge.CallbackUri)}");
+        var uri = $"ms-screenclip://capture/image?{query}";
 
-        return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>()) == inputs.Length;
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
     }
 
-    private static async Task<BitmapSource?> WaitForClipboardImageAsync(CancellationToken cancellationToken)
+    private static bool TryEnsureCallbackProtocolRegistration()
     {
-        var deadline = DateTimeOffset.Now + ClipboardImageTimeout;
+        var executablePath = Environment.ProcessPath ??
+            Process.GetCurrentProcess().MainModule?.FileName;
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var schemeKey = Registry.CurrentUser.CreateSubKey(
+                $@"Software\Classes\{WindowsOcrCallbackBridge.CallbackScheme}");
+            if (schemeKey is null)
+            {
+                return false;
+            }
+
+            schemeKey.SetValue(string.Empty, "URL:WordSuggestor OCR Callback");
+            schemeKey.SetValue("URL Protocol", string.Empty);
+
+            using var commandKey = schemeKey.CreateSubKey(@"shell\open\command");
+            commandKey?.SetValue(string.Empty, $"\"{executablePath}\" \"%1\"");
+            return commandKey is not null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<OcrScreenClipCallback?> WaitForCallbackAsync(
+        string correlationId,
+        CancellationToken cancellationToken)
+    {
+        var deadline = DateTimeOffset.Now + SnippingToolCallbackTimeout;
         while (DateTimeOffset.Now < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var image = TryGetClipboardImage();
-            if (image is not null)
+            var callback = WindowsOcrCallbackBridge.TryReadCallback(correlationId);
+            if (callback is not null)
             {
-                return image;
+                return callback;
             }
 
-            await Task.Delay(ClipboardPollInterval, cancellationToken);
+            await Task.Delay(CallbackPollInterval, cancellationToken);
         }
 
         return null;
-    }
-
-    private static BitmapSource? TryGetClipboardImage()
-    {
-        try
-        {
-            return Clipboard.ContainsImage() ? Clipboard.GetImage() : null;
-        }
-        catch (COMException)
-        {
-            return null;
-        }
-        catch (ExternalException)
-        {
-            return null;
-        }
     }
 
     private static async Task<string?> RecognizeTextFromImageAsync(string imagePath, CancellationToken cancellationToken)
@@ -190,21 +252,7 @@ public sealed class WindowsOcrService
 
         try
         {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
-            };
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-ExecutionPolicy");
-            startInfo.ArgumentList.Add("Bypass");
-            startInfo.ArgumentList.Add("-File");
-            startInfo.ArgumentList.Add(scriptPath);
+            var startInfo = CreatePowerShellStartInfo(scriptPath);
             startInfo.ArgumentList.Add("-ImagePath");
             startInfo.ArgumentList.Add(imagePath);
 
@@ -230,15 +278,65 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static string SaveBitmapSourceToTempPng(BitmapSource image)
+    private static async Task<string?> RedeemSharedStorageTokenAsync(
+        string token,
+        string outputPath,
+        CancellationToken cancellationToken)
     {
-        var tempPath = Path.Combine(Path.GetTempPath(), $"wordsuggestor-ocr-{Guid.NewGuid():N}.png");
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(image));
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"wordsuggestor-ocr-token-bridge-{Guid.NewGuid():N}.ps1");
+        await File.WriteAllTextAsync(scriptPath, SharedStorageTokenBridgeScript, Encoding.UTF8, cancellationToken);
 
-        using var stream = File.Create(tempPath);
-        encoder.Save(stream);
-        return tempPath;
+        try
+        {
+            var startInfo = CreatePowerShellStartInfo(scriptPath);
+            startInfo.ArgumentList.Add("-Token");
+            startInfo.ArgumentList.Add(token);
+            startInfo.ArgumentList.Add("-OutputPath");
+            startInfo.ArgumentList.Add(outputPath);
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+
+            var output = await outputTask;
+            _ = await errorTask;
+            return process.ExitCode == 0
+                ? output.Trim()
+                : null;
+        }
+        finally
+        {
+            TryDeleteTempFile(scriptPath);
+        }
+    }
+
+    private static string ResolveTempPngPath(string prefix) =>
+        Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}.png");
+
+    private static ProcessStartInfo CreatePowerShellStartInfo(string scriptPath)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-ExecutionPolicy");
+        startInfo.ArgumentList.Add("Bypass");
+        startInfo.ArgumentList.Add("-File");
+        startInfo.ArgumentList.Add(scriptPath);
+        return startInfo;
     }
 
     private static string NormalizeOcrText(string text)
@@ -336,22 +434,6 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static IDataObject? TryGetClipboardDataObject()
-    {
-        try
-        {
-            return Clipboard.GetDataObject();
-        }
-        catch (COMException)
-        {
-            return null;
-        }
-        catch (ExternalException)
-        {
-            return null;
-        }
-    }
-
     private static bool TrySetClipboardText(string text)
     {
         try
@@ -369,26 +451,6 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static void RestoreClipboard(IDataObject? originalClipboard)
-    {
-        try
-        {
-            if (originalClipboard is null)
-            {
-                Clipboard.Clear();
-                return;
-            }
-
-            Clipboard.SetDataObject(originalClipboard, copy: true);
-        }
-        catch (COMException)
-        {
-        }
-        catch (ExternalException)
-        {
-        }
-    }
-
     private static void TryDeleteTempFile(string path)
     {
         try
@@ -403,44 +465,4 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static INPUT KeyboardInput(ushort virtualKey, bool keyUp) =>
-        new()
-        {
-            type = InputKeyboard,
-            U = new InputUnion
-            {
-                ki = new KEYBDINPUT
-                {
-                    wVk = virtualKey,
-                    dwFlags = keyUp ? KeyEventKeyUp : 0
-                }
-            }
-        };
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct INPUT
-    {
-        public uint type;
-        public InputUnion U;
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    private struct InputUnion
-    {
-        [FieldOffset(0)]
-        public KEYBDINPUT ki;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct KEYBDINPUT
-    {
-        public ushort wVk;
-        public ushort wScan;
-        public uint dwFlags;
-        public uint time;
-        public UIntPtr dwExtraInfo;
-    }
 }

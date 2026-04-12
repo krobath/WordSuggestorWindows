@@ -51,3 +51,4 @@ No telemetry was added.
 
 - Manual confirmation is still needed because the screen snip overlay itself is interactive.
 - The launch-smoke process was stopped after validation so the debug executable is not left locked.
+- Superseded by `WSA-RT-011B_windows_ocr_snipping_tool_protocol_callback`, which replaces hotkey injection with Microsofts Snipping Tool protocol callback flow.
