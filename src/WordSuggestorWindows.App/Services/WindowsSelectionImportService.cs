@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Automation;
 using WordSuggestorWindows.App.Models;
 
@@ -6,6 +7,15 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed class WindowsSelectionImportService
 {
+    private const int ClipboardCopyDelayMs = 160;
+    private const int ForegroundActivationDelayMs = 70;
+    private const uint InputKeyboard = 1;
+    private const uint KeyEventKeyUp = 0x0002;
+    private const ushort VirtualKeyControl = 0x11;
+    private const ushort VirtualKeyC = 0x43;
+
+    public IntPtr CurrentForegroundWindow => GetForegroundWindow();
+
     public SelectionImportResult? TryReadSelectionFromForegroundWindow(IntPtr excludedWindowHandle)
     {
         var foreground = GetForegroundWindow();
@@ -16,6 +26,52 @@ public sealed class WindowsSelectionImportService
 
         return TryReadFocusedSelection("Windows UI Automation focused element")
             ?? TryReadSelectionFromWindow(foreground);
+    }
+
+    public async Task<SelectionImportResult?> TryReadSelectionWithClipboardFallbackAsync(
+        IntPtr targetWindowHandle,
+        IntPtr returnWindowHandle)
+    {
+        if (targetWindowHandle == IntPtr.Zero || targetWindowHandle == returnWindowHandle)
+        {
+            return null;
+        }
+
+        var originalClipboard = TryGetClipboardDataObject();
+        var sentinel = $"__WordSuggestorClipboardProbe_{Guid.NewGuid():N}__";
+
+        try
+        {
+            if (!TrySetClipboardSentinel(sentinel))
+            {
+                return null;
+            }
+
+            SetForegroundWindow(targetWindowHandle);
+            await Task.Delay(ForegroundActivationDelayMs);
+            SendCopyShortcut();
+            await Task.Delay(ClipboardCopyDelayMs);
+
+            var copiedText = TryGetClipboardText();
+            if (string.IsNullOrWhiteSpace(copiedText) ||
+                string.Equals(copiedText, sentinel, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            return new SelectionImportResult(
+                copiedText.Trim(),
+                "ekstern app via clipboard fallback",
+                DateTimeOffset.Now);
+        }
+        finally
+        {
+            RestoreClipboard(originalClipboard);
+            if (returnWindowHandle != IntPtr.Zero)
+            {
+                SetForegroundWindow(returnWindowHandle);
+            }
+        }
     }
 
     private static SelectionImportResult? TryReadSelectionFromWindow(IntPtr windowHandle)
@@ -97,6 +153,134 @@ public sealed class WindowsSelectionImportService
             : new SelectionImportResult(text, source, DateTimeOffset.Now);
     }
 
+    private static string? TryGetClipboardText()
+    {
+        try
+        {
+            return Clipboard.ContainsText(TextDataFormat.UnicodeText)
+                ? Clipboard.GetText(TextDataFormat.UnicodeText)
+                : null;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ExternalException)
+        {
+            return null;
+        }
+    }
+
+    private static IDataObject? TryGetClipboardDataObject()
+    {
+        try
+        {
+            return Clipboard.GetDataObject();
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ExternalException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TrySetClipboardSentinel(string sentinel)
+    {
+        try
+        {
+            Clipboard.SetText(sentinel, TextDataFormat.UnicodeText);
+            return true;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (ExternalException)
+        {
+            return false;
+        }
+    }
+
+    private static void RestoreClipboard(IDataObject? originalClipboard)
+    {
+        try
+        {
+            if (originalClipboard is null)
+            {
+                Clipboard.Clear();
+                return;
+            }
+
+            Clipboard.SetDataObject(originalClipboard, copy: true);
+        }
+        catch (COMException)
+        {
+        }
+        catch (ExternalException)
+        {
+        }
+    }
+
+    private static void SendCopyShortcut()
+    {
+        var inputs = new[]
+        {
+            KeyboardInput(VirtualKeyControl, keyUp: false),
+            KeyboardInput(VirtualKeyC, keyUp: false),
+            KeyboardInput(VirtualKeyC, keyUp: true),
+            KeyboardInput(VirtualKeyControl, keyUp: true)
+        };
+
+        _ = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+    }
+
+    private static INPUT KeyboardInput(ushort virtualKey, bool keyUp) =>
+        new()
+        {
+            type = InputKeyboard,
+            U = new InputUnion
+            {
+                ki = new KEYBDINPUT
+                {
+                    wVk = virtualKey,
+                    dwFlags = keyUp ? KeyEventKeyUp : 0
+                }
+            }
+        };
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT
+    {
+        public uint type;
+        public InputUnion U;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct InputUnion
+    {
+        [FieldOffset(0)]
+        public KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public UIntPtr dwExtraInfo;
+    }
 }

@@ -663,12 +663,44 @@ Validation:
 
 Known note:
 
-- This sprint intentionally does not send synthetic `Ctrl+C` to external apps. Clipboard-copy fallback is deferred until we can add it with clear focus/clipboard preservation guardrails.
+- This sprint's original UI Automation-only limitation is hardened by `WSA-RT-010A_windows_selection_import_clipboard_fallback`.
 - External selection support depends on the target app exposing selection through Windows UI Automation `TextPattern`.
 
 Target outcome:
 
 - The Windows `TXT` toolbar action behaves like macOS `state.importSelectionForAnalysis()`.
+
+### WSA-RT-010A_windows_selection_import_clipboard_fallback
+Status: `Done` (`2026-04-12`)
+
+Scope:
+
+- Harden selected-text import so it works in more apps than UI Automation-only selection import.
+- Add a guarded clipboard fallback that targets the most recent external foreground window, not WordSuggestor itself.
+- Preserve the user's clipboard as far as possible after the fallback copy attempt.
+
+Implemented:
+
+- Added a sentinel-based clipboard copy fallback in `WindowsSelectionImportService`.
+- Stored the most recent non-WordSuggestor foreground window while polling for external selection.
+- Updated the `TXT` toolbar action so fallback order is now:
+  - internal RichTextBox selection
+  - live external UI Automation selection
+  - recent cached external UI Automation selection
+  - guarded clipboard fallback using `Ctrl+C` against the most recent external foreground window
+- Restored WordSuggestor focus after the fallback attempt.
+- Restored the previous clipboard data object after the copy attempt where Windows clipboard access permits it.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- Clipboard fallback is best-effort because some apps block synthetic copy, expose delayed clipboard formats, or do not allow WordSuggestor to bring them foreground programmatically.
+- This fallback deliberately uses a sentinel to avoid importing stale clipboard text when no copy actually happened.
 
 ### WSA-RT-011_windows_ocr_snip_pipeline
 Status: `Planned`
@@ -775,11 +807,12 @@ Known note:
 9. `WSA-RT-003` - external-app Windows integration
 10. `WSA-RT-009` - language pack selection parity
 11. `WSA-RT-010` - selected text import into editor
-12. `WSA-RT-011` - OCR snip pipeline
-13. `WSA-RT-012` - speech-to-text dictation pipeline
-14. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-15. `WSA-RT-014` - error insights store and view
-16. `WSA-UX-010` - settings window parity
+12. `WSA-RT-010A` - selected text import clipboard fallback
+13. `WSA-RT-011` - OCR snip pipeline
+14. `WSA-RT-012` - speech-to-text dictation pipeline
+15. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+16. `WSA-RT-014` - error insights store and view
+17. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

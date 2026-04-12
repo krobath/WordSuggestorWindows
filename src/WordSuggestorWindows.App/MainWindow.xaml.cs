@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
     private IntPtr _windowHandle;
+    private IntPtr _lastExternalWindowHandle;
     private bool _isInitialPositionApplied;
     private bool _isSynchronizingEditorDocument;
     private SelectionImportResult? _lastExternalSelection;
@@ -211,13 +212,13 @@ public partial class MainWindow : Window
         _viewModel.ToggleEditorExpanded();
     }
 
-    private void ToolbarAction_OnClick(object sender, RoutedEventArgs e)
+    private async void ToolbarAction_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string action })
         {
             if (action == "import")
             {
-                ImportSelectionIntoEditor();
+                await ImportSelectionIntoEditorAsync();
                 return;
             }
 
@@ -227,6 +228,12 @@ public partial class MainWindow : Window
 
     private void ExternalSelectionPollTimerOnTick(object? sender, EventArgs e)
     {
+        var foreground = _selectionImportService.CurrentForegroundWindow;
+        if (foreground != IntPtr.Zero && foreground != _windowHandle)
+        {
+            _lastExternalWindowHandle = foreground;
+        }
+
         var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
         if (externalSelection is not null)
         {
@@ -234,7 +241,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ImportSelectionIntoEditor()
+    private async Task ImportSelectionIntoEditorAsync()
     {
         var internalSelection = GetSelectedEditorPlainText();
         if (!string.IsNullOrWhiteSpace(internalSelection))
@@ -249,6 +256,16 @@ public partial class MainWindow : Window
         if (selection is not null)
         {
             _viewModel.ImportTextIntoEditor(selection.Text, selection.Source);
+            RefocusEditor();
+            return;
+        }
+
+        var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
+            _lastExternalWindowHandle,
+            _windowHandle);
+        if (clipboardSelection is not null)
+        {
+            _viewModel.ImportTextIntoEditor(clipboardSelection.Text, clipboardSelection.Source);
             RefocusEditor();
             return;
         }

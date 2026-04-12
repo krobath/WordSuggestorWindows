@@ -17,7 +17,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Toolbar global suggestions toggle | `AppState.isGlobalCaptureEnabled` + `GlobalKeyCaptureManager` | Connect existing Windows toggle to global capture, focused text tracking, and overlay session control | `Planned: WSA-RT-003` |
 | Toolbar language selector | `FloatingToolbarView.supportedLanguages` + `SQLiteLanguagePackSource.defaultLocator` | Replace Danish-only Windows selector with language/pack-aware selector | `Baseline done: WSA-RT-009` |
 | Toolbar word-list button | `FloatingToolbarView` TODO + `SettingsView.domainTab` placeholder | Preserve placeholder/settings behavior until shared domain-list manager exists | `Placeholder parity only` |
-| Toolbar selected-text import | `AppState.importSelectionForAnalysis()` | Use internal editor selection first, then live/recent cached Windows UI Automation selection | `Baseline done: WSA-RT-010` |
+| Toolbar selected-text import | `AppState.importSelectionForAnalysis()` | Use internal editor selection first, then live/recent cached Windows UI Automation selection, then guarded clipboard fallback | `Baseline done: WSA-RT-010 + WSA-RT-010A` |
 | Toolbar OCR action | `ScreenSnipper.swift` + `AppState.ingestOCRText()` | Windows-native snipping/capture, OCR, clipboard copy, editor ingest, analysis refresh | `Planned: WSA-RT-011` |
 | Toolbar speech-to-text action | `AppState.toggleSpeechToTextIntoEditor()` + `SpeechToTextService.swift` | Windows speech recognition with active-range partial/final transcript replacement | `Planned: WSA-RT-012` |
 | Toolbar text-to-speech action | `FloatingToolbarView.speakSelection()` + `SpeechHighlighter.swift` | Windows-native selected/staged text speech with editor highlight integration | `Planned: WSA-RT-013` |

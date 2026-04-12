@@ -104,7 +104,7 @@ Source references:
 | Toggle word suggestions on/off | `isGlobalCaptureEnabled` starts/stops `GlobalKeyCaptureManager` and persists the setting. | Connect the Windows toggle to global typing capture, focused text tracking, external commit, and overlay visibility. | `WSA-RT-003_windows_external_input_and_caret_integration` |
 | Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge. | `WSA-RT-009_windows_language_pack_selection` done for Windows pack-aware selector baseline |
 | Word list manager | Toolbar button is a TODO; settings exposes `isDomainListsEnabled`, and the domain-list tab is a placeholder. | Match current macOS behavior first; keep as placeholder/settings entry until a shared domain-list manager design exists. | Future shared/domain-list sprint |
-| Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then cached/live Windows UI Automation `TextPattern` selection. | `WSA-RT-010_windows_selection_import_to_editor` done for UIA baseline |
+| Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then cached/live Windows UI Automation `TextPattern` selection, then guarded clipboard fallback. | `WSA-RT-010` + `WSA-RT-010A` done |
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows-native screen capture/snipping plus OCR, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011_windows_ocr_snip_pipeline` |
 | Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` |
 | Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` |
@@ -255,7 +255,20 @@ Status:
 
 - Implemented on `2026-04-12`
 - Internal RichTextBox selection and live/recent cached external UI Automation selection are supported
-- Synthetic clipboard `Ctrl+C` fallback remains deferred because it needs explicit clipboard preservation/focus guardrails
+
+### WSA-RT-010A_windows_selection_import_clipboard_fallback
+
+Deliver:
+
+- guarded clipboard fallback for apps that do not expose reliable UI Automation selection text
+- focus targeting against the most recent external foreground window
+- clipboard sentinel to avoid stale-text imports
+- best-effort clipboard restoration after fallback copy
+
+Status:
+
+- Implemented on `2026-04-12`
+- Clipboard fallback remains best-effort because external apps can block synthetic copy or foreground activation
 
 ### WSA-RT-011_windows_ocr_snip_pipeline
 
