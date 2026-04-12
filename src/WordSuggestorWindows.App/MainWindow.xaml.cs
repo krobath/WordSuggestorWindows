@@ -30,6 +30,11 @@ public partial class MainWindow : Window
         "WordSuggestor",
         "diagnostics",
         "selection-import.log");
+    private static readonly string OcrFlowDiagnosticLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WordSuggestor",
+        "diagnostics",
+        "ocr-flow.log");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsOcrService _ocrService = new();
@@ -268,11 +273,13 @@ public partial class MainWindow : Window
     private async Task RunOcrScreenSnipAsync()
     {
         _viewModel.SetStatusMessage("Vælg et skærmudsnit til OCR.");
+        WriteOcrFlowDiagnostic("UI OCR action started.");
         HideOverlayWindow();
 
         var wasVisible = IsVisible;
         if (wasVisible)
         {
+            WriteOcrFlowDiagnostic("Hiding WordSuggestor window before Snipping Tool capture.");
             Hide();
             await Task.Delay(150);
         }
@@ -284,11 +291,13 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            WriteOcrFlowDiagnostic("OCR action cancelled.");
         }
         finally
         {
             if (wasVisible)
             {
+                WriteOcrFlowDiagnostic("Restoring WordSuggestor window after Snipping Tool capture.");
                 Show();
             }
 
@@ -297,13 +306,34 @@ public partial class MainWindow : Window
 
         if (result is null)
         {
+            WriteOcrFlowDiagnostic("OCR action completed without import result.");
             _viewModel.SetStatusMessage("OCR fandt ingen tekst, eller skærmudsnittet blev annulleret.");
             SyncOverlayVisibility();
             return;
         }
 
+        WriteOcrFlowDiagnostic($"OCR action importing recognized text: chars={result.Text.Length}, lines={result.LineCount}, source={result.Source}");
         _viewModel.ImportTextIntoEditor(result.Text, $"{result.Source} ({result.LineCount} linjer)");
+        WriteOcrFlowDiagnostic($"OCR action imported into editor: editorChars={_viewModel.EditorText.Length}, caretIndex={_viewModel.CaretIndex}");
         RefocusEditor();
+    }
+
+    private static void WriteOcrFlowDiagnostic(string message)
+    {
+        var line = $"{DateTimeOffset.Now:O} [UI] {message}";
+        Debug.WriteLine($"WordSuggestor OCR: {message}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(OcrFlowDiagnosticLogPath)!);
+            File.AppendAllText(OcrFlowDiagnosticLogPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private void ExternalSelectionPollTimerOnTick(object? sender, EventArgs e)

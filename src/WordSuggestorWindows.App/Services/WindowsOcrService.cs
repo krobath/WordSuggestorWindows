@@ -12,6 +12,11 @@ public sealed class WindowsOcrService
 {
     private static readonly TimeSpan SnippingToolCallbackTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CallbackPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly string OcrFlowDiagnosticLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WordSuggestor",
+        "diagnostics",
+        "ocr-flow.log");
     private const string OcrBridgeScript = """
         param(
             [Parameter(Mandatory = $true)]
@@ -104,42 +109,72 @@ public sealed class WindowsOcrService
     public async Task<OcrImportResult?> CaptureScreenAndRecognizeAsync(CancellationToken cancellationToken = default)
     {
         var correlationId = Guid.NewGuid().ToString("D");
+        EmitDiagnostic(correlationId, "Capture started.");
         WindowsOcrCallbackBridge.DeleteCallback(correlationId);
 
         try
         {
-            if (!TryEnsureCallbackProtocolRegistration() || !TryLaunchSnippingToolProtocol(correlationId))
+            if (!TryEnsureCallbackProtocolRegistration(correlationId))
             {
+                EmitDiagnostic(correlationId, "Capture stopped: callback protocol registration failed.");
+                return null;
+            }
+
+            if (!TryLaunchSnippingToolProtocol(correlationId))
+            {
+                EmitDiagnostic(correlationId, "Capture stopped: Snipping Tool protocol launch failed.");
                 return null;
             }
 
             var callback = await WaitForCallbackAsync(correlationId, cancellationToken);
-            if (callback is null || !callback.IsSuccess || callback.Token is null)
+            if (callback is null || !callback.IsSuccess)
             {
+                EmitDiagnostic(
+                    correlationId,
+                    callback is null
+                        ? "Capture stopped: no callback before timeout."
+                        : $"Capture stopped: callback code={callback.Code}, reason={callback.Reason ?? "n/a"}, tokenPresent={callback.Token is not null}.");
                 return null;
             }
 
+            EmitDiagnostic(correlationId, $"Callback received: code={callback.Code}, tokenLength={callback.Token?.Length ?? 0}.");
             var tempPath = ResolveTempPngPath("wordsuggestor-ocr-snip");
             try
             {
-                var redeemedPath = await RedeemSharedStorageTokenAsync(callback.Token, tempPath, cancellationToken);
-                if (string.IsNullOrWhiteSpace(redeemedPath) || !File.Exists(redeemedPath))
+                var imagePath = tempPath;
+                if (string.IsNullOrWhiteSpace(callback.Token))
                 {
+                    EmitDiagnostic(correlationId, "OCR stopped: callback succeeded without a redeemable file access token.");
                     return null;
                 }
 
-                var text = await RecognizeTextFromImageAsync(tempPath, cancellationToken);
+                EmitDiagnostic(correlationId, $"Redeeming shared-storage token to temp image: {tempPath}");
+                var redeemedPath = await RedeemSharedStorageTokenAsync(callback.Token, tempPath, correlationId, cancellationToken);
+                if (string.IsNullOrWhiteSpace(redeemedPath) || !File.Exists(redeemedPath))
+                {
+                    EmitDiagnostic(correlationId, $"Token redemption failed or file missing. redeemedPath={redeemedPath ?? "null"}");
+                    return null;
+                }
+
+                imagePath = redeemedPath;
+                var fileInfo = new FileInfo(redeemedPath);
+                EmitDiagnostic(correlationId, $"Token redeemed: path={redeemedPath}, bytes={fileInfo.Length}");
+                var text = await RecognizeTextFromImageAsync(imagePath, correlationId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(text))
                 {
+                    EmitDiagnostic(correlationId, "OCR stopped: recognized text was empty.");
                     return null;
                 }
 
                 var normalized = NormalizeOcrText(text);
+                EmitDiagnostic(correlationId, $"OCR normalized text: chars={normalized.Length}");
                 if (!TrySetClipboardText(normalized))
                 {
+                    EmitDiagnostic(correlationId, "OCR stopped: could not copy recognized text to clipboard.");
                     return null;
                 }
 
+                EmitDiagnostic(correlationId, $"OCR completed: chars={normalized.Length}, lines={normalized.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length}");
                 return new OcrImportResult(
                     normalized,
                     "Windows screen snip OCR",
@@ -148,11 +183,18 @@ public sealed class WindowsOcrService
             }
             finally
             {
+                EmitDiagnostic(correlationId, $"Deleting temp image if present: {tempPath}");
                 TryDeleteTempFile(tempPath);
             }
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            EmitDiagnostic(correlationId, $"Capture failed with exception: {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
         finally
         {
+            EmitDiagnostic(correlationId, "Deleting callback file if present.");
             WindowsOcrCallbackBridge.DeleteCallback(correlationId);
         }
     }
@@ -172,11 +214,12 @@ public sealed class WindowsOcrService
 
         try
         {
-            Process.Start(new ProcessStartInfo
+            var startedProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = uri,
                 UseShellExecute = true
             });
+            EmitDiagnostic(correlationId, $"Snipping Tool protocol launched. processStarted={startedProcess is not null}");
             return true;
         }
         catch (InvalidOperationException)
@@ -189,12 +232,13 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static bool TryEnsureCallbackProtocolRegistration()
+    private static bool TryEnsureCallbackProtocolRegistration(string correlationId)
     {
         var executablePath = Environment.ProcessPath ??
             Process.GetCurrentProcess().MainModule?.FileName;
         if (string.IsNullOrWhiteSpace(executablePath))
         {
+            EmitDiagnostic(correlationId, "Callback protocol registration failed: executable path unavailable.");
             return false;
         }
 
@@ -212,14 +256,17 @@ public sealed class WindowsOcrService
 
             using var commandKey = schemeKey.CreateSubKey(@"shell\open\command");
             commandKey?.SetValue(string.Empty, $"\"{executablePath}\" \"%1\"");
+            EmitDiagnostic(correlationId, $"Callback protocol registered under HKCU for executable: {executablePath}");
             return commandKey is not null;
         }
         catch (UnauthorizedAccessException)
         {
+            EmitDiagnostic(correlationId, "Callback protocol registration failed: unauthorized access.");
             return false;
         }
         catch (IOException)
         {
+            EmitDiagnostic(correlationId, "Callback protocol registration failed: IO error.");
             return false;
         }
     }
@@ -228,6 +275,7 @@ public sealed class WindowsOcrService
         string correlationId,
         CancellationToken cancellationToken)
     {
+        EmitDiagnostic(correlationId, $"Waiting for callback file: {WindowsOcrCallbackBridge.ResolveCallbackPath(correlationId)}");
         var deadline = DateTimeOffset.Now + SnippingToolCallbackTimeout;
         while (DateTimeOffset.Now < deadline)
         {
@@ -245,13 +293,17 @@ public sealed class WindowsOcrService
         return null;
     }
 
-    private static async Task<string?> RecognizeTextFromImageAsync(string imagePath, CancellationToken cancellationToken)
+    private static async Task<string?> RecognizeTextFromImageAsync(
+        string imagePath,
+        string correlationId,
+        CancellationToken cancellationToken)
     {
         var scriptPath = Path.Combine(Path.GetTempPath(), $"wordsuggestor-ocr-bridge-{Guid.NewGuid():N}.ps1");
         await File.WriteAllTextAsync(scriptPath, OcrBridgeScript, Encoding.UTF8, cancellationToken);
 
         try
         {
+            EmitDiagnostic(correlationId, $"Starting OCR bridge: imagePath={imagePath}, exists={File.Exists(imagePath)}");
             var startInfo = CreatePowerShellStartInfo(scriptPath);
             startInfo.ArgumentList.Add("-ImagePath");
             startInfo.ArgumentList.Add(imagePath);
@@ -259,6 +311,7 @@ public sealed class WindowsOcrService
             using var process = Process.Start(startInfo);
             if (process is null)
             {
+                EmitDiagnostic(correlationId, "OCR bridge failed to start.");
                 return null;
             }
 
@@ -267,7 +320,8 @@ public sealed class WindowsOcrService
             await process.WaitForExitAsync(cancellationToken);
 
             var output = await outputTask;
-            _ = await errorTask;
+            var error = await errorTask;
+            EmitDiagnostic(correlationId, $"OCR bridge exited: code={process.ExitCode}, stdoutChars={output.Length}, stderr={SanitizeForLog(error, null)}");
             return process.ExitCode == 0
                 ? output.Trim()
                 : null;
@@ -281,6 +335,7 @@ public sealed class WindowsOcrService
     private static async Task<string?> RedeemSharedStorageTokenAsync(
         string token,
         string outputPath,
+        string correlationId,
         CancellationToken cancellationToken)
     {
         var scriptPath = Path.Combine(Path.GetTempPath(), $"wordsuggestor-ocr-token-bridge-{Guid.NewGuid():N}.ps1");
@@ -288,6 +343,7 @@ public sealed class WindowsOcrService
 
         try
         {
+            EmitDiagnostic(correlationId, $"Starting token bridge: outputPath={outputPath}");
             var startInfo = CreatePowerShellStartInfo(scriptPath);
             startInfo.ArgumentList.Add("-Token");
             startInfo.ArgumentList.Add(token);
@@ -297,6 +353,7 @@ public sealed class WindowsOcrService
             using var process = Process.Start(startInfo);
             if (process is null)
             {
+                EmitDiagnostic(correlationId, "Token bridge failed to start.");
                 return null;
             }
 
@@ -305,7 +362,8 @@ public sealed class WindowsOcrService
             await process.WaitForExitAsync(cancellationToken);
 
             var output = await outputTask;
-            _ = await errorTask;
+            var error = await errorTask;
+            EmitDiagnostic(correlationId, $"Token bridge exited: code={process.ExitCode}, stdoutChars={output.Length}, stderr={SanitizeForLog(error, token)}");
             return process.ExitCode == 0
                 ? output.Trim()
                 : null;
@@ -463,6 +521,37 @@ public sealed class WindowsOcrService
         catch (UnauthorizedAccessException)
         {
         }
+    }
+
+    private static void EmitDiagnostic(string correlationId, string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(OcrFlowDiagnosticLogPath)!);
+            File.AppendAllText(
+                OcrFlowDiagnosticLogPath,
+                $"{DateTimeOffset.Now:O} [{correlationId}] {message}{Environment.NewLine}");
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static string SanitizeForLog(string value, string? secret)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "<empty>";
+        }
+
+        var sanitized = string.IsNullOrWhiteSpace(secret)
+            ? value
+            : value.Replace(secret, "<redacted-token>", StringComparison.Ordinal);
+        sanitized = sanitized.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
+        return sanitized.Length <= 600 ? sanitized : sanitized[..600] + "...";
     }
 
 }

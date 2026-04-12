@@ -35,7 +35,7 @@ public static class WindowsOcrCallbackBridge
 
             Directory.CreateDirectory(CallbackDirectory);
             File.WriteAllText(ResolveCallbackPath(callback.CorrelationId), callback.RawUri);
-            EmitDiagnostic($"Startup callback persisted: correlation={callback.CorrelationId} code={callback.Code}");
+            EmitDiagnostic($"Startup callback persisted: correlation={callback.CorrelationId} code={callback.Code} tokenPresent={callback.Token is not null}");
             return true;
         }
 
@@ -111,11 +111,22 @@ public static class WindowsOcrCallbackBridge
             ? parsedCode
             : 0;
 
+        var token = FirstNonEmpty(
+            query.GetValueOrDefault("token"),
+            query.GetValueOrDefault("file-access-token"),
+            query.GetValueOrDefault("sharedAccessToken"),
+            query.GetValueOrDefault("shared-access-token"),
+            query.GetValueOrDefault("sharedStorageToken"),
+            query.GetValueOrDefault("shared-storage-token"));
+
+        EmitDiagnostic(
+            $"Parsed callback query: keys={string.Join(",", query.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))} tokenPresent={!string.IsNullOrWhiteSpace(token)} tokenLength={token?.Length ?? 0}");
+
         return new OcrScreenClipCallback(
             correlationId,
             code,
             query.GetValueOrDefault("reason"),
-            query.GetValueOrDefault("token"),
+            token,
             uri.ToString());
     }
 

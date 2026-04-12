@@ -7,5 +7,5 @@ public sealed record OcrScreenClipCallback(
     string? Token,
     string RawUri)
 {
-    public bool IsSuccess => Code == 200 && !string.IsNullOrWhiteSpace(Token);
+    public bool IsSuccess => Code == 200;
 }

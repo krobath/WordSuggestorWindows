@@ -846,6 +846,62 @@ Known note:
 - The protocol registration is per-user under HKCU and does not require admin rights.
 - The launch-smoke process was stopped after validation so the debug executable is not left locked.
 
+### WSA-RT-011C_windows_ocr_flow_diagnostics
+Status: `Done` (`2026-04-12`)
+
+Scope:
+
+- Add token-safe diagnostics for the OCR path after the Snipping Tool callback is received.
+- Make it possible to distinguish token redemption failure, OCR bridge failure, clipboard failure, and editor import failure.
+- Preserve the existing OCR user flow while adding local-only troubleshooting output.
+
+Implemented:
+
+- Added `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log` as the main OCR flow diagnostic log.
+- Logged the UI OCR action lifecycle: toolbar click, hiding/restoring the WordSuggestor window, null result, and successful editor import.
+- Logged the service OCR lifecycle: callback protocol registration, Snipping Tool launch, callback wait/result, shared-storage token redemption, OCR bridge execution, normalization length, clipboard copy failure, and final cleanup.
+- Kept callback token values and recognized OCR text out of diagnostics; logs contain only correlation ids, paths, exit codes, stderr summaries, and character/line counts.
+- Changed the OCR bridge to read from the actual redeemed image path returned by token redemption rather than assuming it always equals the requested temp path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+- Application event log check showed no useful recent `WordSuggestorWindows.App` failures for the OCR import issue; the new local flow log is the next troubleshooting source.
+
+Known note:
+
+- The interactive Snipping Tool capture must still be tested manually. If OCR still does not import text, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log` together with `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-callback.log`.
+
+### WSA-RT-011D_windows_ocr_file_access_token_callback
+Status: `Done` (`2026-04-13`)
+
+Scope:
+
+- Handle Snipping Tool success callbacks that return the shared-storage token as `file-access-token`.
+- Preserve the documented `token` parameter as the primary path while accepting the actual Windows callback key observed in local testing.
+- Avoid clipboard or saved-screenshot fallback paths for the primary OCR implementation.
+
+Implemented:
+
+- Changed `OcrScreenClipCallback.IsSuccess` so HTTP-like `code=200` is treated as success even when the callback token is missing.
+- Added token-safe callback diagnostics that log callback query parameter names, token presence, and token length without logging query values.
+- Added `file-access-token` as the observed Snipping Tool callback token key, while keeping `token` and other shared-storage aliases for compatibility.
+- Removed the clipboard-image fallback path from the intended OCR flow; the robust path is now callback token parsing plus shared-storage token redemption.
+- Kept diagnostics for the no-token case so the app reports a contract failure instead of silently falling back to version-dependent clipboard behavior.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- Local logs showed `keys=code,file-access-token,reason,x-request-correlation-id`, which is why `file-access-token` is now treated as the token key.
+- If OCR still fails, `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log` will show whether token redemption or the OCR bridge is the failing stage.
+
 ### WSA-RT-012_windows_speech_to_text_pipeline
 Status: `Planned`
 
@@ -940,10 +996,14 @@ Known note:
 12. `WSA-RT-010A` - selected text import clipboard fallback
 13. `WSA-TS-002` - selected text import app compatibility matrix
 14. `WSA-RT-011` - OCR snip pipeline
-15. `WSA-RT-012` - speech-to-text dictation pipeline
-16. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-17. `WSA-RT-014` - error insights store and view
-18. `WSA-UX-010` - settings window parity
+15. `WSA-RT-011A` - OCR screen snip invocation fix
+16. `WSA-RT-011B` - OCR Snipping Tool callback protocol
+17. `WSA-RT-011C` - OCR flow diagnostics
+18. `WSA-RT-011D` - OCR file-access-token callback
+19. `WSA-RT-012` - speech-to-text dictation pipeline
+20. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+21. `WSA-RT-014` - error insights store and view
+22. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 
