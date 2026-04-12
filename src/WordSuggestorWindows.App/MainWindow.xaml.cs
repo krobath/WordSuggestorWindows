@@ -4,8 +4,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
+using System.Windows.Interop;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
+using WordSuggestorWindows.App.Models;
+using WordSuggestorWindows.App.Services;
 using WordSuggestorWindows.App.ViewModels;
 
 namespace WordSuggestorWindows.App;
@@ -20,14 +24,23 @@ public partial class MainWindow : Window
     private const double StaticOverlayHorizontalOffset = 118;
     private const double StaticOverlayVerticalOffset = 44;
     private readonly MainWindowViewModel _viewModel;
+    private readonly WindowsSelectionImportService _selectionImportService = new();
+    private readonly DispatcherTimer _externalSelectionPollTimer;
+    private IntPtr _windowHandle;
     private bool _isInitialPositionApplied;
     private bool _isSynchronizingEditorDocument;
+    private SelectionImportResult? _lastExternalSelection;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
         _viewModel = viewModel;
+        _externalSelectionPollTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(350)
+        };
+        _externalSelectionPollTimer.Tick += ExternalSelectionPollTimerOnTick;
         InitializeComponent();
         DataContext = _viewModel;
         Loaded += OnLoaded;
@@ -39,6 +52,9 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _windowHandle = new WindowInteropHelper(this).Handle;
+        _externalSelectionPollTimer.Start();
+
         if (!_isInitialPositionApplied)
         {
             PositionAtTopCenter();
@@ -60,6 +76,8 @@ public partial class MainWindow : Window
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
         LocationChanged -= OnWindowLocationOrSizeChanged;
         SizeChanged -= OnWindowLocationOrSizeChanged;
+        _externalSelectionPollTimer.Stop();
+        _externalSelectionPollTimer.Tick -= ExternalSelectionPollTimerOnTick;
 
         if (_overlayWindow is not null)
         {
@@ -197,8 +215,45 @@ public partial class MainWindow : Window
     {
         if (sender is FrameworkElement { Tag: string action })
         {
+            if (action == "import")
+            {
+                ImportSelectionIntoEditor();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
+    }
+
+    private void ExternalSelectionPollTimerOnTick(object? sender, EventArgs e)
+    {
+        var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
+        if (externalSelection is not null)
+        {
+            _lastExternalSelection = externalSelection;
+        }
+    }
+
+    private void ImportSelectionIntoEditor()
+    {
+        var internalSelection = GetSelectedEditorPlainText();
+        if (!string.IsNullOrWhiteSpace(internalSelection))
+        {
+            _viewModel.ImportTextIntoEditor(internalSelection, "intern editor-markering");
+            RefocusEditor();
+            return;
+        }
+
+        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
+        var selection = liveExternalSelection ?? TryGetRecentExternalSelection();
+        if (selection is not null)
+        {
+            _viewModel.ImportTextIntoEditor(selection.Text, selection.Source);
+            RefocusEditor();
+            return;
+        }
+
+        _viewModel.SetStatusMessage("Ingen markeret tekst fundet. Prøv at markere tekst i editoren eller i en app der eksponerer Windows UI Automation-selection.");
     }
 
     private void EditorCommand_OnClick(object sender, RoutedEventArgs e)
@@ -390,6 +445,25 @@ public partial class MainWindow : Window
     {
         var text = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd).Text;
         return NormalizeRichTextBoxText(text);
+    }
+
+    private string GetSelectedEditorPlainText()
+    {
+        var text = new TextRange(EditorTextBox.Selection.Start, EditorTextBox.Selection.End).Text;
+        return NormalizeRichTextBoxText(text).Trim();
+    }
+
+    private SelectionImportResult? TryGetRecentExternalSelection()
+    {
+        if (_lastExternalSelection is null)
+        {
+            return null;
+        }
+
+        var age = DateTimeOffset.Now - _lastExternalSelection.CapturedAt;
+        return age <= TimeSpan.FromSeconds(12)
+            ? _lastExternalSelection
+            : null;
     }
 
     private int GetEditorCaretIndex()

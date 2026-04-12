@@ -634,7 +634,7 @@ Target outcome:
 - The Windows language selector matches macOS product behavior while using Windows-native control styling.
 
 ### WSA-RT-010_windows_selection_import_to_editor
-Status: `Planned`
+Status: `Done` (`2026-04-12`)
 
 Scope:
 
@@ -642,6 +642,29 @@ Scope:
 - Prefer internal editor selection when WordSuggestor owns the selection.
 - Use Windows UI Automation for external app selection, with guarded clipboard fallback only when WordSuggestor is not the foreground target.
 - Normalize the imported text and run the same editor analysis path used for OCR/imported text.
+
+Implemented:
+
+- Added a Windows selection import result model and Windows UI Automation selection import service.
+- Added a lightweight external selection polling path in `MainWindow` that captures recent selected text while another app is foreground.
+- Changed the top toolbar `TXT` action from placeholder status text to real import behavior.
+- Implemented import priority:
+  - current internal RichTextBox selection
+  - live external UI Automation selection when another app is still foreground
+  - recent cached external UI Automation selection captured before the toolbar was clicked
+- Added view-model import handling that expands the editor, replaces the editor text with the imported text, moves the caret to the end, and lets the existing suggestion refresh path run when the imported text ends in an active token.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+
+Known note:
+
+- This sprint intentionally does not send synthetic `Ctrl+C` to external apps. Clipboard-copy fallback is deferred until we can add it with clear focus/clipboard preservation guardrails.
+- External selection support depends on the target app exposing selection through Windows UI Automation `TextPattern`.
 
 Target outcome:
 

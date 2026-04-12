@@ -348,6 +348,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             : "Editor skjult. Toolbar shell er tilbage i kompakt tilstand.";
     }
 
+    public void ImportTextIntoEditor(string text, string source)
+    {
+        var normalized = NormalizeImportedText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            StatusMessage = "Ingen markeret tekst fundet til import.";
+            return;
+        }
+
+        IsEditorExpanded = true;
+        EditorText = normalized;
+        CaretIndex = normalized.Length;
+        StatusMessage = $"Importerede {normalized.Length} tegn fra {source}.";
+    }
+
     public void HandleToolbarAction(string action)
     {
         StatusMessage = action switch
@@ -614,6 +629,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private static bool HasActiveSuggestionToken(string text) =>
         text.Length > 0 && IsTokenCharacter(text[^1]);
+
+    private static string NormalizeImportedText(string text) =>
+        text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Trim();
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
