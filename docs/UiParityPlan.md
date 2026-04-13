@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-12`
+Last updated: `2026-04-13`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -108,7 +108,7 @@ Source references:
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows screen snip plus Windows OCR via runtime WinRT bridge, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011` baseline done; `WSA-RT-011B` callback flow done; `WSA-RT-011C` diagnostics done; `WSA-RT-011D` file-access-token callback done |
 | Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` baseline done |
 | Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` baseline done |
-| Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` |
+| Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` baseline done |
 | Settings | Opens the native macOS Settings scene with tabs for general, sound, writing, domain lists, and profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` |
 
 Implementation notes:
@@ -342,6 +342,13 @@ Deliver:
 - local Windows error tracking store
 - accepted suggestion, backspace, and sentence aggregate capture
 - native insights view with totals, timelines, breakdowns, and frequent corrections
+
+Status:
+
+- Implemented on `2026-04-13`
+- Captures accepted suggestions, backspace activity, and sentence boundary events in a local JSONL store under `%LOCALAPPDATA%\WordSuggestor\insights`
+- Opens a native WPF insights view from the toolbar `INS` action with totals, recent events, suggestion-kind breakdown, part-of-speech breakdown, and frequent corrections
+- Deeper charting/timeline parity and analyzer-backed morphology remain follow-up refinements
 
 ### WSA-UX-010_windows_settings_window_parity
 

@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-12`
+Last updated: `2026-04-13`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -621,6 +621,10 @@ Implemented:
 Validation:
 
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warning)
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
 - Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
@@ -984,7 +988,7 @@ Target outcome:
 - The Windows `TTS` toolbar action now has the first native selected/staged text reading path and visible editor context for external selections.
 
 ### WSA-RT-014_windows_error_insights_store_and_view
-Status: `Planned`
+Status: `Done` (`2026-04-13`)
 
 Scope:
 
@@ -995,6 +999,23 @@ Scope:
 Target outcome:
 
 - The Windows `INS` toolbar action opens a native insights view backed by Windows-side tracking data.
+
+Implemented:
+
+- Added a Windows-local insights store at `%LOCALAPPDATA%\WordSuggestor\insights\error-insights.jsonl`.
+- Added capture for accepted suggestions, including typed token, accepted candidate, suggestion kind, part-of-speech, language, and rank.
+- Added capture for editor backspace activity and sentence boundary events.
+- Added a native WPF `InsightsWindow` with totals, recent events, suggestion-kind breakdown, part-of-speech breakdown, and frequent corrections.
+- Wired the toolbar `INS` action to open the insights view without changing `WordSuggestorCore` or macOS app code.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This is a local Windows JSONL baseline rather than a SQLite schema. It preserves the macOS privacy posture by keeping data local, while leaving room to migrate to a shared cross-platform insights store later.
+- The view shows aggregate and recent-event data, but deeper charts/timelines and synchronized analyzer-backed morphology remain follow-up refinements.
 
 ### WSA-UX-010_windows_settings_window_parity
 Status: `Planned`

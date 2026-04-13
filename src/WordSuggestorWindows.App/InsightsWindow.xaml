@@ -1,0 +1,150 @@
+<Window x:Class="WordSuggestorWindows.App.InsightsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WordSuggestor Insights"
+        Width="720"
+        Height="560"
+        MinWidth="640"
+        MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="#F6F7FA">
+    <Window.Resources>
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DDE2EA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        <Style x:Key="MutedTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#6B7280" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="18">
+            <TextBlock Text="Insights"
+                       FontSize="26"
+                       FontWeight="SemiBold"
+                       Foreground="#111827" />
+            <TextBlock Text="Lokale skrive- og korrekturaggregater. Data bliver på denne Windows-profil."
+                       Style="{StaticResource MutedTextStyle}"
+                       Margin="0,2,0,18" />
+
+            <Border Style="{StaticResource CardStyle}">
+                <UniformGrid Columns="4">
+                    <StackPanel>
+                        <TextBlock Text="{Binding AcceptedSuggestionCount}" FontSize="28" FontWeight="SemiBold" />
+                        <TextBlock Text="Valgte forslag" Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="{Binding BackspaceCount}" FontSize="28" FontWeight="SemiBold" />
+                        <TextBlock Text="Backspace" Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="{Binding SentenceBoundaryCount}" FontSize="28" FontWeight="SemiBold" />
+                        <TextBlock Text="Sætninger" Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="{Binding LastSevenDaysCount}" FontSize="28" FontWeight="SemiBold" />
+                        <TextBlock Text="Sidste 7 dage" Style="{StaticResource MutedTextStyle}" />
+                    </StackPanel>
+                </UniformGrid>
+            </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Forslagstyper" Style="{StaticResource SectionTitleStyle}" />
+                        <ItemsControl ItemsSource="{Binding SuggestionKindBreakdown}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding Count}" DockPanel.Dock="Right" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Ordklasser" Style="{StaticResource SectionTitleStyle}" />
+                        <ItemsControl ItemsSource="{Binding PartOfSpeechBreakdown}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding Count}" DockPanel.Dock="Right" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Label}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Hyppige rettelser" Style="{StaticResource SectionTitleStyle}" />
+                    <ItemsControl ItemsSource="{Binding FrequentCorrections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Count}" DockPanel.Dock="Right" FontWeight="SemiBold" />
+                                    <TextBlock>
+                                        <Run Text="{Binding TypedText}" />
+                                        <Run Text=" -> " Foreground="#6B7280" />
+                                        <Run Text="{Binding AcceptedText}" FontWeight="SemiBold" />
+                                    </TextBlock>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="Seneste hændelser" Style="{StaticResource SectionTitleStyle}" />
+                    <ItemsControl ItemsSource="{Binding RecentEvents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock FontWeight="SemiBold">
+                                        <Run Text="{Binding EventType}" />
+                                        <Run Text=" · " Foreground="#6B7280" />
+                                        <Run Text="{Binding LanguageCode}" />
+                                    </TextBlock>
+                                    <TextBlock Style="{StaticResource MutedTextStyle}">
+                                        <Run Text="{Binding Timestamp}" />
+                                        <Run Text="  " />
+                                        <Run Text="{Binding TypedText}" />
+                                        <Run Text=" -> " />
+                                        <Run Text="{Binding AcceptedText}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

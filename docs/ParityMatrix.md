@@ -1,6 +1,6 @@
 # WordSuggestor macOS -> Windows Parity Matrix
 
-Last updated: `2026-04-12`
+Last updated: `2026-04-13`
 Status: `Parity plan aligned with macOS UI review`
 
 ## Legend
@@ -21,7 +21,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Toolbar OCR action | `ScreenSnipper.swift` + `AppState.ingestOCRText()` | Windows screen snip, Windows OCR via runtime WinRT bridge, clipboard copy, editor ingest, analysis refresh | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B; diagnostics: WSA-RT-011C; file-access-token callback: WSA-RT-011D` |
 | Toolbar speech-to-text action | `AppState.toggleSpeechToTextIntoEditor()` + `SpeechToTextService.swift` | Windows speech recognition bridge with MIC start/stop state and final transcript insertion into the internal editor | `Baseline done: WSA-RT-012` |
 | Toolbar text-to-speech action | `FloatingToolbarView.speakSelection()` + `SpeechHighlighter.swift` | Windows-native selected/staged text speech with external selection mirroring into the editor | `Baseline done: WSA-RT-013` |
-| Toolbar insights action | `ErrorInsightsView.swift` + `ErrorTrackingStore.swift` | Windows error tracking store plus native insights view | `Planned: WSA-RT-014` |
+| Toolbar insights action | `ErrorInsightsView.swift` + `ErrorTrackingStore.swift` | Windows local error tracking store plus native insights view | `Baseline done: WSA-RT-014` |
 | Toolbar settings action | SwiftUI `Settings` scene + `SettingsView.swift` | Windows-native settings window preserving macOS semantics | `Planned: WSA-UX-010` |
 | Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
 | Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
@@ -49,7 +49,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Speech to text | `SpeechToTextService.swift` | New Windows impl through local Windows Desktop Speech Recognition bridge | `Baseline done: WSA-RT-012` |
 | Suggestion row text to speech | `SuggestionPanelView.swift` + system TTS | New Windows impl for overlay row speaker action | `Baseline done in internal editor path` |
 | Full app text to speech feature | `NeuralTTSService.swift` / system TTS | New Windows impl through toolbar-level SAPI bridge | `Baseline done: WSA-RT-013` |
-| Error insights / diagnostics UI | macOS app views | New Windows impl, later milestone | `Planned: WSA-RT-014` |
+| Error insights / diagnostics UI | macOS app views | Windows local insights store and native WPF summary view | `Baseline done: WSA-RT-014` |
 
 ## First milestone parity target
 

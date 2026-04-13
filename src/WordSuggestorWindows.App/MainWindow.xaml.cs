@@ -292,8 +292,23 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (action == "insights")
+            {
+                ShowInsightsWindow();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
+    }
+
+    private void ShowInsightsWindow()
+    {
+        var insightsWindow = new InsightsWindow(_viewModel.LoadInsightsSnapshot())
+        {
+            Owner = this
+        };
+        insightsWindow.Show();
     }
 
     private void ToggleSpeechToText()
@@ -624,6 +639,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        RecordEditorInsightKey(e);
+
         if (e.Key == Key.Tab && _viewModel.AcceptSelectedSuggestion())
         {
             RefocusEditor();
@@ -641,6 +658,29 @@ public partial class MainWindow : Window
         if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
         {
             RefocusEditor();
+        }
+    }
+
+    private void RecordEditorInsightKey(KeyEventArgs e)
+    {
+        if (e.Key == Key.Back)
+        {
+            _viewModel.RecordBackspaceActivity();
+            return;
+        }
+
+        var boundary = e.Key switch
+        {
+            Key.Enter => "enter",
+            Key.OemPeriod or Key.Decimal => ".",
+            Key.D1 when (Keyboard.Modifiers & ModifierKeys.Shift) != 0 => "!",
+            Key.OemQuestion when (Keyboard.Modifiers & ModifierKeys.Shift) != 0 => "?",
+            _ => null
+        };
+
+        if (boundary is not null)
+        {
+            _viewModel.RecordSentenceBoundary(boundary);
         }
     }
 

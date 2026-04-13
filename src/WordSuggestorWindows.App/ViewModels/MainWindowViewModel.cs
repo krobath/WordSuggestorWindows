@@ -13,6 +13,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private const int SuggestionPageSize = 10;
     private const int MaxSuggestionPages = 4;
     private readonly ISuggestionProvider _suggestionProvider;
+    private readonly WindowsErrorInsightsStore _insightsStore;
     private readonly RelayCommand _acceptSelectedSuggestionCommand;
     private CancellationTokenSource? _suggestionCts;
     private string _editorText = string.Empty;
@@ -32,9 +33,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private int _currentSuggestionPage;
     private SuggestionPlacementMode _suggestionPlacementMode = SuggestionPlacementMode.FollowCaret;
 
-    public MainWindowViewModel(ISuggestionProvider suggestionProvider, string? initialEditorText = null)
+    public MainWindowViewModel(
+        ISuggestionProvider suggestionProvider,
+        WindowsErrorInsightsStore insightsStore,
+        string? initialEditorText = null)
     {
         _suggestionProvider = suggestionProvider;
+        _insightsStore = insightsStore;
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
@@ -504,6 +509,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = statusMessage;
     }
 
+    public ErrorInsightsSnapshot LoadInsightsSnapshot() => _insightsStore.LoadSnapshot();
+
+    public void RecordBackspaceActivity() =>
+        _insightsStore.RecordBackspace(SelectedLanguageOption.LanguageCode);
+
+    public void RecordSentenceBoundary(string boundary) =>
+        _insightsStore.RecordSentenceBoundary(SelectedLanguageOption.LanguageCode, boundary);
+
     public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
     {
         SuggestionPlacementMode = mode;
@@ -536,10 +549,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        var acceptedTerm = SelectedSuggestion.Term;
+        var acceptedSuggestion = SelectedSuggestion;
+        var acceptedTerm = acceptedSuggestion.Term;
+        var acceptedRankIndex = Suggestions.IndexOf(acceptedSuggestion);
+        var acceptedRank = acceptedRankIndex >= 0 ? acceptedRankIndex + 1 : (int?)null;
+        var typedToken = CurrentTokenAtCaret(EditorText, CaretIndex);
         var nextText = ReplaceActiveToken(EditorText, CaretIndex, acceptedTerm, out var nextCaretIndex);
         EditorText = nextText;
         CaretIndex = nextCaretIndex;
+        _insightsStore.RecordAcceptedSuggestion(
+            typedToken,
+            acceptedSuggestion,
+            SelectedLanguageOption.LanguageCode,
+            acceptedRank);
         ClearSuggestionSession(keepOverlayVisible: true);
         StatusMessage = $"Indsatte '{acceptedTerm}'. Skriv videre for nye forslag.";
     }
@@ -684,6 +706,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private bool CanAcceptSelectedSuggestion() => SelectedSuggestion is not null;
+
+    private static string CurrentTokenAtCaret(string text, int caretIndex)
+    {
+        var safeCaret = Math.Clamp(caretIndex, 0, text.Length);
+        var start = safeCaret;
+
+        while (start > 0 && IsTokenCharacter(text[start - 1]))
+        {
+            start--;
+        }
+
+        return text[start..safeCaret];
+    }
 
     private static string ReplaceActiveToken(string text, int caretIndex, string replacement, out int nextCaretIndex)
     {
