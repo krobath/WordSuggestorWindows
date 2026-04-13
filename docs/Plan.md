@@ -866,8 +866,10 @@ Implemented:
 Validation:
 
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
 - `git -C .\WordSuggestorWindows diff --check` -> `PASS`
 - `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+- Installed recognizer check -> `en-GB Microsoft Speech Recognizer 8.0 for Windows (English - UK)`
 - Application event log check showed no useful recent `WordSuggestorWindows.App` failures for the OCR import issue; the new local flow log is the next troubleshooting source.
 
 Known note:
@@ -903,7 +905,7 @@ Known note:
 - If OCR still fails, `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log` will show whether token redemption or the OCR bridge is the failing stage.
 
 ### WSA-RT-012_windows_speech_to_text_pipeline
-Status: `Planned`
+Status: `Done` (`2026-04-13`)
 
 Scope:
 
@@ -912,9 +914,34 @@ Scope:
 - Apply partial transcripts into the active editor range and finalize the replacement when recognition completes.
 - Respect the active app language where the Windows speech API supports it.
 
+Implemented:
+
+- Added `WindowsSpeechToTextService`, a local PowerShell bridge around Windows Desktop Speech Recognition.
+- Wired the toolbar `MIC` action to start/stop the speech bridge.
+- Added toolbar button state via `IsSpeechToTextListening`, `SpeechToTextToolTip`, and `SpeechToTextButtonBackground`.
+- Added final transcript insertion into the internal editor at the current caret position.
+- Added hypothesis status updates so the status line shows what Windows is currently hearing without inserting partial text prematurely.
+- Added language-aware recognizer selection:
+  - exact active language match when a recognizer is installed,
+  - same two-letter language fallback when available,
+  - first installed recognizer as a final fallback.
+- Added `SpeechToTextTranscript` as the internal transcript event model.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- The current Windows machine only reports `Microsoft Speech Recognizer 8.0 for Windows (English - UK)` / `en-GB` via `System.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers()`. Danish dictation requires installing a Danish Windows Speech Recognition recognizer; until then Danish UI language selection falls back to the installed recognizer.
+- Direct PowerShell probing also showed that grammar loading can fail with `E_ACCESSDENIED` in this environment if Windows speech recognition/audio permissions are not fully available to the desktop session. The app surfaces bridge stderr in the status line instead of failing silently.
+- Manual microphone permission/audio-device testing is still required because CI/build validation cannot speak into the microphone.
+
 Target outcome:
 
-- The Windows `MIC` toolbar action matches the macOS `toggleSpeechToTextIntoEditor()` behavior.
+- The Windows `MIC` toolbar action has a first native start/stop dictation path into the internal editor and can be refined toward fuller macOS partial-range replacement parity.
 
 ### WSA-RT-013_windows_text_to_speech_selection_pipeline
 Status: `Planned`

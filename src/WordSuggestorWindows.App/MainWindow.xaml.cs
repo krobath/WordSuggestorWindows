@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsOcrService _ocrService = new();
+    private readonly WindowsSpeechToTextService _speechToTextService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
     private IntPtr _windowHandle;
     private IntPtr _lastExternalWindowHandle;
@@ -63,6 +64,9 @@ public partial class MainWindow : Window
         LocationChanged += OnWindowLocationOrSizeChanged;
         SizeChanged += OnWindowLocationOrSizeChanged;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
+        _speechToTextService.TranscriptReceived += SpeechToTextServiceOnTranscriptReceived;
+        _speechToTextService.StatusChanged += SpeechToTextServiceOnStatusChanged;
+        _speechToTextService.SessionStopped += SpeechToTextServiceOnSessionStopped;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -94,6 +98,10 @@ public partial class MainWindow : Window
         _externalSelectionPollTimer.Stop();
         _externalSelectionPollTimer.Tick -= ExternalSelectionPollTimerOnTick;
         _selectionImportService.DiagnosticEmitted -= SelectionImportServiceOnDiagnosticEmitted;
+        _speechToTextService.TranscriptReceived -= SpeechToTextServiceOnTranscriptReceived;
+        _speechToTextService.StatusChanged -= SpeechToTextServiceOnStatusChanged;
+        _speechToTextService.SessionStopped -= SpeechToTextServiceOnSessionStopped;
+        _speechToTextService.Dispose();
 
         if (_overlayWindow is not null)
         {
@@ -266,8 +274,64 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (action == "speechToText")
+            {
+                ToggleSpeechToText();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
+    }
+
+    private void ToggleSpeechToText()
+    {
+        if (_speechToTextService.IsListening)
+        {
+            _speechToTextService.Stop();
+            _viewModel.SetSpeechToTextListening(false, "Tale-til-tekst stopper.");
+            return;
+        }
+
+        try
+        {
+            _viewModel.EnsureEditorExpanded();
+            SyncEditorDocumentFromViewModel(force: true);
+            var status = _speechToTextService.Start(_viewModel.SelectedLanguageOption);
+            _viewModel.SetSpeechToTextListening(true, status);
+            RefocusEditor();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _viewModel.SetSpeechToTextListening(false, $"Tale-til-tekst kunne ikke starte: {ex.Message}");
+        }
+    }
+
+    private void SpeechToTextServiceOnTranscriptReceived(object? sender, SpeechToTextTranscript transcript)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!transcript.IsFinal)
+            {
+                _viewModel.SetStatusMessage($"Lytter: {transcript.Text}");
+                return;
+            }
+
+            _viewModel.InsertDictatedText(
+                transcript.Text,
+                $"talegenkendelse {transcript.CultureName} ({transcript.Confidence:P0})");
+            RefocusEditor();
+        });
+    }
+
+    private void SpeechToTextServiceOnStatusChanged(object? sender, string status)
+    {
+        Dispatcher.BeginInvoke(() => _viewModel.SetStatusMessage(status));
+    }
+
+    private void SpeechToTextServiceOnSessionStopped(object? sender, string status)
+    {
+        Dispatcher.BeginInvoke(() => _viewModel.SetSpeechToTextListening(false, status));
     }
 
     private async Task RunOcrScreenSnipAsync()

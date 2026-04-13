@@ -106,7 +106,7 @@ Source references:
 | Word list manager | Toolbar button is a TODO; settings exposes `isDomainListsEnabled`, and the domain-list tab is a placeholder. | Match current macOS behavior first; keep as placeholder/settings entry until a shared domain-list manager design exists. | Future shared/domain-list sprint |
 | Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then cached/live Windows UI Automation `TextPattern` selection, then guarded clipboard fallback; track app-specific blockers in a compatibility matrix. | `WSA-RT-010` + `WSA-RT-010A` done; `WSA-TS-002` diagnostics/matrix done |
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows screen snip plus Windows OCR via runtime WinRT bridge, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011` baseline done; `WSA-RT-011B` callback flow done; `WSA-RT-011C` diagnostics done; `WSA-RT-011D` file-access-token callback done |
-| Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` |
+| Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` baseline done |
 | Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` |
 | Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` |
 | Settings | Opens the native macOS Settings scene with tabs for general, sound, writing, domain lists, and profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` |
@@ -309,6 +309,14 @@ Deliver:
 - partial/final transcript handling
 - active editor range replacement
 - language-aware recognition where supported
+
+Status:
+
+- Implemented on `2026-04-13`
+- Uses a local PowerShell bridge around Windows Desktop Speech Recognition because `System.Speech` is available to Windows PowerShell on this machine but is not directly resolvable as a compile-time assembly for the `net9.0-windows` WPF project
+- Final recognized phrases are inserted at the internal editor caret; hypothesis text updates status only
+- Toolbar `MIC` active state is reflected through button background and tooltip
+- Language matching is best-effort against installed Windows Speech Recognition recognizers; this machine currently exposes only `en-GB`, so Danish dictation requires installing a Danish recognizer
 
 ### WSA-RT-013_windows_text_to_speech_selection_pipeline
 

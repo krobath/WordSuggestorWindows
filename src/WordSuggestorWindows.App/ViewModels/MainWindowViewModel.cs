@@ -27,6 +27,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isAnalyzerColoringEnabled = true;
     private bool _isSemanticDiagnosticsEnabled;
     private bool _isPunctuationDiagnosticsEnabled;
+    private bool _isSpeechToTextListening;
     private int _currentSuggestionPage;
     private SuggestionPlacementMode _suggestionPlacementMode = SuggestionPlacementMode.FollowCaret;
 
@@ -217,6 +218,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         private set => SetProperty(ref _isPunctuationDiagnosticsEnabled, value);
     }
 
+    public bool IsSpeechToTextListening
+    {
+        get => _isSpeechToTextListening;
+        private set
+        {
+            if (SetProperty(ref _isSpeechToTextListening, value))
+            {
+                OnPropertyChanged(nameof(SpeechToTextToolTip));
+                OnPropertyChanged(nameof(SpeechToTextButtonBackground));
+            }
+        }
+    }
+
+    public string SpeechToTextToolTip => IsSpeechToTextListening
+        ? "Stop tale til tekst"
+        : "Tale til tekst";
+
+    public string SpeechToTextButtonBackground => IsSpeechToTextListening
+        ? "#E5EEF8"
+        : "Transparent";
+
     public string ExpandCollapseGlyph => IsEditorExpanded ? "\uE70E" : "\uE70D";
 
     public string ExpandCollapseToolTip => IsEditorExpanded ? "Skjul editor" : "Vis editor";
@@ -348,6 +370,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             : "Editor skjult. Toolbar shell er tilbage i kompakt tilstand.";
     }
 
+    public void EnsureEditorExpanded()
+    {
+        if (!IsEditorExpanded)
+        {
+            IsEditorExpanded = true;
+        }
+    }
+
     public void ImportTextIntoEditor(string text, string source)
     {
         var normalized = NormalizeImportedText(text);
@@ -363,13 +393,38 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = $"Importerede {normalized.Length} tegn fra {source}.";
     }
 
+    public void InsertDictatedText(string text, string source)
+    {
+        var normalized = NormalizeDictatedText(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            StatusMessage = "Talegenkendelse gav ingen tekst at indsætte.";
+            return;
+        }
+
+        EnsureEditorExpanded();
+        var caretIndex = Math.Clamp(CaretIndex, 0, EditorText.Length);
+        var prefix = EditorText[..caretIndex];
+        var suffix = EditorText[caretIndex..];
+        var leadingSpacing = prefix.Length > 0 && !char.IsWhiteSpace(prefix[^1])
+            ? " "
+            : string.Empty;
+        var trailingSpacing = suffix.Length > 0 && !char.IsWhiteSpace(suffix[0])
+            ? " "
+            : string.Empty;
+        var inserted = leadingSpacing + normalized + trailingSpacing;
+
+        EditorText = prefix + inserted + suffix;
+        CaretIndex = (prefix + inserted).Length;
+        StatusMessage = $"Indsatte {normalized.Length} tegn fra {source}.";
+    }
+
     public void HandleToolbarAction(string action)
     {
         StatusMessage = action switch
         {
             "wordList" => "Word list manager er planlagt til senere Windows-parity arbejde.",
             "import" => "Import af markering til editoren kommer med Windows selection adapters.",
-            "speechToText" => "Speech-to-text er ikke porteret endnu i Windows-sporet.",
             "textToSpeech" => "Text-to-speech er ikke porteret endnu i Windows-sporet.",
             "insights" => "Error insights bliver porteret i et senere Windows UI-sprint.",
             "settings" => "Settings-parity følger efter den primære toolbar/editor shell.",
@@ -413,6 +468,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void SetStatusMessage(string message)
     {
         StatusMessage = message;
+    }
+
+    public void SetSpeechToTextListening(bool isListening, string statusMessage)
+    {
+        IsSpeechToTextListening = isListening;
+        StatusMessage = statusMessage;
     }
 
     public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
@@ -633,6 +694,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         text
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Replace('\r', '\n')
+            .Trim();
+
+    private static string NormalizeDictatedText(string text) =>
+        text
+            .Replace("\r\n", " ", StringComparison.Ordinal)
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
             .Trim();
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

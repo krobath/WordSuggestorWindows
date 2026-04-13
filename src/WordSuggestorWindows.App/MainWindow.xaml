@@ -240,8 +240,9 @@
                             </Button>
 
                             <Button Tag="speechToText"
+                                    Background="{Binding SpeechToTextButtonBackground}"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
-                                    ToolTip="Tale til tekst"
+                                    ToolTip="{Binding SpeechToTextToolTip}"
                                     Click="ToolbarAction_OnClick">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="MIC" />
                             </Button>
