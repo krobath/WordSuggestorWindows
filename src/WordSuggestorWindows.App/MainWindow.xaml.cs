@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         "WordSuggestor",
         "diagnostics",
         "tts-flow.log");
-    private static readonly Brush SpeechHighlightBrush = BrushFromHex("#BFE3FF");
+    private static readonly Brush SpeechHighlightBrush = BrushFromHex("#8DCCFF");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsOcrService _ocrService = new();
@@ -1148,13 +1148,14 @@ public partial class MainWindow : Window
 
     private static TimeSpan EstimateSpeechDuration(string text, int wordCount, TtsSpeechOptions options)
     {
-        const double baseWordsPerMinute = 150.0;
+        const double baseWordsPerMinute = 125.0;
         var speedMultiplier = options.UseSystemSpeechSettings
             ? 1.0
             : Math.Pow(1.35, options.ReadingSpeedDelta);
         var wordsDurationMs = wordCount / (baseWordsPerMinute * speedMultiplier) * 60_000.0;
         var punctuationPauseMs = text.Count(character => character is '.' or ',' or ';' or ':' or '!' or '?') * 120.0;
-        return TimeSpan.FromMilliseconds(Math.Max(900.0, wordsDurationMs + punctuationPauseMs));
+        var bridgeWarmupMs = wordCount <= 4 ? 1_000.0 : 550.0;
+        return TimeSpan.FromMilliseconds(Math.Max(2_400.0, bridgeWarmupMs + wordsDurationMs + punctuationPauseMs));
     }
 
     private TextPointer GetTextPointerAtCharOffset(int charOffset)

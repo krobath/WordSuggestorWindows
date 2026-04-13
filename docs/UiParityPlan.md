@@ -370,6 +370,21 @@ Status:
 - Adds light-blue active-token highlighting in the internal editor and restores internal editor selections after playback stops
 - Uses estimated highlight timing around the current SAPI process bridge; exact word-boundary callbacks and OneCore voice playback remain follow-up work
 
+### WSA-RT-013C_windows_tts_clipboard_fallback_and_highlight_tuning
+
+Deliver:
+
+- fix malformed Win32 input injection for external clipboard fallback
+- tune the interim SAPI-process reading highlight so short text is visibly highlighted
+- record the current OneCore/SAPI voice boundary clearly
+
+Status:
+
+- Implemented on `2026-04-13`
+- Corrects the 64-bit `SendInput` `INPUT` union layout that caused `GetLastWin32Error=87` in the VS Code clipboard fallback path
+- Uses a stronger light-blue highlight and a longer minimum highlight duration for short TTS text
+- Confirms `Microsoft Helle - Danish (Denmark)` is installed as a OneCore voice but is not exposed through `SAPI.SpVoice.GetVoices()`; OneCore playback remains a dedicated backend follow-up
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 
 Deliver:

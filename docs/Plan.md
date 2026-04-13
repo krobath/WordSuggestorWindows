@@ -1058,6 +1058,31 @@ Known note:
 - The current Windows highlight timing is estimated around the SAPI process bridge because that bridge does not expose exact word-boundary callbacks to WPF. It gives visible macOS-like reading context now; exact speech-boundary synchronization should be revisited if/when the bridge is replaced with an in-process speech adapter.
 - The newly installed Danish voice is visible as a Windows OneCore voice, not as a SAPI Desktop voice. The current SAPI bridge cannot select it directly, so true Danish voice playback needs a follow-up OneCore/WinRT or other speech-backend sprint.
 
+### WSA-RT-013C_windows_tts_clipboard_fallback_and_highlight_tuning
+Status: `Done` (`2026-04-13`)
+
+Scope:
+
+- Fix the VS Code/external-app clipboard fallback failure observed after `WSA-RT-013B`.
+- Make the temporary reading highlight more visible while the current process-based SAPI bridge is still in place.
+- Reconfirm why the newly installed Danish Windows voice is not used by the current speech bridge.
+
+Implemented:
+
+- Corrected the Win32 `SendInput` interop layout by including the full `INPUT` union size. The previous keyboard-only union produced `GetLastWin32Error=87` (`ERROR_INVALID_PARAMETER`) on the user's VS Code fallback path.
+- Increased reading-highlight visibility by using a stronger light-blue background and a longer minimum estimated highlight duration for short text.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- Confirmed SAPI `SpVoice.GetVoices()` does not list the OneCore `Microsoft Helle - Danish (Denmark)` token directly, so the current SAPI bridge still cannot select it.
+
+Known note:
+
+- This sprint fixes the malformed `SendInput` call that prevented clipboard fallback from copying selected text in VS Code. Manual external-app smoke is still needed because Windows foreground/input policies are app- and focus-state-sensitive.
+- Danish OneCore playback remains a separate backend sprint. The current bridge can only use voices exposed through SAPI Desktop.
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
 
@@ -1171,8 +1196,9 @@ Known note:
 20. `WSA-RT-013` - toolbar text-to-speech selection pipeline
 21. `WSA-RT-013A` - TTS voice selection and diagnostics
 22. `WSA-RT-013B` - TTS external selection and highlight parity
-23. `WSA-RT-014` - error insights store and view
-24. `WSA-UX-010` - settings window parity
+23. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
+24. `WSA-RT-014` - error insights store and view
+25. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 
