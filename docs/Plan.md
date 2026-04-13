@@ -1028,6 +1028,36 @@ Known note:
 - This machine currently exposes only English SAPI Desktop voices (`en-GB`/`en-US`), so Danish (`da-DK`) TTS falls back until a Danish Windows Desktop voice is installed.
 - Windows OneCore voices may appear separately from SAPI Desktop voices; this sprint keeps the existing SAPI bridge and documents the missing-language condition instead of pretending unsupported voices are usable by the current bridge.
 
+### WSA-RT-013B_windows_tts_external_selection_and_highlight_parity
+Status: `Done` (`2026-04-13`)
+
+Scope:
+
+- Make the toolbar TTS action diagnose failures before the speech service is reached.
+- Improve external-app selected text capture after a toolbar click steals Windows foreground focus.
+- Add a Windows-side reading highlight in the internal editor so mirrored or staged text gives the same visible reading context as macOS.
+- Add a global TTS hotkey path for the more robust "read selected text in the current app" workflow.
+
+Implemented:
+
+- Added UI-level TTS diagnostics to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log`, so the log is created even when selection capture fails before SAPI speech starts.
+- Registered `Ctrl+Alt+T` as a global TTS hotkey while WordSuggestor is running. This lets the user invoke read-aloud while Edge/Word/another editor is still the active foreground app.
+- Updated toolbar TTS selection priority to include the last known external target window through UI Automation before falling back to cached selection or clipboard copy.
+- Hardened clipboard fallback with foreground verification, an activation retry, a second `SendInput` attempt, and `GetLastWin32Error` diagnostics when Windows reports zero injected keyboard events.
+- Added an editor reading highlight that mirrors macOS behavior visually by applying a light-blue background to the active token while speech is running.
+- Collapsed internal editor selections while reading so the light-blue highlight is visible, then restored the original selection after speech stops.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (GUI launch smoke; `tts-flow.log` recorded `Global TTS hotkey registered: Ctrl+Alt+T.`)
+- Local registry check after installing a Danish Windows voice found `Microsoft Helle - Danish (Denmark)` under `Speech_OneCore`, while the current SAPI Desktop bridge still lists only `Microsoft Hazel Desktop - English (Great Britain)` and `Microsoft Zira Desktop - English (United States)`.
+
+Known note:
+
+- The current Windows highlight timing is estimated around the SAPI process bridge because that bridge does not expose exact word-boundary callbacks to WPF. It gives visible macOS-like reading context now; exact speech-boundary synchronization should be revisited if/when the bridge is replaced with an in-process speech adapter.
+- The newly installed Danish voice is visible as a Windows OneCore voice, not as a SAPI Desktop voice. The current SAPI bridge cannot select it directly, so true Danish voice playback needs a follow-up OneCore/WinRT or other speech-backend sprint.
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
 
@@ -1140,8 +1170,9 @@ Known note:
 19. `WSA-RT-012` - speech-to-text dictation pipeline
 20. `WSA-RT-013` - toolbar text-to-speech selection pipeline
 21. `WSA-RT-013A` - TTS voice selection and diagnostics
-22. `WSA-RT-014` - error insights store and view
-23. `WSA-UX-010` - settings window parity
+22. `WSA-RT-013B` - TTS external selection and highlight parity
+23. `WSA-RT-014` - error insights store and view
+24. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

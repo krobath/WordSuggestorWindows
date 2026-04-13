@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,6 +26,11 @@ public partial class MainWindow : Window
     private const double OverlayVerticalGap = 10;
     private const double StaticOverlayHorizontalOffset = 118;
     private const double StaticOverlayVerticalOffset = 44;
+    private const int TextToSpeechHotKeyId = 0x5754;
+    private const int WmHotKey = 0x0312;
+    private const uint ModAlt = 0x0001;
+    private const uint ModControl = 0x0002;
+    private const uint VirtualKeyT = 0x54;
     private static readonly string SelectionImportDiagnosticLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "WordSuggestor",
@@ -35,17 +41,30 @@ public partial class MainWindow : Window
         "WordSuggestor",
         "diagnostics",
         "ocr-flow.log");
+    private static readonly string TtsFlowDiagnosticLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "WordSuggestor",
+        "diagnostics",
+        "tts-flow.log");
+    private static readonly Brush SpeechHighlightBrush = BrushFromHex("#BFE3FF");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsOcrService _ocrService = new();
     private readonly WindowsSpeechToTextService _speechToTextService = new();
     private readonly WindowsTextToSpeechService _textToSpeechService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
+    private readonly DispatcherTimer _speechHighlightTimer;
     private IntPtr _windowHandle;
     private IntPtr _lastExternalWindowHandle;
     private bool _isInitialPositionApplied;
     private bool _isSynchronizingEditorDocument;
+    private bool _isTextToSpeechHotKeyRegistered;
     private SelectionImportResult? _lastExternalSelection;
+    private DateTimeOffset _speechHighlightStartedAt;
+    private IReadOnlyList<TextSpan> _speechHighlightSpans = [];
+    private TextSpan? _currentSpeechHighlightSpan;
+    private TextSpan? _speechSelectionRangeToRestore;
+    private TimeSpan _speechHighlightDuration = TimeSpan.Zero;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
@@ -58,6 +77,11 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(350)
         };
         _externalSelectionPollTimer.Tick += ExternalSelectionPollTimerOnTick;
+        _speechHighlightTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(90)
+        };
+        _speechHighlightTimer.Tick += SpeechHighlightTimerOnTick;
         _selectionImportService.DiagnosticEmitted += SelectionImportServiceOnDiagnosticEmitted;
         InitializeComponent();
         DataContext = _viewModel;
@@ -76,6 +100,8 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _windowHandle = new WindowInteropHelper(this).Handle;
+        HwndSource.FromHwnd(_windowHandle)?.AddHook(WindowMessageHook);
+        RegisterTextToSpeechHotKey();
         _externalSelectionPollTimer.Start();
 
         if (!_isInitialPositionApplied)
@@ -101,6 +127,14 @@ public partial class MainWindow : Window
         SizeChanged -= OnWindowLocationOrSizeChanged;
         _externalSelectionPollTimer.Stop();
         _externalSelectionPollTimer.Tick -= ExternalSelectionPollTimerOnTick;
+        _speechHighlightTimer.Stop();
+        _speechHighlightTimer.Tick -= SpeechHighlightTimerOnTick;
+        if (_windowHandle != IntPtr.Zero)
+        {
+            HwndSource.FromHwnd(_windowHandle)?.RemoveHook(WindowMessageHook);
+            UnregisterTextToSpeechHotKey();
+        }
+
         _selectionImportService.DiagnosticEmitted -= SelectionImportServiceOnDiagnosticEmitted;
         _speechToTextService.TranscriptReceived -= SpeechToTextServiceOnTranscriptReceived;
         _speechToTextService.StatusChanged -= SpeechToTextServiceOnStatusChanged;
@@ -144,6 +178,42 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException)
         {
         }
+    }
+
+    private void RegisterTextToSpeechHotKey()
+    {
+        if (_windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _isTextToSpeechHotKeyRegistered = RegisterHotKey(_windowHandle, TextToSpeechHotKeyId, ModControl | ModAlt, VirtualKeyT);
+        WriteTtsFlowDiagnostic(_isTextToSpeechHotKeyRegistered
+            ? "Global TTS hotkey registered: Ctrl+Alt+T."
+            : $"Global TTS hotkey registration failed: GetLastWin32Error={Marshal.GetLastWin32Error()}.");
+    }
+
+    private void UnregisterTextToSpeechHotKey()
+    {
+        if (!_isTextToSpeechHotKeyRegistered || _windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        _ = UnregisterHotKey(_windowHandle, TextToSpeechHotKeyId);
+        _isTextToSpeechHotKeyRegistered = false;
+    }
+
+    private IntPtr WindowMessageHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WmHotKey && wParam.ToInt32() == TextToSpeechHotKeyId)
+        {
+            handled = true;
+            WriteTtsFlowDiagnostic("Global TTS hotkey invoked.");
+            _ = Dispatcher.InvokeAsync(async () => await SpeakSelectionOrEditorTextAsync());
+        }
+
+        return IntPtr.Zero;
     }
 
     private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -401,17 +471,24 @@ public partial class MainWindow : Window
 
     private async Task SpeakSelectionOrEditorTextAsync()
     {
+        WriteTtsFlowDiagnostic(
+            $"UI TTS action started: lastExternalWindow=0x{_lastExternalWindowHandle.ToInt64():X}, editorChars={_viewModel.EditorText.Length}.");
         if (_textToSpeechService.IsSpeaking)
         {
             _textToSpeechService.Stop();
+            StopSpeechHighlight(restoreEditorSelection: true);
             _viewModel.SetTextToSpeechSpeaking(false, "Oplæsning stopper.");
+            WriteTtsFlowDiagnostic("UI TTS action stopped active speech.");
             return;
         }
 
-        var internalSelection = GetSelectedEditorPlainText();
-        if (!string.IsNullOrWhiteSpace(internalSelection))
+        var internalSelection = GetSelectedEditorSpeechText();
+        if (internalSelection is not null)
         {
-            SpeakText(internalSelection, "intern editor-markering");
+            _speechSelectionRangeToRestore = internalSelection;
+            SetEditorSelection(internalSelection.Start, 0);
+            WriteTtsFlowDiagnostic($"UI TTS action using internal editor selection: chars={internalSelection.Length}.");
+            SpeakText(internalSelection.Text, "intern editor-markering", internalSelection.Start);
             return;
         }
 
@@ -421,6 +498,17 @@ public partial class MainWindow : Window
         if (liveExternalSelection is not null)
         {
             MirrorAndSpeakExternalSelection(liveExternalSelection);
+            return;
+        }
+
+        var lastWindowSelection = _selectionImportService.TryReadSelectionFromWindowHandle(
+            _lastExternalWindowHandle,
+            _windowHandle,
+            "last external target",
+            emitDiagnostics: true);
+        if (lastWindowSelection is not null)
+        {
+            MirrorAndSpeakExternalSelection(lastWindowSelection);
             return;
         }
 
@@ -449,27 +537,31 @@ public partial class MainWindow : Window
         {
             _viewModel.EnsureEditorExpanded();
             SyncEditorDocumentFromViewModel(force: true);
-            SpeakText(_viewModel.EditorText, "intern editor-tekst");
+            WriteTtsFlowDiagnostic($"UI TTS action using staged internal editor text: chars={_viewModel.EditorText.Length}.");
+            SpeakText(_viewModel.EditorText, "intern editor-tekst", 0);
             RefocusEditor();
             return;
         }
 
         _viewModel.SetStatusMessage("Ingen tekst fundet til oplæsning. Markér tekst eller skriv/importér tekst i editoren.");
+        WriteTtsFlowDiagnostic("UI TTS action completed without readable text.");
     }
 
     private void MirrorAndSpeakExternalSelection(SelectionImportResult selection)
     {
         _viewModel.ImportTextIntoEditor(selection.Text, $"{selection.Source} til oplæsning");
         RefocusEditor();
-        SpeakText(selection.Text, selection.Source);
+        WriteTtsFlowDiagnostic($"UI TTS action mirrored external selection: source={selection.Source}, chars={selection.Text.Length}.");
+        SpeakText(selection.Text, selection.Source, 0);
     }
 
-    private void SpeakText(string text, string source)
+    private void SpeakText(string text, string source, int highlightBaseOffset)
     {
         try
         {
             var options = _viewModel.CreateTextToSpeechOptions(text);
             _textToSpeechService.Speak(text, options);
+            StartSpeechHighlight(text, highlightBaseOffset, options);
             var voiceSummary = options.FallbackReason is null
                 ? options.VoiceDisplayName ?? "Windows standardstemme"
                 : $"fallback: {options.FallbackReason}";
@@ -479,7 +571,9 @@ public partial class MainWindow : Window
         }
         catch (InvalidOperationException ex)
         {
+            StopSpeechHighlight(restoreEditorSelection: true);
             _viewModel.SetTextToSpeechSpeaking(false, $"Oplæsning kunne ikke starte: {ex.Message}");
+            WriteTtsFlowDiagnostic($"UI TTS action failed to start speech: {ex.Message}");
         }
     }
 
@@ -490,7 +584,11 @@ public partial class MainWindow : Window
 
     private void TextToSpeechServiceOnSpeechStopped(object? sender, string status)
     {
-        Dispatcher.BeginInvoke(() => _viewModel.SetTextToSpeechSpeaking(false, status));
+        Dispatcher.BeginInvoke(() =>
+        {
+            StopSpeechHighlight(restoreEditorSelection: true);
+            _viewModel.SetTextToSpeechSpeaking(false, status);
+        });
     }
 
     private async Task RunOcrScreenSnipAsync()
@@ -550,6 +648,24 @@ public partial class MainWindow : Window
         {
             Directory.CreateDirectory(Path.GetDirectoryName(OcrFlowDiagnosticLogPath)!);
             File.AppendAllText(OcrFlowDiagnosticLogPath, line + Environment.NewLine);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void WriteTtsFlowDiagnostic(string message)
+    {
+        var line = $"{DateTimeOffset.Now:O} [UI] {message}";
+        Debug.WriteLine($"WordSuggestor TTS: {message}");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(TtsFlowDiagnosticLogPath)!);
+            File.AppendAllText(TtsFlowDiagnosticLogPath, line + Environment.NewLine);
         }
         catch (IOException)
         {
@@ -842,6 +958,19 @@ public partial class MainWindow : Window
         return NormalizeRichTextBoxText(text).Trim();
     }
 
+    private TextSpan? GetSelectedEditorSpeechText()
+    {
+        var rawText = NormalizeRichTextBoxText(new TextRange(EditorTextBox.Selection.Start, EditorTextBox.Selection.End).Text);
+        if (string.IsNullOrWhiteSpace(rawText))
+        {
+            return null;
+        }
+
+        var leadingWhitespace = rawText.Length - rawText.TrimStart().Length;
+        var trimmedText = rawText.Trim();
+        return new TextSpan(GetTextOffset(EditorTextBox.Selection.Start) + leadingWhitespace, trimmedText.Length, trimmedText);
+    }
+
     private SelectionImportResult? TryGetRecentExternalSelection()
     {
         if (_lastExternalSelection is null)
@@ -861,11 +990,27 @@ public partial class MainWindow : Window
         return NormalizeRichTextBoxText(text).Length;
     }
 
+    private int GetTextOffset(TextPointer pointer)
+    {
+        var text = new TextRange(EditorTextBox.Document.ContentStart, pointer).Text;
+        return NormalizeRichTextBoxText(text).Length;
+    }
+
     private void SetEditorCaretIndex(int index)
     {
         var pointer = GetTextPointerAtCharOffset(Math.Clamp(index, 0, GetEditorPlainText().Length));
         EditorTextBox.CaretPosition = pointer;
         EditorTextBox.Selection.Select(pointer, pointer);
+    }
+
+    private void SetEditorSelection(int start, int length)
+    {
+        var safeStart = Math.Clamp(start, 0, GetEditorPlainText().Length);
+        var safeEnd = Math.Clamp(safeStart + length, safeStart, GetEditorPlainText().Length);
+        var startPointer = GetTextPointerAtCharOffset(safeStart);
+        var endPointer = GetTextPointerAtCharOffset(safeEnd);
+        EditorTextBox.Selection.Select(startPointer, endPointer);
+        EditorTextBox.CaretPosition = endPointer;
     }
 
     private void ApplyEditorColoring()
@@ -884,6 +1029,7 @@ public partial class MainWindow : Window
             var fullRange = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd);
             fullRange.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Black);
             fullRange.ApplyPropertyValue(Inline.TextDecorationsProperty, null);
+            fullRange.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
 
             if (_viewModel.IsAnalyzerColoringEnabled)
             {
@@ -909,6 +1055,106 @@ public partial class MainWindow : Window
         }
 
         SetEditorCaretIndex(caretIndex);
+    }
+
+    private void StartSpeechHighlight(string text, int baseOffset, TtsSpeechOptions options)
+    {
+        var spans = WordTokenRegex()
+            .Matches(text)
+            .Select(match => new TextSpan(baseOffset + match.Index, match.Length, match.Value))
+            .ToArray();
+        if (spans.Length == 0)
+        {
+            WriteTtsFlowDiagnostic("Speech highlight skipped: no word tokens found.");
+            return;
+        }
+
+        ClearCurrentSpeechHighlight();
+        _speechHighlightSpans = spans;
+        _speechHighlightStartedAt = DateTimeOffset.Now;
+        _speechHighlightDuration = EstimateSpeechDuration(text, spans.Length, options);
+        _speechHighlightTimer.Start();
+        ApplySpeechHighlight(spans[0]);
+        WriteTtsFlowDiagnostic(
+            $"Speech highlight started: tokens={spans.Length}, baseOffset={baseOffset}, estimatedMs={_speechHighlightDuration.TotalMilliseconds:F0}.");
+    }
+
+    private void StopSpeechHighlight(bool restoreEditorSelection)
+    {
+        _speechHighlightTimer.Stop();
+        ClearCurrentSpeechHighlight();
+        _speechHighlightSpans = [];
+        _speechHighlightDuration = TimeSpan.Zero;
+
+        if (restoreEditorSelection)
+        {
+            RestoreSpeechEditorSelection();
+        }
+    }
+
+    private void SpeechHighlightTimerOnTick(object? sender, EventArgs e)
+    {
+        if (_speechHighlightSpans.Count == 0 || _speechHighlightDuration <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var elapsed = DateTimeOffset.Now - _speechHighlightStartedAt;
+        var progress = Math.Clamp(elapsed.TotalMilliseconds / _speechHighlightDuration.TotalMilliseconds, 0.0, 0.98);
+        var index = Math.Clamp((int)Math.Floor(progress * _speechHighlightSpans.Count), 0, _speechHighlightSpans.Count - 1);
+        ApplySpeechHighlight(_speechHighlightSpans[index]);
+    }
+
+    private void ApplySpeechHighlight(TextSpan span)
+    {
+        if (_currentSpeechHighlightSpan is not null &&
+            _currentSpeechHighlightSpan.Start == span.Start &&
+            _currentSpeechHighlightSpan.Length == span.Length)
+        {
+            return;
+        }
+
+        ClearCurrentSpeechHighlight();
+        var start = GetTextPointerAtCharOffset(span.Start);
+        var end = GetTextPointerAtCharOffset(span.Start + span.Length);
+        new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, SpeechHighlightBrush);
+        _currentSpeechHighlightSpan = span;
+    }
+
+    private void ClearCurrentSpeechHighlight()
+    {
+        if (_currentSpeechHighlightSpan is null)
+        {
+            return;
+        }
+
+        var start = GetTextPointerAtCharOffset(_currentSpeechHighlightSpan.Start);
+        var end = GetTextPointerAtCharOffset(_currentSpeechHighlightSpan.Start + _currentSpeechHighlightSpan.Length);
+        new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
+        _currentSpeechHighlightSpan = null;
+    }
+
+    private void RestoreSpeechEditorSelection()
+    {
+        if (_speechSelectionRangeToRestore is null)
+        {
+            return;
+        }
+
+        var range = _speechSelectionRangeToRestore;
+        _speechSelectionRangeToRestore = null;
+        SetEditorSelection(range.Start, range.Length);
+    }
+
+    private static TimeSpan EstimateSpeechDuration(string text, int wordCount, TtsSpeechOptions options)
+    {
+        const double baseWordsPerMinute = 150.0;
+        var speedMultiplier = options.UseSystemSpeechSettings
+            ? 1.0
+            : Math.Pow(1.35, options.ReadingSpeedDelta);
+        var wordsDurationMs = wordCount / (baseWordsPerMinute * speedMultiplier) * 60_000.0;
+        var punctuationPauseMs = text.Count(character => character is '.' or ',' or ';' or ':' or '!' or '?') * 120.0;
+        return TimeSpan.FromMilliseconds(Math.Max(900.0, wordsDurationMs + punctuationPauseMs));
     }
 
     private TextPointer GetTextPointerAtCharOffset(int charOffset)
@@ -1275,4 +1521,12 @@ public partial class MainWindow : Window
         caretRect = new Rect(topLeft.X, topLeft.Y, Math.Max(1, rect.Width), Math.Max(20, rect.Height));
         return true;
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    private sealed record TextSpan(int Start, int Length, string Text);
 }

@@ -8,7 +8,7 @@ namespace WordSuggestorWindows.App.Services;
 public sealed class WindowsSelectionImportService
 {
     private const int ClipboardCopyDelayMs = 160;
-    private const int ForegroundActivationDelayMs = 70;
+    private const int ForegroundActivationDelayMs = 140;
     private const uint InputKeyboard = 1;
     private const uint KeyEventKeyUp = 0x0002;
     private const ushort VirtualKeyControl = 0x11;
@@ -53,6 +53,35 @@ public sealed class WindowsSelectionImportService
         return null;
     }
 
+    public SelectionImportResult? TryReadSelectionFromWindowHandle(
+        IntPtr windowHandle,
+        IntPtr excludedWindowHandle,
+        string source,
+        bool emitDiagnostics = false)
+    {
+        if (windowHandle == IntPtr.Zero)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Skipped", $"{source} window handle was unavailable.");
+            return null;
+        }
+
+        if (windowHandle == excludedWindowHandle)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Skipped", $"{source} window handle points to WordSuggestor.");
+            return null;
+        }
+
+        var windowSelection = TryReadSelectionFromWindow(windowHandle);
+        if (windowSelection is not null)
+        {
+            EmitIf(emitDiagnostics, "UIA", "Success", $"{source} window 0x{windowHandle.ToInt64():X} exposed {windowSelection.Text.Length} characters.");
+            return windowSelection;
+        }
+
+        EmitIf(emitDiagnostics, "UIA", "NoSelection", $"{source} window 0x{windowHandle.ToInt64():X} did not expose selected text through TextPattern.");
+        return null;
+    }
+
     public async Task<SelectionImportResult?> TryReadSelectionWithClipboardFallbackAsync(
         IntPtr targetWindowHandle,
         IntPtr returnWindowHandle)
@@ -80,8 +109,33 @@ public sealed class WindowsSelectionImportService
                 foregroundChanged ? "TargetActivated" : "TargetActivationUnconfirmed",
                 $"Target window 0x{targetWindowHandle.ToInt64():X} was prepared for Ctrl+C.");
             await Task.Delay(ForegroundActivationDelayMs);
+
+            if (GetForegroundWindow() != targetWindowHandle)
+            {
+                foregroundChanged = SetForegroundWindow(targetWindowHandle);
+                Emit(
+                    "ClipboardFallback",
+                    foregroundChanged ? "TargetReactivated" : "TargetReactivationUnconfirmed",
+                    $"Foreground verification failed; retried target window 0x{targetWindowHandle.ToInt64():X}.");
+                await Task.Delay(ForegroundActivationDelayMs);
+            }
+
             var sentInputCount = SendCopyShortcut();
-            Emit("ClipboardFallback", "CopyShortcutSent", $"SendInput reported {sentInputCount} keyboard input events.");
+            if (sentInputCount == 0)
+            {
+                await Task.Delay(ForegroundActivationDelayMs);
+                _ = SetForegroundWindow(targetWindowHandle);
+                await Task.Delay(ForegroundActivationDelayMs);
+                sentInputCount = SendCopyShortcut();
+            }
+
+            var lastError = sentInputCount == 0 ? Marshal.GetLastWin32Error() : 0;
+            Emit(
+                "ClipboardFallback",
+                sentInputCount == 0 ? "CopyShortcutFailed" : "CopyShortcutSent",
+                sentInputCount == 0
+                    ? $"SendInput reported 0 keyboard input events; GetLastWin32Error={lastError}."
+                    : $"SendInput reported {sentInputCount} keyboard input events.");
             await Task.Delay(ClipboardCopyDelayMs);
 
             var copiedText = TryGetClipboardText();

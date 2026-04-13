@@ -333,7 +333,7 @@ Status:
 - Adds toolbar-level `TTS` start/stop behavior through a Windows SAPI bridge
 - Reads internal editor selection first, then live external UIA selection, recent cached external UIA selection, guarded clipboard fallback selection, and finally staged editor text
 - Mirrors external selections into the internal editor before playback for visible reading context
-- Full synchronized word highlighting during playback remains a follow-up refinement
+- Initial highlight parity is covered by `WSA-RT-013B`
 
 ### WSA-RT-013A_windows_tts_voice_selection_and_diagnostics
 
@@ -350,7 +350,25 @@ Status:
 - Adds per-language system voice overrides and reading speed settings to the Windows local settings profile
 - Filters the settings voice picker by the selected WordSuggestor language and shows fallback voices only when no language match is installed
 - Logs TTS flow to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log`
-- Current bridge still uses SAPI Desktop voices; neural/offline voice packs and full word-by-word highlight synchronization remain follow-up work
+- Current bridge still uses SAPI Desktop voices; neural/offline voice packs and OneCore voice playback remain follow-up work
+
+### WSA-RT-013B_windows_tts_external_selection_and_highlight_parity
+
+Deliver:
+
+- UI-level TTS diagnostics before speech starts
+- more robust external-app selection capture for toolbar and hotkey use
+- visible editor word highlighting during playback
+- global Windows hotkey for reading the current external selection without stealing foreground focus first
+
+Status:
+
+- Implemented on `2026-04-13`
+- Adds `Ctrl+Alt+T` while WordSuggestor is running so users can mark text in Edge/Word/other apps and invoke TTS while that app remains foreground
+- Reads the last known external target window through UI Automation before cached selection and clipboard fallback
+- Hardens clipboard fallback with foreground verification, retry, and `SendInput` Win32 error diagnostics
+- Adds light-blue active-token highlighting in the internal editor and restores internal editor selections after playback stops
+- Uses estimated highlight timing around the current SAPI process bridge; exact word-boundary callbacks and OneCore voice playback remain follow-up work
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 
