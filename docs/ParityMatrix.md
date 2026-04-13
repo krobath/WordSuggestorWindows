@@ -22,7 +22,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Toolbar speech-to-text action | `AppState.toggleSpeechToTextIntoEditor()` + `SpeechToTextService.swift` | Windows speech recognition bridge with MIC start/stop state and final transcript insertion into the internal editor | `Baseline done: WSA-RT-012` |
 | Toolbar text-to-speech action | `FloatingToolbarView.speakSelection()` + `SpeechHighlighter.swift` | Windows-native selected/staged text speech with external selection mirroring into the editor | `Baseline done: WSA-RT-013` |
 | Toolbar insights action | `ErrorInsightsView.swift` + `ErrorTrackingStore.swift` | Windows local error tracking store plus native insights view | `Baseline done: WSA-RT-014` |
-| Toolbar settings action | SwiftUI `Settings` scene + `SettingsView.swift` | Windows-native settings window preserving macOS semantics | `Planned: WSA-UX-010` |
+| Toolbar settings action | SwiftUI `Settings` scene + `SettingsView.swift` | Windows-native settings window preserving macOS semantics | `Baseline done: WSA-UX-010` |
 | Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
 | Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
 | Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared; Windows dynamic routing baseline done in WSA-RT-009` |
@@ -44,7 +44,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Cross-app focused text access | macOS AX | New Windows impl via Windows APIs | `Planned: WSA-RT-003` |
 | Caret anchor extraction | macOS AX | New Windows impl via Windows APIs | `Planned: WSA-RT-003` |
 | Floating suggestion panel | `MacSuggestionPanelController.swift` | New Windows impl | `Baseline done in internal editor path` |
-| Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Planned: WSA-UX-010` |
+| Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Baseline done: WSA-UX-010` |
 | OCR / screen snip | `ScreenSnipper.swift` | New Windows impl using Snipping Tool protocol callback, shared-storage token redemption, `file-access-token` parsing, and Windows OCR bridge | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B; diagnostics: WSA-RT-011C; file-access-token callback: WSA-RT-011D` |
 | Speech to text | `SpeechToTextService.swift` | New Windows impl through local Windows Desktop Speech Recognition bridge | `Baseline done: WSA-RT-012` |
 | Suggestion row text to speech | `SuggestionPanelView.swift` + system TTS | New Windows impl for overlay row speaker action | `Baseline done in internal editor path` |

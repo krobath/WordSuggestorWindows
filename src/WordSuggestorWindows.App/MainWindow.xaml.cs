@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private SelectionImportResult? _lastExternalSelection;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
+    private SettingsWindow? _settingsWindow;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -113,6 +114,12 @@ public partial class MainWindow : Window
         {
             _overlayWindow.Close();
             _overlayWindow = null;
+        }
+
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Close();
+            _settingsWindow = null;
         }
     }
 
@@ -298,6 +305,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (action == "settings")
+            {
+                ShowSettingsWindow();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
     }
@@ -309,6 +322,31 @@ public partial class MainWindow : Window
             Owner = this
         };
         insightsWindow.Show();
+    }
+
+    private void ShowSettingsWindow()
+    {
+        if (_settingsWindow is { IsVisible: true })
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new SettingsWindow(_viewModel)
+        {
+            Owner = this
+        };
+        _settingsWindow.Closed += SettingsWindowOnClosed;
+        _settingsWindow.Show();
+    }
+
+    private void SettingsWindowOnClosed(object? sender, EventArgs e)
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Closed -= SettingsWindowOnClosed;
+            _settingsWindow = null;
+        }
     }
 
     private void ToggleSpeechToText()

@@ -1,0 +1,207 @@
+<Window x:Class="WordSuggestorWindows.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WordSuggestor Indstillinger"
+        Width="760"
+        Height="620"
+        MinWidth="680"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#F6F7FA">
+    <Window.Resources>
+        <Style x:Key="SectionStyle" TargetType="Border">
+            <Setter Property="Background" Value="White" />
+            <Setter Property="BorderBrush" Value="#DDE2EA" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+        <Style x:Key="MutedTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#6B7280" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="SettingCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="18">
+        <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource MutedTextStyle}"
+                       Text="Indstillinger gemmes lokalt i Windows-brugerprofilen." />
+            <Button Grid.Column="1"
+                    Width="96"
+                    Margin="0,0,8,0"
+                    Padding="12,7"
+                    Content="Annuller"
+                    Click="CancelButton_OnClick" />
+            <Button Grid.Column="2"
+                    Width="112"
+                    Padding="12,7"
+                    Content="Gem"
+                    IsDefault="True"
+                    Click="SaveButton_OnClick" />
+        </Grid>
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <TextBlock Text="Indstillinger"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="#111827" />
+            <TextBlock Text="Windows-native baseline for de samme settings-semantikker som macOS. Ikke-understøttede områder er markeret som kommende arbejde."
+                       Style="{StaticResource MutedTextStyle}"
+                       Margin="0,3,0,0" />
+        </StackPanel>
+
+        <TabControl>
+            <TabItem Header="Generelt">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Sprog og placering" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="Aktivt sprog"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="LanguageComboBox"
+                                          Margin="0,4,0,12"
+                                          DisplayMemberPath="DisplayLabel"
+                                          SelectedValuePath="LanguageCode" />
+                                <TextBlock Text="Ordforslagsboksens placering"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="PlacementModeComboBox"
+                                          Margin="0,4,0,0"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Oplæsning" Style="{StaticResource SectionTitleStyle}" />
+                                <CheckBox x:Name="UseSystemSpeechSettingsCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Brug systemets oplæsningsindstillinger" />
+                                <TextBlock Text="Specifik stemmevalg og neural TTS-import er macOS-funktioner, der kræver et separat Windows audio/settings-sprint."
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Ordforslag">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Ordforslag" Style="{StaticResource SectionTitleStyle}" />
+                                <CheckBox x:Name="GlobalSuggestionsCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Aktiver ordforslag" />
+                                <CheckBox x:Name="DomainListsCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Aktiver fagordslister"
+                                          IsEnabled="False" />
+                                <TextBlock Text="Fagordslister er fortsat placeholder-parity, fordi macOS-knappen også peger mod senere administration."
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Tekstanalyse">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Tekstanalyse" Style="{StaticResource SectionTitleStyle}" />
+                                <CheckBox x:Name="TextAnalyzerEnabledCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Aktiver tekstanalyse"
+                                          IsEnabled="False" />
+                                <CheckBox x:Name="TextAnalyzerColoringCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="POS-farvemarkering" />
+                                <CheckBox x:Name="SemanticDiagnosticsCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Semantiske kontekstdiagnoser (beta)" />
+                                <CheckBox x:Name="PunctuationDiagnosticsCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Tegnsætningsdiagnoser (beta)" />
+                                <TextBlock Text="Den nuværende Windows-editor har en visuel baseline for farver. Fuld lexicon-/analyzer-backed parity kommer senere."
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Fejlsporing">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Fejlsporing" Style="{StaticResource SectionTitleStyle}" />
+                                <CheckBox x:Name="ErrorTrackingEnabledCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Aktiver fejlsporing" />
+                                <CheckBox x:Name="StoreSentenceExamplesCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Gem sætningseksempler lokalt"
+                                          IsEnabled="False" />
+                                <TextBlock Text="Windows baseline gemmer kun lokale insight-events og typed/accepteret rettelsespar. Fulde sætningseksempler gemmes ikke endnu."
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Avanceret">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <Border Style="{StaticResource SectionStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Debug og performance" Style="{StaticResource SectionTitleStyle}" />
+                                <CheckBox x:Name="PerformanceInstrumentationCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Performance-instrumentering"
+                                          IsEnabled="False" />
+                                <CheckBox x:Name="AppDebugLoggingCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Debug logs: App"
+                                          IsEnabled="False" />
+                                <CheckBox x:Name="PlacementDebugLoggingCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Debug logs: Panel/caret"
+                                          IsEnabled="False" />
+                                <CheckBox x:Name="CoreDebugLoggingCheckBox"
+                                          Style="{StaticResource SettingCheckBoxStyle}"
+                                          Content="Debug logs: WordSuggestorCore"
+                                          IsEnabled="False" />
+                                <TextBlock Text="Debug toggles er vist for macOS-semantisk parity, men kobles først til konkrete Windows log-flags i et senere diagnostics-sprint."
+                                           Style="{StaticResource MutedTextStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

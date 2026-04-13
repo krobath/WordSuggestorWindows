@@ -625,6 +625,10 @@ Validation:
 - Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
 - `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warning)
 - `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warning)
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_core_cli.ps1` -> `PASS`
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process remained responsive)
 - Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
@@ -1018,7 +1022,7 @@ Known note:
 - The view shows aggregate and recent-event data, but deeper charts/timelines and synchronized analyzer-backed morphology remain follow-up refinements.
 
 ### WSA-UX-010_windows_settings_window_parity
-Status: `Planned`
+Status: `Done` (`2026-04-13`)
 
 Scope:
 
@@ -1029,6 +1033,28 @@ Scope:
 Target outcome:
 
 - The Windows settings button opens a native settings surface that preserves macOS semantics without copying AppKit/SwiftUI chrome.
+
+Implemented:
+
+- Added a Windows-native `SettingsWindow` opened from the toolbar settings button.
+- Added a local settings store at `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json`.
+- Added settings categories aligned with macOS:
+  - `Generelt`
+  - `Ordforslag`
+  - `Tekstanalyse`
+  - `Fejlsporing`
+  - `Avanceret`
+- Wired active Windows settings for language, suggestion placement, global suggestions, analyzer coloring, semantic diagnostics, punctuation diagnostics, error tracking, and system speech preference.
+- Kept domain lists, sentence-example storage, detailed debug logging, performance instrumentation, and deeper voice/runtime options as disabled placeholder parity where Windows does not yet have a matching runtime implementation.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This sprint adds local Windows settings persistence and a native settings surface. It does not introduce a shared cross-platform settings sync format beyond the documented JSON baseline.
+- The disabled controls intentionally preserve macOS semantics without implying completed Windows functionality.
 
 ### WSA-TS-001_windows_smoke_and_regression_baseline
 Status: `Done` (`2026-04-09`)

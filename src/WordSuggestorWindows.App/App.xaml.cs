@@ -17,9 +17,11 @@ public partial class App : Application
         base.OnStartup(e);
 
         var startupText = ResolveStartupText(e.Args);
+        var settingsService = new WindowsAppSettingsService();
         var viewModel = new MainWindowViewModel(
             new WordSuggestorCoreCliSuggestionProvider(),
             new WindowsErrorInsightsStore(),
+            settingsService,
             startupText);
         var window = new MainWindow(viewModel);
 

@@ -14,6 +14,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private const int MaxSuggestionPages = 4;
     private readonly ISuggestionProvider _suggestionProvider;
     private readonly WindowsErrorInsightsStore _insightsStore;
+    private readonly WindowsAppSettingsService _settingsService;
     private readonly RelayCommand _acceptSelectedSuggestionCommand;
     private CancellationTokenSource? _suggestionCts;
     private string _editorText = string.Empty;
@@ -28,6 +29,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isAnalyzerColoringEnabled = true;
     private bool _isSemanticDiagnosticsEnabled;
     private bool _isPunctuationDiagnosticsEnabled;
+    private bool _isErrorTrackingEnabled = true;
     private bool _isSpeechToTextListening;
     private bool _isTextToSpeechSpeaking;
     private int _currentSuggestionPage;
@@ -36,17 +38,29 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public MainWindowViewModel(
         ISuggestionProvider suggestionProvider,
         WindowsErrorInsightsStore insightsStore,
+        WindowsAppSettingsService settingsService,
         string? initialEditorText = null)
     {
         _suggestionProvider = suggestionProvider;
         _insightsStore = insightsStore;
+        _settingsService = settingsService;
+        var settings = _settingsService.Load();
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
             ? "Windows toolbar shell klar. Udvid editoren for at skrive og hente forslag."
             : "Startuptekst er klar. Åbn editoren for at vise og redigere teksten.";
         LanguageOptions = suggestionProvider.LanguageOptions;
-        _selectedLanguageOption = suggestionProvider.SelectedLanguage;
+        _selectedLanguageOption = LanguageOptions.FirstOrDefault(option =>
+                string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase))
+            ?? suggestionProvider.SelectedLanguage;
+        _suggestionProvider.SetLanguage(_selectedLanguageOption);
+        _isGlobalCaptureEnabled = settings.IsGlobalCaptureEnabled;
+        _isAnalyzerColoringEnabled = settings.IsTextAnalyzerColoringEnabled;
+        _isSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
+        _isPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
+        _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
+        _suggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
@@ -163,6 +177,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             if (SetProperty(ref _isGlobalCaptureEnabled, value))
             {
+                PersistCurrentSettings();
                 StatusMessage = value
                     ? "Global forslag er slået til. Cross-app integration kommer i WSA-RT-003."
                     : "Global forslag er slået fra i Windows-shell'en.";
@@ -183,6 +198,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _selectedLanguageOption, value))
             {
                 _suggestionProvider.SetLanguage(value);
+                PersistCurrentSettings();
                 OnPropertyChanged(nameof(ProviderDescription));
                 OnPropertyChanged(nameof(OverlaySupportSummary));
 
@@ -462,6 +478,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void ToggleAnalyzerColoring()
     {
         IsAnalyzerColoringEnabled = !IsAnalyzerColoringEnabled;
+        PersistCurrentSettings();
         NotifyEditorSurfaceStateChanged();
         StatusMessage = IsAnalyzerColoringEnabled
             ? "Farvekodning er markeret som aktiv i Windows-shell'en."
@@ -471,6 +488,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void ToggleSemanticDiagnostics()
     {
         IsSemanticDiagnosticsEnabled = !IsSemanticDiagnosticsEnabled;
+        PersistCurrentSettings();
         NotifyEditorSurfaceStateChanged();
         StatusMessage = IsSemanticDiagnosticsEnabled
             ? "Semantik-knappen er slået til som del af editor-parity baseline."
@@ -480,6 +498,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void TogglePunctuationDiagnostics()
     {
         IsPunctuationDiagnosticsEnabled = !IsPunctuationDiagnosticsEnabled;
+        PersistCurrentSettings();
         NotifyEditorSurfaceStateChanged();
         StatusMessage = IsPunctuationDiagnosticsEnabled
             ? "Tegnsætningsknappen er slået til som del af editor-parity baseline."
@@ -511,15 +530,50 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ErrorInsightsSnapshot LoadInsightsSnapshot() => _insightsStore.LoadSnapshot();
 
-    public void RecordBackspaceActivity() =>
-        _insightsStore.RecordBackspace(SelectedLanguageOption.LanguageCode);
+    public AppSettingsSnapshot LoadSettingsSnapshot() => CaptureCurrentSettings(_settingsService.Load());
 
-    public void RecordSentenceBoundary(string boundary) =>
-        _insightsStore.RecordSentenceBoundary(SelectedLanguageOption.LanguageCode, boundary);
+    public void ApplySettingsSnapshot(AppSettingsSnapshot settings)
+    {
+        _settingsService.Save(settings);
+
+        var selectedLanguage = LanguageOptions.FirstOrDefault(option =>
+            string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase));
+        if (selectedLanguage is not null)
+        {
+            SelectedLanguageOption = selectedLanguage;
+        }
+
+        IsGlobalCaptureEnabled = settings.IsGlobalCaptureEnabled;
+        IsAnalyzerColoringEnabled = settings.IsTextAnalyzerColoringEnabled;
+        IsSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
+        IsPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
+        _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
+        SuggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
+        NotifyEditorSurfaceStateChanged();
+        OnPropertyChanged(nameof(OverlaySupportSummary));
+        StatusMessage = "Indstillinger er gemt og anvendt i Windows-sessionen.";
+    }
+
+    public void RecordBackspaceActivity()
+    {
+        if (_isErrorTrackingEnabled)
+        {
+            _insightsStore.RecordBackspace(SelectedLanguageOption.LanguageCode);
+        }
+    }
+
+    public void RecordSentenceBoundary(string boundary)
+    {
+        if (_isErrorTrackingEnabled)
+        {
+            _insightsStore.RecordSentenceBoundary(SelectedLanguageOption.LanguageCode, boundary);
+        }
+    }
 
     public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
     {
         SuggestionPlacementMode = mode;
+        PersistCurrentSettings();
         OnPropertyChanged(nameof(OverlaySupportSummary));
         StatusMessage = mode == SuggestionPlacementMode.FollowCaret
             ? "Ordforslagsboksen følger nu markøren, når caret-placering er tilgængelig."
@@ -557,11 +611,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var nextText = ReplaceActiveToken(EditorText, CaretIndex, acceptedTerm, out var nextCaretIndex);
         EditorText = nextText;
         CaretIndex = nextCaretIndex;
-        _insightsStore.RecordAcceptedSuggestion(
-            typedToken,
-            acceptedSuggestion,
-            SelectedLanguageOption.LanguageCode,
-            acceptedRank);
+        if (_isErrorTrackingEnabled)
+        {
+            _insightsStore.RecordAcceptedSuggestion(
+                typedToken,
+                acceptedSuggestion,
+                SelectedLanguageOption.LanguageCode,
+                acceptedRank);
+        }
+
         ClearSuggestionSession(keepOverlayVisible: true);
         StatusMessage = $"Indsatte '{acceptedTerm}'. Skriv videre for nye forslag.";
     }
@@ -765,6 +823,28 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             .Replace('\r', ' ')
             .Replace('\n', ' ')
             .Trim();
+
+    private AppSettingsSnapshot CaptureCurrentSettings(AppSettingsSnapshot settings)
+    {
+        var snapshot = settings.Clone();
+        snapshot.IsGlobalCaptureEnabled = IsGlobalCaptureEnabled;
+        snapshot.SelectedLanguageCode = SelectedLanguageOption.LanguageCode;
+        snapshot.SuggestionPlacementMode = SuggestionPlacementMode == SuggestionPlacementMode.FollowCaret
+            ? "followCaret"
+            : "static";
+        snapshot.IsTextAnalyzerColoringEnabled = IsAnalyzerColoringEnabled;
+        snapshot.IsSemanticDiagnosticsEnabled = IsSemanticDiagnosticsEnabled;
+        snapshot.IsPunctuationDiagnosticsEnabled = IsPunctuationDiagnosticsEnabled;
+        snapshot.IsErrorTrackingEnabled = _isErrorTrackingEnabled;
+        return snapshot;
+    }
+
+    private void PersistCurrentSettings() => _settingsService.Save(CaptureCurrentSettings(_settingsService.Load()));
+
+    private static SuggestionPlacementMode ResolveSuggestionPlacementMode(string? value) =>
+        string.Equals(value, "static", StringComparison.OrdinalIgnoreCase)
+            ? SuggestionPlacementMode.Static
+            : SuggestionPlacementMode.FollowCaret;
 
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
