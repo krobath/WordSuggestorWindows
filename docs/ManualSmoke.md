@@ -59,36 +59,39 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 18. Click `TTS` while speech is active and confirm playback stops.
 19. Mark text in an external app, click `TTS`, and confirm the selected text is mirrored into the internal editor before it is read aloud.
 20. With no active selection but text staged in the internal editor, click `TTS` and confirm the editor text is read aloud.
-21. Accept at least one suggestion, click `INS`, and confirm the native Insights window opens.
-22. Confirm the Insights window shows local totals and recent events without exposing full editor content beyond the typed/accepted correction pairs.
-23. Press `Backspace` and sentence-ending keys in the editor, reopen `INS`, and confirm the totals update.
-24. Click the settings gear and confirm the native Windows settings window opens.
-25. Confirm the settings categories are visible: `Generelt`, `Ordforslag`, `Tekstanalyse`, `Fejlsporing`, and `Avanceret`.
-26. Change a supported setting such as placement mode, POS-farvemarkering, semantic diagnostics, punctuation diagnostics, or error tracking, click `Gem`, and confirm the app reflects the change.
-27. Reopen settings and confirm the change persisted from `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json`.
-28. Confirm placeholder-only settings such as fagordslister, sentence examples, and debug/performance toggles are visibly disabled rather than pretending to be implemented.
-29. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
-30. Open the editor manually and confirm the startup text is already inserted.
-31. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
-32. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
-33. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
-34. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
-35. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
-36. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-37. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-38. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
-39. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
-40. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-41. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-42. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-43. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-44. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-45. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-46. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-47. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-48. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
-49. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
-50. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
+21. Open settings, select `DA`, and confirm the `Systemstemme` field reports whether a Danish Windows Desktop voice is installed.
+22. If no Danish voice is installed, confirm `TTS` reports a fallback voice and `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` records the fallback reason without logging the spoken text.
+23. Turn off `Brug systemets oplæsningsindstillinger`, change `Oplæsningshastighed`, save settings, and confirm TTS still starts.
+24. Accept at least one suggestion, click `INS`, and confirm the native Insights window opens.
+25. Confirm the Insights window shows local totals and recent events without exposing full editor content beyond the typed/accepted correction pairs.
+26. Press `Backspace` and sentence-ending keys in the editor, reopen `INS`, and confirm the totals update.
+27. Click the settings gear and confirm the native Windows settings window opens.
+28. Confirm the settings categories are visible: `Generelt`, `Ordforslag`, `Tekstanalyse`, `Fejlsporing`, and `Avanceret`.
+29. Change a supported setting such as placement mode, POS-farvemarkering, semantic diagnostics, punctuation diagnostics, or error tracking, click `Gem`, and confirm the app reflects the change.
+30. Reopen settings and confirm the change persisted from `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json`.
+31. Confirm placeholder-only settings such as fagordslister, sentence examples, and debug/performance toggles are visibly disabled rather than pretending to be implemented.
+32. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
+33. Open the editor manually and confirm the startup text is already inserted.
+34. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
+35. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
+36. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
+37. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
+38. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+39. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+40. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+41. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+42. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+43. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+44. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+45. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+46. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+47. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+48. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+49. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+50. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+51. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+52. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
+53. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
 
 ## Expected current behavior
 
@@ -108,11 +111,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The `TTS` toolbar button should read internal editor selection first, then live/recent external selection, then guarded clipboard fallback selection, then staged internal editor text.
 - External selected text read through `TTS` should be mirrored into the internal editor before playback so the user has visible reading context.
 - Clicking `TTS` while playback is active should stop the current playback.
+- Toolbar TTS should prefer an explicitly selected Windows Desktop voice for the active WordSuggestor language, then any installed voice matching that language, then a visible fallback voice if no language match is installed.
+- TTS diagnostics should be written to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` without storing the spoken text.
 - The `INS` toolbar button should open a native Windows Insights window backed by local data from `%LOCALAPPDATA%\WordSuggestor\insights\error-insights.jsonl`.
 - Insights should update after accepted suggestions, backspace activity, and sentence boundary input in the internal editor.
 - Insights data is local-only in the current baseline and should not be written to `WordSuggestorCore` or macOS app state.
 - The settings gear should open a native Windows settings window with macOS-aligned categories and local persistence under `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json`.
 - Settings for language, suggestion placement, global suggestions, analyzer coloring, semantic diagnostics, punctuation diagnostics, error tracking, and system speech preference should be persisted and applied to the running Windows session where the current runtime supports them.
+- Settings should show system voices filtered by the active WordSuggestor language and provide shortcuts to Windows speech/language settings when the matching voice is missing.
 - Settings that are not yet backed by Windows runtime behavior should be shown as disabled placeholder parity controls.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
@@ -152,6 +158,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If `MIC` listens but inserts no text, verify the default microphone input device and check whether the recognizer language matches the spoken language.
 - If `TTS` cannot find text to read, verify there is either an internal editor selection, a compatible external selection, or staged text in the internal editor.
 - If `TTS` works for internal text but not external text, record the target app in `docs/SelectionImportCompatibilityMatrix.md` because toolbar TTS reuses the same external selection adapters as `TXT`.
+- If `TTS` starts but uses the wrong language, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` and confirm a Windows Desktop voice is installed for the active language.
+- If no voice is listed for Danish, open Windows speech/language settings from Settings > `Generelt` > `Oplæsning` and install a Danish voice before retesting.
 - If `INS` opens but shows no accepted-suggestion data, accept a suggestion through `Tab`, `Ctrl+1` through `Ctrl+0`, or overlay click first, then reopen the Insights window.
 - If `INS` fails to reflect new local events, inspect `%LOCALAPPDATA%\WordSuggestor\insights\error-insights.jsonl` for append failures or malformed JSONL rows.
 - If settings do not persist, inspect `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json` and verify the current Windows user has write access to `%LOCALAPPDATA%\WordSuggestor\settings`.

@@ -93,10 +93,67 @@
                         <Border Style="{StaticResource SectionStyle}">
                             <StackPanel>
                                 <TextBlock Text="Oplæsning" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="Oplæsningssprog"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="SpeechLanguageModeComboBox"
+                                          Margin="0,4,0,12"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" />
                                 <CheckBox x:Name="UseSystemSpeechSettingsCheckBox"
                                           Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Brug systemets oplæsningsindstillinger" />
-                                <TextBlock Text="Specifik stemmevalg og neural TTS-import er macOS-funktioner, der kræver et separat Windows audio/settings-sprint."
+                                          Content="Brug systemets oplæsningsindstillinger"
+                                          Checked="SpeechSettings_OnChanged"
+                                          Unchecked="SpeechSettings_OnChanged" />
+                                <TextBlock Text="Systemstemme for aktivt sprog"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="SystemVoiceComboBox"
+                                          Margin="0,4,0,6"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" />
+                                <TextBlock x:Name="VoiceStatusTextBlock"
+                                           Style="{StaticResource MutedTextStyle}"
+                                           Margin="0,0,0,12" />
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Oplæsningshastighed"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                    <TextBlock x:Name="ReadingSpeedValueText"
+                                               Grid.Column="1"
+                                               HorizontalAlignment="Right"
+                                               Style="{StaticResource MutedTextStyle}" />
+                                </Grid>
+                                <Slider x:Name="ReadingSpeedSlider"
+                                        Minimum="-2"
+                                        Maximum="2"
+                                        TickFrequency="0.25"
+                                        IsSnapToTickEnabled="True"
+                                        Margin="0,0,0,12"
+                                        ValueChanged="ReadingSpeedSlider_OnValueChanged" />
+                                <TextBlock Text="Oplæsningsstrategi"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="ReadingStrategyComboBox"
+                                          Margin="0,4,0,12"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" />
+                                <TextBlock Text="Markering under oplæsning"
+                                           Style="{StaticResource MutedTextStyle}" />
+                                <ComboBox x:Name="ReadingHighlightModeComboBox"
+                                          Margin="0,4,0,12"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <Button Padding="10,6"
+                                            Margin="0,0,8,0"
+                                            Content="Åbn taleindstillinger"
+                                            Click="OpenSpeechSettingsButton_OnClick" />
+                                    <Button Padding="10,6"
+                                            Content="Åbn sprogindstillinger"
+                                            Click="OpenLanguageSettingsButton_OnClick" />
+                                </StackPanel>
+                                <TextBlock Text="Neural TTS-import er fortsat en macOS/neural voice-pack funktion og kræver et separat Windows audio/runtime-sprint."
                                            Style="{StaticResource MutedTextStyle}" />
                             </StackPanel>
                         </Border>

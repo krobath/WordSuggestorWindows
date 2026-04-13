@@ -30,6 +30,16 @@ public sealed class AppSettingsSnapshot
 
     public string TextToSpeechVoiceMode { get; set; } = "Automatisk";
 
+    public string SpeechLanguageMode { get; set; } = "useSelectedLanguage";
+
+    public double ReadingSpeedDelta { get; set; }
+
+    public string ReadingStrategy { get; set; } = "none";
+
+    public string ReadingHighlightMode { get; set; } = "word";
+
+    public Dictionary<string, string> SystemVoiceIdOverrideByLanguage { get; set; } = [];
+
     public bool IsPerformanceInstrumentationEnabled { get; set; }
 
     public bool IsAppDebugLoggingEnabled { get; set; }
@@ -55,6 +65,13 @@ public sealed class AppSettingsSnapshot
             IsDomainListsEnabled = IsDomainListsEnabled,
             UseSystemSpeechSettings = UseSystemSpeechSettings,
             TextToSpeechVoiceMode = TextToSpeechVoiceMode,
+            SpeechLanguageMode = SpeechLanguageMode,
+            ReadingSpeedDelta = ReadingSpeedDelta,
+            ReadingStrategy = ReadingStrategy,
+            ReadingHighlightMode = ReadingHighlightMode,
+            SystemVoiceIdOverrideByLanguage = new Dictionary<string, string>(
+                SystemVoiceIdOverrideByLanguage,
+                StringComparer.OrdinalIgnoreCase),
             IsPerformanceInstrumentationEnabled = IsPerformanceInstrumentationEnabled,
             IsAppDebugLoggingEnabled = IsAppDebugLoggingEnabled,
             IsPlacementDebugLoggingEnabled = IsPlacementDebugLoggingEnabled,

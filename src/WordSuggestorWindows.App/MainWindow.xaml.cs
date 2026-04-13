@@ -468,8 +468,14 @@ public partial class MainWindow : Window
     {
         try
         {
-            _textToSpeechService.Speak(text);
-            _viewModel.SetTextToSpeechSpeaking(true, $"Oplæser {text.Trim().Length} tegn fra {source}.");
+            var options = _viewModel.CreateTextToSpeechOptions(text);
+            _textToSpeechService.Speak(text, options);
+            var voiceSummary = options.FallbackReason is null
+                ? options.VoiceDisplayName ?? "Windows standardstemme"
+                : $"fallback: {options.FallbackReason}";
+            _viewModel.SetTextToSpeechSpeaking(
+                true,
+                $"Oplæser {text.Trim().Length} tegn fra {source} med {voiceSummary}.");
         }
         catch (InvalidOperationException ex)
         {

@@ -621,6 +621,11 @@ Implemented:
 Validation:
 
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Direct SAPI token smoke with `Microsoft Hazel Desktop - English (Great Britain)` and explicit rate -> `PASS` (`ExitCode=0`)
+- Installed SAPI Desktop voice check -> `en-GB` Hazel and `en-US` Zira only; no `da-DK` voice installed on this machine
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
+- Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
 - Application event log check after launch showed no recent `WordSuggestorWindows.App` crash event.
 - `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warning)
@@ -991,6 +996,38 @@ Target outcome:
 
 - The Windows `TTS` toolbar action now has the first native selected/staged text reading path and visible editor context for external selections.
 
+### WSA-RT-013A_windows_tts_voice_selection_and_diagnostics
+Status: `Done` (`2026-04-13`)
+
+Scope:
+
+- Align Windows toolbar TTS with the macOS speech settings model for system voices.
+- Choose a Windows voice that matches the active WordSuggestor language when one is installed.
+- Add local TTS diagnostics so silent failures and fallback decisions can be investigated.
+- Make missing language voices easier for users to diagnose and install.
+
+Implemented:
+
+- Added persisted Windows settings for speech language mode, reading speed, reading strategy, reading highlight mode, and per-language system voice overrides.
+- Added a SAPI voice catalog that lists installed Windows Desktop voices and maps their LCID language attributes to BCP-47 codes.
+- Updated Settings > `Generelt` > `Oplæsning` so the system voice picker is filtered by the active WordSuggestor language.
+- Added user-facing status when no installed Windows Desktop voice matches the active language.
+- Added shortcuts from Settings to Windows speech and language settings.
+- Updated toolbar TTS so it resolves a voice using:
+  - explicit per-language voice override,
+  - best installed voice for the active WordSuggestor language,
+  - first installed fallback voice with a visible status message.
+- Added `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` with token-safe diagnostics for selected language, voice choice, fallback reason, process exit code, and stderr summary.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This machine currently exposes only English SAPI Desktop voices (`en-GB`/`en-US`), so Danish (`da-DK`) TTS falls back until a Danish Windows Desktop voice is installed.
+- Windows OneCore voices may appear separately from SAPI Desktop voices; this sprint keeps the existing SAPI bridge and documents the missing-language condition instead of pretending unsupported voices are usable by the current bridge.
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
 
@@ -1102,8 +1139,9 @@ Known note:
 18. `WSA-RT-011D` - OCR file-access-token callback
 19. `WSA-RT-012` - speech-to-text dictation pipeline
 20. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-21. `WSA-RT-014` - error insights store and view
-22. `WSA-UX-010` - settings window parity
+21. `WSA-RT-013A` - TTS voice selection and diagnostics
+22. `WSA-RT-014` - error insights store and view
+23. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

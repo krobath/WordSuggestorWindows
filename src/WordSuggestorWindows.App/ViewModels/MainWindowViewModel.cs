@@ -532,6 +532,25 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public AppSettingsSnapshot LoadSettingsSnapshot() => CaptureCurrentSettings(_settingsService.Load());
 
+    public TtsSpeechOptions CreateTextToSpeechOptions(string text)
+    {
+        var settings = LoadSettingsSnapshot();
+        var languageCode = ResolveSpeechLanguageCode(text, settings);
+        var languageKey = languageCode.ToLowerInvariant();
+        var preferredVoiceId = settings.SystemVoiceIdOverrideByLanguage.TryGetValue(languageKey, out var voiceId)
+            ? voiceId
+            : null;
+        var voiceSelection = WindowsVoiceCatalogService.ResolveVoice(languageCode, preferredVoiceId);
+
+        return new TtsSpeechOptions(
+            languageCode,
+            voiceSelection.Voice?.Id,
+            voiceSelection.Voice?.DisplayName,
+            settings.UseSystemSpeechSettings,
+            settings.ReadingSpeedDelta,
+            voiceSelection.FallbackReason);
+    }
+
     public void ApplySettingsSnapshot(AppSettingsSnapshot settings)
     {
         _settingsService.Save(settings);
@@ -837,6 +856,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         snapshot.IsPunctuationDiagnosticsEnabled = IsPunctuationDiagnosticsEnabled;
         snapshot.IsErrorTrackingEnabled = _isErrorTrackingEnabled;
         return snapshot;
+    }
+
+    private string ResolveSpeechLanguageCode(string text, AppSettingsSnapshot settings)
+    {
+        if (!string.Equals(settings.SpeechLanguageMode, "autoDetect", StringComparison.OrdinalIgnoreCase))
+        {
+            return SelectedLanguageOption.LanguageCode;
+        }
+
+        // Auto-detection is intentionally conservative in the Windows baseline.
+        // Like macOS, we avoid surprising switches between similar Nordic languages until
+        // a dedicated language detector is wired into this app layer.
+        return SelectedLanguageOption.LanguageCode;
     }
 
     private void PersistCurrentSettings() => _settingsService.Save(CaptureCurrentSettings(_settingsService.Load()));
