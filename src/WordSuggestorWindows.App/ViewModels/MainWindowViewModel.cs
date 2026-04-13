@@ -28,6 +28,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isSemanticDiagnosticsEnabled;
     private bool _isPunctuationDiagnosticsEnabled;
     private bool _isSpeechToTextListening;
+    private bool _isTextToSpeechSpeaking;
     private int _currentSuggestionPage;
     private SuggestionPlacementMode _suggestionPlacementMode = SuggestionPlacementMode.FollowCaret;
 
@@ -236,6 +237,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         : "Tale til tekst";
 
     public string SpeechToTextButtonBackground => IsSpeechToTextListening
+        ? "#E5EEF8"
+        : "Transparent";
+
+    public bool IsTextToSpeechSpeaking
+    {
+        get => _isTextToSpeechSpeaking;
+        private set
+        {
+            if (SetProperty(ref _isTextToSpeechSpeaking, value))
+            {
+                OnPropertyChanged(nameof(TextToSpeechToolTip));
+                OnPropertyChanged(nameof(TextToSpeechButtonBackground));
+            }
+        }
+    }
+
+    public string TextToSpeechToolTip => IsTextToSpeechSpeaking
+        ? "Stop oplæsning"
+        : "Oplæs markeret tekst";
+
+    public string TextToSpeechButtonBackground => IsTextToSpeechSpeaking
         ? "#E5EEF8"
         : "Transparent";
 
@@ -473,6 +495,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public void SetSpeechToTextListening(bool isListening, string statusMessage)
     {
         IsSpeechToTextListening = isListening;
+        StatusMessage = statusMessage;
+    }
+
+    public void SetTextToSpeechSpeaking(bool isSpeaking, string statusMessage)
+    {
+        IsTextToSpeechSpeaking = isSpeaking;
         StatusMessage = statusMessage;
     }
 

@@ -248,8 +248,9 @@
                             </Button>
 
                             <Button Tag="textToSpeech"
+                                    Background="{Binding TextToSpeechButtonBackground}"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
-                                    ToolTip="Oplæs markeret tekst"
+                                    ToolTip="{Binding TextToSpeechToolTip}"
                                     Click="ToolbarAction_OnClick">
                                 <TextBlock FontSize="12" FontWeight="SemiBold" Text="TTS" />
                             </Button>

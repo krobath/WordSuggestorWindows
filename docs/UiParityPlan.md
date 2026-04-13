@@ -107,7 +107,7 @@ Source references:
 | Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then cached/live Windows UI Automation `TextPattern` selection, then guarded clipboard fallback; track app-specific blockers in a compatibility matrix. | `WSA-RT-010` + `WSA-RT-010A` done; `WSA-TS-002` diagnostics/matrix done |
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows screen snip plus Windows OCR via runtime WinRT bridge, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011` baseline done; `WSA-RT-011B` callback flow done; `WSA-RT-011C` diagnostics done; `WSA-RT-011D` file-access-token callback done |
 | Speech to text | Uses Apple Speech framework with partial/final transcript replacement in the editor. | Use Windows speech recognition APIs and preserve the same active-range replacement model. | `WSA-RT-012_windows_speech_to_text_pipeline` baseline done |
-| Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` |
+| Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor and highlights during playback. | Implement toolbar-level TTS around Windows speech synthesis and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013_windows_text_to_speech_selection_pipeline` baseline done |
 | Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` |
 | Settings | Opens the native macOS Settings scene with tabs for general, sound, writing, domain lists, and profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` |
 
@@ -326,6 +326,14 @@ Deliver:
 - editor highlight integration while reading
 - external selection mirroring into the editor when needed
 - Windows-native speech synthesis service
+
+Status:
+
+- Implemented on `2026-04-13`
+- Adds toolbar-level `TTS` start/stop behavior through a Windows SAPI bridge
+- Reads internal editor selection first, then live external UIA selection, recent cached external UIA selection, guarded clipboard fallback selection, and finally staged editor text
+- Mirrors external selections into the internal editor before playback for visible reading context
+- Full synchronized word highlighting during playback remains a follow-up refinement
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 

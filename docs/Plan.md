@@ -896,6 +896,7 @@ Implemented:
 Validation:
 
 - `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild -SkipBootstrap` -> `PASS` (app launched; process was stopped after smoke)
 - `git -C .\WordSuggestorWindows diff --check` -> `PASS`
 - `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
 
@@ -944,7 +945,7 @@ Target outcome:
 - The Windows `MIC` toolbar action has a first native start/stop dictation path into the internal editor and can be refined toward fuller macOS partial-range replacement parity.
 
 ### WSA-RT-013_windows_text_to_speech_selection_pipeline
-Status: `Planned`
+Status: `Done` (`2026-04-13`)
 
 Scope:
 
@@ -953,9 +954,34 @@ Scope:
 - Mirror external selection into the editor when needed so highlighting can be shown during playback.
 - Reuse or replace the current overlay-row SAPI bridge with a more direct Windows TTS service when practical.
 
+Implemented:
+
+- Added `WindowsTextToSpeechService` as a toolbar-level Windows SAPI bridge.
+- Wired the toolbar `TTS` action so it starts/stops speech playback.
+- Added active TTS button state via `IsTextToSpeechSpeaking`, `TextToSpeechToolTip`, and `TextToSpeechButtonBackground`.
+- Added source priority for toolbar TTS:
+  - internal RichTextBox selection,
+  - live external UI Automation selection,
+  - recent cached external UI Automation selection,
+  - guarded clipboard fallback from the most recent external foreground window,
+  - staged internal editor text.
+- Mirrored external selected text into the internal editor before reading it aloud, so the user has visible reading context.
+- Preserved the existing overlay-row speaker path separately; toolbar-level TTS now has its own start/stop-capable service.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
+- `git -C .\WordSuggestorCore status --short` -> `PASS` (no changes)
+
+Known note:
+
+- The current baseline mirrors external selected text into the editor and shows active toolbar state, but full word-by-word highlight synchronization during SAPI playback is still a follow-up refinement.
+- Manual audio testing is still required because build validation cannot verify speakers/audio output.
+
 Target outcome:
 
-- The Windows `TTS` toolbar action matches the macOS `speakSelection()` behavior, including visible reading context in the editor.
+- The Windows `TTS` toolbar action now has the first native selected/staged text reading path and visible editor context for external selections.
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Planned`

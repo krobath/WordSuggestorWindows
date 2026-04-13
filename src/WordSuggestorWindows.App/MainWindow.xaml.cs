@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsOcrService _ocrService = new();
     private readonly WindowsSpeechToTextService _speechToTextService = new();
+    private readonly WindowsTextToSpeechService _textToSpeechService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
     private IntPtr _windowHandle;
     private IntPtr _lastExternalWindowHandle;
@@ -67,6 +68,8 @@ public partial class MainWindow : Window
         _speechToTextService.TranscriptReceived += SpeechToTextServiceOnTranscriptReceived;
         _speechToTextService.StatusChanged += SpeechToTextServiceOnStatusChanged;
         _speechToTextService.SessionStopped += SpeechToTextServiceOnSessionStopped;
+        _textToSpeechService.StatusChanged += TextToSpeechServiceOnStatusChanged;
+        _textToSpeechService.SpeechStopped += TextToSpeechServiceOnSpeechStopped;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -102,6 +105,9 @@ public partial class MainWindow : Window
         _speechToTextService.StatusChanged -= SpeechToTextServiceOnStatusChanged;
         _speechToTextService.SessionStopped -= SpeechToTextServiceOnSessionStopped;
         _speechToTextService.Dispose();
+        _textToSpeechService.StatusChanged -= TextToSpeechServiceOnStatusChanged;
+        _textToSpeechService.SpeechStopped -= TextToSpeechServiceOnSpeechStopped;
+        _textToSpeechService.Dispose();
 
         if (_overlayWindow is not null)
         {
@@ -280,6 +286,12 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (action == "textToSpeech")
+            {
+                await SpeakSelectionOrEditorTextAsync();
+                return;
+            }
+
             _viewModel.HandleToolbarAction(action);
         }
     }
@@ -332,6 +344,94 @@ public partial class MainWindow : Window
     private void SpeechToTextServiceOnSessionStopped(object? sender, string status)
     {
         Dispatcher.BeginInvoke(() => _viewModel.SetSpeechToTextListening(false, status));
+    }
+
+    private async Task SpeakSelectionOrEditorTextAsync()
+    {
+        if (_textToSpeechService.IsSpeaking)
+        {
+            _textToSpeechService.Stop();
+            _viewModel.SetTextToSpeechSpeaking(false, "Oplæsning stopper.");
+            return;
+        }
+
+        var internalSelection = GetSelectedEditorPlainText();
+        if (!string.IsNullOrWhiteSpace(internalSelection))
+        {
+            SpeakText(internalSelection, "intern editor-markering");
+            return;
+        }
+
+        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
+            _windowHandle,
+            emitDiagnostics: true);
+        if (liveExternalSelection is not null)
+        {
+            MirrorAndSpeakExternalSelection(liveExternalSelection);
+            return;
+        }
+
+        var recentExternalSelection = TryGetRecentExternalSelection();
+        if (recentExternalSelection is not null)
+        {
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "UIA",
+                "CachedSuccess",
+                $"Recent cached selection prepared for TTS from {recentExternalSelection.Source} with {recentExternalSelection.Text.Length} characters."));
+            MirrorAndSpeakExternalSelection(recentExternalSelection);
+            return;
+        }
+
+        var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
+            _lastExternalWindowHandle,
+            _windowHandle);
+        if (clipboardSelection is not null)
+        {
+            MirrorAndSpeakExternalSelection(clipboardSelection);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_viewModel.EditorText))
+        {
+            _viewModel.EnsureEditorExpanded();
+            SyncEditorDocumentFromViewModel(force: true);
+            SpeakText(_viewModel.EditorText, "intern editor-tekst");
+            RefocusEditor();
+            return;
+        }
+
+        _viewModel.SetStatusMessage("Ingen tekst fundet til oplæsning. Markér tekst eller skriv/importér tekst i editoren.");
+    }
+
+    private void MirrorAndSpeakExternalSelection(SelectionImportResult selection)
+    {
+        _viewModel.ImportTextIntoEditor(selection.Text, $"{selection.Source} til oplæsning");
+        RefocusEditor();
+        SpeakText(selection.Text, selection.Source);
+    }
+
+    private void SpeakText(string text, string source)
+    {
+        try
+        {
+            _textToSpeechService.Speak(text);
+            _viewModel.SetTextToSpeechSpeaking(true, $"Oplæser {text.Trim().Length} tegn fra {source}.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            _viewModel.SetTextToSpeechSpeaking(false, $"Oplæsning kunne ikke starte: {ex.Message}");
+        }
+    }
+
+    private void TextToSpeechServiceOnStatusChanged(object? sender, string status)
+    {
+        Dispatcher.BeginInvoke(() => _viewModel.SetStatusMessage(status));
+    }
+
+    private void TextToSpeechServiceOnSpeechStopped(object? sender, string status)
+    {
+        Dispatcher.BeginInvoke(() => _viewModel.SetTextToSpeechSpeaking(false, status));
     }
 
     private async Task RunOcrScreenSnipAsync()

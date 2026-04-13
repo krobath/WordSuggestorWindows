@@ -55,28 +55,32 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 14. Click `MIC` again and confirm the listening state stops.
 15. Confirm final recognized speech is inserted into the internal editor at the caret and that partial/hypothesis text only appears in the status line.
 16. If the active app language is Danish but only an English recognizer is installed, confirm the status line reports the recognizer fallback rather than crashing.
-17. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
-18. Open the editor manually and confirm the startup text is already inserted.
-19. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
-20. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
-21. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
-22. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
-23. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
-24. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
-25. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
-26. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
-27. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
-28. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
-29. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
-30. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
-31. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
-32. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
-33. Click the info button on a row and confirm a small info popup appears with match and grammar details.
-34. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
-35. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
-36. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
-37. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
-38. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
+17. Mark text inside the internal editor, click `TTS`, and confirm the selected text is read aloud while the `TTS` button shows active state.
+18. Click `TTS` while speech is active and confirm playback stops.
+19. Mark text in an external app, click `TTS`, and confirm the selected text is mirrored into the internal editor before it is read aloud.
+20. With no active selection but text staged in the internal editor, click `TTS` and confirm the editor text is read aloud.
+21. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
+22. Open the editor manually and confirm the startup text is already inserted.
+23. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
+24. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
+25. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
+26. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
+27. Confirm a separate floating suggestion overlay appears near the caret rather than inside the editor layout.
+28. Confirm the overlay header shows page and count information, and that the status area reports successful suggestion retrieval rather than a bridge error.
+29. Confirm the first page can show all 10 visible suggestions without requiring scroll for the default `skri` smoke sample.
+30. Confirm the internal editor field keeps a fixed available size, wraps text horizontally, and scrolls vertically when the content exceeds the field height.
+31. Confirm words in the internal editor receive visible POS-style color treatment while the `Farver` toggle is active.
+32. Confirm each row now shows the suggestion term, an inline type label in parentheses, and a second metadata line when `WordSuggestorCore` returns POS or grammar data.
+33. Confirm row backgrounds differ between ordinary, phonetic, misspelling, and synonym suggestions when those candidate kinds are present.
+34. Switch the overlay to static placement and drag the header to a new position. Confirm it stays there while typing until you move it again.
+35. Switch back to follow-caret and confirm the overlay resumes anchoring under the editor caret when available.
+36. Click the speaker button on a row and confirm Windows TTS reads the suggestion aloud.
+37. Click the info button on a row and confirm a small info popup appears with match and grammar details.
+38. Press `Ctrl+Right` to move to the next page when more than 10 suggestions are available, then `Ctrl+Left` to return.
+39. Press `Tab` or `Ctrl+1` to accept the first visible suggestion.
+40. Confirm the active token in the editor is replaced, one trailing space is inserted, and the caret is placed after that space.
+41. Confirm the floating suggestion overlay remains visible but empty after accepting the suggestion and stays empty until the next token is typed.
+42. Press `Space` or `Enter` after a token and confirm the floating suggestion overlay remains visible but empty.
 
 ## Expected current behavior
 
@@ -93,6 +97,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Direct PDF-file OCR import is not implemented yet; visible PDF content should be captured through the screen snip path.
 - The `MIC` toolbar button should start/stop a local Windows Speech Recognition bridge, show active button state while listening, and insert final recognized speech into the internal editor at the caret.
 - Speech-to-text language support depends on installed Windows Desktop Speech Recognition recognizers. On the current machine the only installed recognizer observed during implementation was `en-GB`, so Danish dictation requires installing a Danish recognizer before language-matched recognition can work.
+- The `TTS` toolbar button should read internal editor selection first, then live/recent external selection, then guarded clipboard fallback selection, then staged internal editor text.
+- External selected text read through `TTS` should be mirrored into the internal editor before playback so the user has visible reading context.
+- Clicking `TTS` while playback is active should stop the current playback.
 - `scripts\run_app.ps1` should keep the shell collapsed even though it injects the default sample text `Jeg vil gerne skri`.
 - Opening the editor manually should reveal the injected startup text.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
@@ -129,3 +136,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If `MIC` reports that no Windows Speech Recognition recognizer is installed, install a Windows Desktop Speech Recognition recognizer for the user profile and retry.
 - If `MIC` reports `E_ACCESSDENIED` or `Access is denied` from the speech bridge, check Windows microphone/privacy permissions and whether Windows Speech Recognition is available in the active desktop session.
 - If `MIC` listens but inserts no text, verify the default microphone input device and check whether the recognizer language matches the spoken language.
+- If `TTS` cannot find text to read, verify there is either an internal editor selection, a compatible external selection, or staged text in the internal editor.
+- If `TTS` works for internal text but not external text, record the target app in `docs/SelectionImportCompatibilityMatrix.md` because toolbar TTS reuses the same external selection adapters as `TXT`.
