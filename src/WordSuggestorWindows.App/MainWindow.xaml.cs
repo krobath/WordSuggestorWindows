@@ -1157,9 +1157,8 @@ public partial class MainWindow : Window
         _isApplyingSpeechHighlightSelection = true;
         try
         {
-            EditorTextBox.Selection.Select(start, end);
-            EditorTextBox.CaretPosition = end;
             EditorTextBox.Focus();
+            EditorTextBox.Selection.Select(start, end);
         }
         finally
         {

@@ -1153,6 +1153,7 @@ Scope:
 Implemented:
 
 - Upgraded speech highlighting in `MainWindow` so the active spoken range is rendered through both document background tint and the `RichTextBox` selection renderer.
+- Fixed the Windows selection-collapse bug by keeping the active speech range selected instead of immediately moving the caret to the end of the range.
 - Captured and restored the editor's original selection/caret, so TTS no longer leaves the user stranded on the last highlighted word.
 - Suppressed caret/selection side effects while speech highlight moves through the editor.
 - Added `sentence`-mode highlight span generation in addition to the existing word-based timing path.
