@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private readonly WindowsTextToSpeechService _textToSpeechService = new();
     private readonly DispatcherTimer _externalSelectionPollTimer;
     private readonly DispatcherTimer _speechHighlightTimer;
+    private readonly DispatcherTimer _preciseSpeechHighlightTimer;
     private IntPtr _windowHandle;
     private IntPtr _lastExternalWindowHandle;
     private bool _isInitialPositionApplied;
@@ -65,6 +66,11 @@ public partial class MainWindow : Window
     private TextSpan? _currentSpeechHighlightSpan;
     private EditorSelectionRange? _speechSelectionRangeToRestore;
     private TimeSpan _speechHighlightDuration = TimeSpan.Zero;
+    private readonly List<TextToSpeechBoundaryCue> _preciseSpeechCues = [];
+    private DateTimeOffset _preciseSpeechPlaybackStartedAt;
+    private int _nextPreciseSpeechCueIndex;
+    private int _preciseSpeechHighlightBaseOffset;
+    private bool _usePreciseSpeechHighlight;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
@@ -83,6 +89,8 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(90)
         };
         _speechHighlightTimer.Tick += SpeechHighlightTimerOnTick;
+        _preciseSpeechHighlightTimer = new DispatcherTimer();
+        _preciseSpeechHighlightTimer.Tick += PreciseSpeechHighlightTimerOnTick;
         _selectionImportService.DiagnosticEmitted += SelectionImportServiceOnDiagnosticEmitted;
         InitializeComponent();
         DataContext = _viewModel;
@@ -96,6 +104,8 @@ public partial class MainWindow : Window
         _speechToTextService.SessionStopped += SpeechToTextServiceOnSessionStopped;
         _textToSpeechService.StatusChanged += TextToSpeechServiceOnStatusChanged;
         _textToSpeechService.SpeechStopped += TextToSpeechServiceOnSpeechStopped;
+        _textToSpeechService.PrecisePlaybackStarted += TextToSpeechServiceOnPrecisePlaybackStarted;
+        _textToSpeechService.BoundaryCueReceived += TextToSpeechServiceOnBoundaryCueReceived;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -132,6 +142,8 @@ public partial class MainWindow : Window
         _externalSelectionPollTimer.Tick -= ExternalSelectionPollTimerOnTick;
         _speechHighlightTimer.Stop();
         _speechHighlightTimer.Tick -= SpeechHighlightTimerOnTick;
+        _preciseSpeechHighlightTimer.Stop();
+        _preciseSpeechHighlightTimer.Tick -= PreciseSpeechHighlightTimerOnTick;
         if (_windowHandle != IntPtr.Zero)
         {
             HwndSource.FromHwnd(_windowHandle)?.RemoveHook(WindowMessageHook);
@@ -145,6 +157,8 @@ public partial class MainWindow : Window
         _speechToTextService.Dispose();
         _textToSpeechService.StatusChanged -= TextToSpeechServiceOnStatusChanged;
         _textToSpeechService.SpeechStopped -= TextToSpeechServiceOnSpeechStopped;
+        _textToSpeechService.PrecisePlaybackStarted -= TextToSpeechServiceOnPrecisePlaybackStarted;
+        _textToSpeechService.BoundaryCueReceived -= TextToSpeechServiceOnBoundaryCueReceived;
         _textToSpeechService.Dispose();
 
         if (_overlayWindow is not null)
@@ -569,7 +583,14 @@ public partial class MainWindow : Window
 
             var options = _viewModel.CreateTextToSpeechOptions(text);
             var invocation = _textToSpeechService.Speak(text, options);
-            StartSpeechHighlight(text, highlightBaseOffset, options);
+            if (invocation.SupportsPreciseBoundaryMetadata)
+            {
+                PreparePreciseSpeechHighlight(highlightBaseOffset);
+            }
+            else
+            {
+                StartSpeechHighlight(text, highlightBaseOffset, options);
+            }
             var voiceSummary = invocation.FallbackReason is null
                 ? $"{invocation.VoiceDisplayName} ({invocation.VoiceSource})"
                 : $"fallback: {invocation.FallbackReason}";
@@ -588,6 +609,33 @@ public partial class MainWindow : Window
     private void TextToSpeechServiceOnStatusChanged(object? sender, string status)
     {
         Dispatcher.BeginInvoke(() => _viewModel.SetStatusMessage(status));
+    }
+
+    private void TextToSpeechServiceOnPrecisePlaybackStarted(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(StartPreciseSpeechHighlightPlayback);
+    }
+
+    private void TextToSpeechServiceOnBoundaryCueReceived(object? sender, TextToSpeechBoundaryCue cue)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_usePreciseSpeechHighlight)
+            {
+                return;
+            }
+
+            _preciseSpeechCues.Add(cue with
+            {
+                Start = cue.Start + _preciseSpeechHighlightBaseOffset
+            });
+            _preciseSpeechCues.Sort((left, right) => left.StartTime.CompareTo(right.StartTime));
+
+            if (_preciseSpeechPlaybackStartedAt != default && !_preciseSpeechHighlightTimer.IsEnabled)
+            {
+                ScheduleNextPreciseSpeechHighlight();
+            }
+        });
     }
 
     private void TextToSpeechServiceOnSpeechStopped(object? sender, string status)
@@ -1070,8 +1118,24 @@ public partial class MainWindow : Window
         SetEditorCaretIndex(caretIndex);
     }
 
+    private void PreparePreciseSpeechHighlight(int baseOffset)
+    {
+        _speechHighlightTimer.Stop();
+        _preciseSpeechHighlightTimer.Stop();
+        ClearCurrentSpeechHighlight();
+        _speechHighlightSpans = [];
+        _speechHighlightDuration = TimeSpan.Zero;
+        _preciseSpeechCues.Clear();
+        _nextPreciseSpeechCueIndex = 0;
+        _preciseSpeechPlaybackStartedAt = default;
+        _preciseSpeechHighlightBaseOffset = Math.Max(0, baseOffset);
+        _usePreciseSpeechHighlight = true;
+        WriteTtsFlowDiagnostic($"Precise speech highlight armed: baseOffset={_preciseSpeechHighlightBaseOffset}.");
+    }
+
     private void StartSpeechHighlight(string text, int baseOffset, TtsSpeechOptions options)
     {
+        _usePreciseSpeechHighlight = false;
         var readingHighlightMode = _viewModel.LoadSettingsSnapshot().ReadingHighlightMode;
         if (string.Equals(readingHighlightMode, "none", StringComparison.OrdinalIgnoreCase))
         {
@@ -1099,14 +1163,69 @@ public partial class MainWindow : Window
     private void StopSpeechHighlight(bool restoreEditorSelection)
     {
         _speechHighlightTimer.Stop();
+        _preciseSpeechHighlightTimer.Stop();
         ClearCurrentSpeechHighlight();
         _speechHighlightSpans = [];
         _speechHighlightDuration = TimeSpan.Zero;
+        _preciseSpeechCues.Clear();
+        _nextPreciseSpeechCueIndex = 0;
+        _preciseSpeechPlaybackStartedAt = default;
+        _usePreciseSpeechHighlight = false;
 
         if (restoreEditorSelection)
         {
             RestoreSpeechEditorSelection();
         }
+    }
+
+    private void StartPreciseSpeechHighlightPlayback()
+    {
+        if (!_usePreciseSpeechHighlight)
+        {
+            return;
+        }
+
+        _preciseSpeechPlaybackStartedAt = DateTimeOffset.Now;
+        _nextPreciseSpeechCueIndex = 0;
+        WriteTtsFlowDiagnostic($"Precise speech highlight playback started: cues={_preciseSpeechCues.Count}.");
+        ScheduleNextPreciseSpeechHighlight();
+    }
+
+    private void PreciseSpeechHighlightTimerOnTick(object? sender, EventArgs e)
+    {
+        _preciseSpeechHighlightTimer.Stop();
+        if (!_usePreciseSpeechHighlight || _nextPreciseSpeechCueIndex >= _preciseSpeechCues.Count)
+        {
+            return;
+        }
+
+        var cue = _preciseSpeechCues[_nextPreciseSpeechCueIndex++];
+        ApplySpeechHighlight(new TextSpan(cue.Start, cue.Length, string.Empty));
+        ScheduleNextPreciseSpeechHighlight();
+    }
+
+    private void ScheduleNextPreciseSpeechHighlight()
+    {
+        if (!_usePreciseSpeechHighlight ||
+            _preciseSpeechPlaybackStartedAt == default ||
+            _nextPreciseSpeechCueIndex >= _preciseSpeechCues.Count)
+        {
+            return;
+        }
+
+        var nextCue = _preciseSpeechCues[_nextPreciseSpeechCueIndex];
+        var elapsed = DateTimeOffset.Now - _preciseSpeechPlaybackStartedAt;
+        var remaining = nextCue.StartTime - elapsed;
+        if (remaining <= TimeSpan.Zero)
+        {
+            var cue = _preciseSpeechCues[_nextPreciseSpeechCueIndex++];
+            ApplySpeechHighlight(new TextSpan(cue.Start, cue.Length, string.Empty));
+            ScheduleNextPreciseSpeechHighlight();
+            return;
+        }
+
+        _preciseSpeechHighlightTimer.Interval = remaining;
+        _preciseSpeechHighlightTimer.Start();
     }
 
     private void SpeechHighlightTimerOnTick(object? sender, EventArgs e)
@@ -1134,7 +1253,6 @@ public partial class MainWindow : Window
         ClearCurrentSpeechHighlight();
         var start = GetTextPointerAtCharOffset(span.Start);
         var end = GetTextPointerAtCharOffset(span.Start + span.Length);
-        new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, SpeechHighlightBrush);
         SelectSpeechHighlightRange(start, end);
         _currentSpeechHighlightSpan = span;
     }
@@ -1146,9 +1264,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        var start = GetTextPointerAtCharOffset(_currentSpeechHighlightSpan.Start);
-        var end = GetTextPointerAtCharOffset(_currentSpeechHighlightSpan.Start + _currentSpeechHighlightSpan.Length);
-        new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
         _currentSpeechHighlightSpan = null;
     }
 

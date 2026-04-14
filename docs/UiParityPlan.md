@@ -400,8 +400,8 @@ Status:
 - Voice discovery now reads both `Speech` and `Speech_OneCore` registry roots
 - Settings/runtime now carry source-aware voice metadata so `OneCore` and `SAPI Desktop` choices are distinguishable
 - The TTS runtime now attempts OneCore playback for OneCore-selected voices and falls back to `SAPI Desktop` with diagnostics when OneCore is unavailable
-- Settings now warn when a matching OneCore voice exists but playback is not yet usable on the current host
-- Current blocker: WinRT `SpeechSynthesizer` initialization still fails on this machine with `Internal Speech Error`, so true Danish OneCore playback remains blocked even though the catalog/runtime plumbing is in place
+- Settings/runtime now surface the selected OneCore voice cleanly in the Windows UI
+- Latest manual validation on `2026-04-14` shows OneCore playback is working on this machine for the Danish voice
 
 Latest validation:
 
@@ -422,6 +422,35 @@ Status:
 - Uses both background tint and `RichTextBox` selection rendering so spoken text stays visibly highlighted while speech advances
 - Preserves and restores the user's original selection/caret after playback
 - Supports `none`, `word`, and `sentence` modes in the Windows highlight scheduler
+
+### WSA-RT-013G_windows_tts_precise_onecore_boundary_highlighting
+
+Deliver:
+
+- precise OneCore word or sentence highlight timing from speech metadata
+- fallback to estimated timing only when playback is not using the OneCore metadata-capable path
+
+Status:
+
+- Implemented on `2026-04-14`
+- The OneCore speech bridge now emits boundary cues from the synthesized stream
+- The Windows editor highlight scheduler now follows those OneCore cues instead of using estimated total-duration timing
+- The older estimated path remains only for SAPI/Desktop fallback scenarios
+
+### WSA-RT-013H_windows_tts_precise_highlight_stabilization
+
+Deliver:
+
+- robust OneCore precise playback startup for arbitrary editor text
+- lighter WPF highlight behavior during rapid cue updates
+- preserve the visible light-blue reading highlight without the earlier crash-prone document mutations
+
+Status:
+
+- Implemented on `2026-04-14`
+- Replaces the fragile inline OneCore PowerShell command with a temp script plus JSON payload bridge
+- Keeps precise cue emission while avoiding parser failures on text such as Danish strings with apostrophes
+- Removes per-cue document background writes and relies on `RichTextBox` selection rendering for the visible reading highlight
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 

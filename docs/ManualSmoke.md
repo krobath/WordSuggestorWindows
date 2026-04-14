@@ -1,6 +1,6 @@
 # WordSuggestorWindows Manual Smoke
 
-Last updated: `2026-04-13`
+Last updated: `2026-04-14`
 Owner: `Windows track`
 
 ## Goal
@@ -118,6 +118,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The editor should restore the previous caret or selection when TTS stops.
 - If `ReadingHighlightMode` is set to `none`, playback should run without moving highlight in the editor.
 - If `ReadingHighlightMode` is set to `sentence`, the Windows editor should highlight sentence-sized ranges instead of single words.
+- With OneCore playback active, word or sentence highlighting should now follow speech-boundary metadata rather than a rough total-duration estimate.
+- The precise OneCore playback bridge should tolerate ordinary Danish punctuation and apostrophes in the spoken text without failing before playback starts.
 - Clicking `TTS` while playback is active should stop the current playback.
 - Toolbar TTS should now prefer an explicitly selected OneCore or SAPI voice for the active WordSuggestor language, then any installed matching voice, then a visible fallback voice if no language match is installed.
 - TTS diagnostics should be written to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` without storing the spoken text.
@@ -129,6 +131,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - The current machine exposes `Microsoft Helle - Danish (Denmark)` under `Speech_OneCore`.
 - Latest manual validation indicates that Danish playback now works on this machine.
 - Remaining TTS parity work is concentrated around playback highlighting and external-app polish.
+- OneCore highlight timing is now metadata-driven; any remaining timing mismatch should be investigated as a bridge/runtime bug rather than as the old estimate-based scheduler.
+- The current precise OneCore bridge now uses temp script/payload artifacts rather than one large inline command, which was the earlier parser-failure source.
 - Original sprint contract notes are retained below for traceability.
 - Its validation target is that `Microsoft Helle - Danish (Denmark)` becomes visible in `Generelt > Oplæsning` for `DA` and can be used for actual toolbar playback.
 - `SAPI Desktop` fallback is still required while OneCore playback is being validated in the current WPF host.
@@ -178,6 +182,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If `TTS` cannot find text to read, verify there is either an internal editor selection, a compatible external selection, or staged text in the internal editor.
 - If `TTS` works for internal text but not external text, record the target app in `docs/SelectionImportCompatibilityMatrix.md` because toolbar TTS reuses the same external selection adapters as `TXT`.
 - If `TTS` starts but uses the wrong language, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` and confirm a Windows Desktop voice is installed for the active language.
+- If `TTS` starts and then freezes or crashes during highlight movement, inspect the latest `Application Error` / `Windows Error Reporting` entries for `PresentationCore` or `System.OutOfMemoryException`; `WSA-RT-013H` removed the earlier per-cue document background mutations specifically to reduce this WPF pressure.
 - If no voice is listed for Danish, open Windows speech/language settings from Settings > `Generelt` > `Oplæsning` and install a Danish voice before retesting.
 - If `INS` opens but shows no accepted-suggestion data, accept a suggestion through `Tab`, `Ctrl+1` through `Ctrl+0`, or overlay click first, then reopen the Insights window.
 - If `INS` fails to reflect new local events, inspect `%LOCALAPPDATA%\WordSuggestor\insights\error-insights.jsonl` for append failures or malformed JSONL rows.

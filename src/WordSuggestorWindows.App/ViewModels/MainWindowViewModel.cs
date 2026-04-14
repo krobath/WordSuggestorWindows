@@ -547,6 +547,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             voiceSelection.Voice?.Id,
             voiceSelection.Voice?.DisplayName,
             voiceSelection.Voice?.Source,
+            settings.ReadingHighlightMode,
             settings.UseSystemSpeechSettings,
             settings.ReadingSpeedDelta,
             voiceSelection.FallbackReason);

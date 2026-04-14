@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-13`
+Last updated: `2026-04-14`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -1137,7 +1137,7 @@ Implementation update (`2026-04-14`):
 - `WindowsVoiceCatalogService` now reads both `Speech` and `Speech_OneCore`, so the Windows settings/runtime layer can see OneCore voices such as `Microsoft Helle - Danish (Denmark)`.
 - The Windows TTS path is now source-aware end-to-end: the selected voice source flows through settings, runtime resolution, toolbar status, diagnostics, and playback dispatch.
 - `WindowsTextToSpeechService` now attempts a OneCore/WinRT playback path for OneCore-selected voices and falls back to `SAPI Desktop` with an explicit fallback reason when OneCore is unavailable.
-- Settings now warn when a matching OneCore voice exists but the current host still cannot initialize WinRT speech playback.
+- The active Windows host can now select and use the Danish OneCore voice during manual playback validation on this machine.
 - Latest manual validation on `2026-04-14` shows that the Danish voice can now be selected in settings and toolbar playback runs in Danish on this machine.
 - Remaining TTS parity work moved on to reading-highlight behavior and visual feedback during playback.
 
@@ -1165,6 +1165,56 @@ Validation:
 Known note:
 
 - Windows still uses estimated highlight timing rather than native word-boundary callbacks, so this is parity-oriented visual tracking rather than exact speech-engine timing.
+
+### WSA-RT-013G_windows_tts_precise_onecore_boundary_highlighting
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Replace the current OneCore highlight timing estimate with speech-boundary metadata from the synthesized speech stream.
+- Keep the existing SAPI highlight path as fallback for non-OneCore playback.
+- Preserve Windows editor selection restore and visible light-blue highlight behavior.
+
+Implemented:
+
+- Extended the OneCore speech bridge so it now emits boundary cues from the synthesized speech stream before playback starts.
+- Upgraded the Windows app-side TTS flow to collect precise OneCore cues and schedule highlight updates from their actual speech metadata instead of `EstimateSpeechDuration(...)`.
+- Kept the current estimated timer path only for non-OneCore fallback scenarios.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- Precision is now driven by OneCore word/sentence boundary metadata rather than a pure text-length estimate.
+- If playback falls back to SAPI/Desktop voices, Windows still uses the older estimated timing path because that bridge does not expose the same OneCore boundary metadata.
+
+### WSA-RT-013H_windows_tts_precise_highlight_stabilization
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Stabilize the new precise OneCore highlight path after real-world smoke uncovered parser failures and a WPF crash.
+- Remove the fragile inline PowerShell payload path so arbitrary Danish text and apostrophes do not break playback startup.
+- Reduce highlight-related WPF pressure while keeping the visible light-blue active-word selection behavior.
+
+Implemented:
+
+- Replaced the inline OneCore PowerShell command with a temp-script plus JSON payload bridge, so SSML/text/voice data no longer has to survive one giant encoded command string.
+- Added temp-artifact lifecycle cleanup for the generated OneCore script/payload files.
+- Suppressed PowerShell progress output in the OneCore playback bridge to reduce noisy stderr/CLIXML output during speech startup.
+- Kept precise boundary cue emission intact while making the bridge robust against user text containing apostrophes and other parser-sensitive characters.
+- Removed per-cue `TextRange.Background` mutations from the editor highlight path and now rely on the visible `RichTextBox` selection highlight, which is materially lighter for WPF during rapid cue updates.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This sprint is specifically a stabilization pass over `WSA-RT-013G`; final confirmation still depends on manual GUI smoke because the failure mode was observed during real playback.
+- If future timing drift appears, it should be investigated as a cue-position/runtime issue, not as the old inline-command parser bug.
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
@@ -1282,7 +1332,9 @@ Known note:
 23. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
 24. `WSA-RT-013D` - OneCore TTS voice catalog and playback
 25. `WSA-RT-013E` - TTS reading highlight visibility and restore
-26. `WSA-RT-014` - error insights store and view
+26. `WSA-RT-013G` - precise OneCore TTS boundary highlighting
+27. `WSA-RT-013H` - precise TTS highlight stabilization
+27. `WSA-RT-014` - error insights store and view
 26. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo

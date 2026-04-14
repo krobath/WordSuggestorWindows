@@ -5,6 +5,7 @@ public sealed record TtsSpeechOptions(
     string? VoiceId,
     string? VoiceDisplayName,
     string? VoiceSource,
+    string ReadingHighlightMode,
     bool UseSystemSpeechSettings,
     double ReadingSpeedDelta,
     string? FallbackReason);
