@@ -310,7 +310,8 @@ public sealed class WindowsTextToSpeechService : IDisposable
         var scriptPath = artifactPrefix + ".ps1";
         var payload = new OneCorePlaybackPayload(
             options.VoiceId,
-            BuildSsmlForOneCore(text, options),
+            text,
+            ResolveOneCoreSpeakingRate(options),
             string.Equals(options.ReadingHighlightMode, "word", StringComparison.OrdinalIgnoreCase),
             string.Equals(options.ReadingHighlightMode, "sentence", StringComparison.OrdinalIgnoreCase));
 
@@ -419,8 +420,13 @@ if (-not [string]::IsNullOrWhiteSpace($targetVoiceId)) {
     }
 }
 
-$ssml = [string]$payload.ssml
-$stream = Await ($synth.SynthesizeSsmlToStreamAsync($ssml)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
+$speakingRate = [double]$payload.speakingRate
+if ($speakingRate -gt 0) {
+    $synth.Options.SpeakingRate = $speakingRate
+}
+
+$text = [string]$payload.text
+$stream = Await ($synth.SynthesizeTextToStreamAsync($text)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
 $wavePath = Join-Path $env:TEMP ('wordsuggestor-onecore-' + [guid]::NewGuid().ToString('N') + '.wav')
 
 try {
@@ -468,32 +474,15 @@ try {
 }
 """;
 
-    private static string BuildSsmlForOneCore(string text, TtsSpeechOptions options)
+    private static double ResolveOneCoreSpeakingRate(TtsSpeechOptions options)
     {
-        var escapedText = EscapeXmlText(text);
         if (options.UseSystemSpeechSettings)
         {
-            return
-                $"<speak version=\"1.0\" xml:lang=\"{options.LanguageCode}\" xmlns=\"http://www.w3.org/2001/10/synthesis\">" +
-                escapedText +
-                "</speak>";
+            return 1.0;
         }
 
-        var ratePercent = Math.Clamp((int)Math.Round(options.ReadingSpeedDelta * 30.0), -60, 60);
-        var rateToken = ratePercent >= 0 ? $"+{ratePercent}%" : $"{ratePercent}%";
-        return
-            $"<speak version=\"1.0\" xml:lang=\"{options.LanguageCode}\" xmlns=\"http://www.w3.org/2001/10/synthesis\">" +
-            $"<prosody rate=\"{rateToken}\">{escapedText}</prosody>" +
-            "</speak>";
+        return Math.Clamp(Math.Pow(1.35, options.ReadingSpeedDelta), 0.5, 6.0);
     }
-
-    private static string EscapeXmlText(string value) =>
-        value
-            .Replace("&", "&amp;", StringComparison.Ordinal)
-            .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal)
-            .Replace("\"", "&quot;", StringComparison.Ordinal)
-            .Replace("'", "&apos;", StringComparison.Ordinal);
 
     private static string? CombineFallbackReasons(params string?[] values)
     {
@@ -599,7 +588,8 @@ try {
 
     private sealed record OneCorePlaybackPayload(
         string? VoiceId,
-        string Ssml,
+        string Text,
+        double SpeakingRate,
         bool IncludeWordBoundaryMetadata,
         bool IncludeSentenceBoundaryMetadata);
 

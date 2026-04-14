@@ -1,7 +1,7 @@
 # Windows Selection Import Compatibility Matrix
 
-Last updated: `2026-04-12`
-Sprint: `WSA-TS-002_windows_selection_import_app_compatibility_matrix`
+Last updated: `2026-04-14`
+Sprint: `WSA-TS-002_windows_selection_import_app_compatibility_matrix` + `WSA-RT-010C_windows_word_selection_com_adapter`
 Owner: `Windows track`
 
 ## Purpose
@@ -12,6 +12,7 @@ Track which Windows applications support WordSuggestor selected-text import thro
 - Windows UI Automation `TextPattern`
 - recent cached UI Automation selection
 - guarded clipboard fallback with sentinel detection
+- app-specific adapters where generic routes are known to be unsafe
 
 This matrix is intentionally empirical. Windows applications vary by control type, process integrity level, browser mode, document protection state, and whether they accept synthetic `Ctrl+C`.
 
@@ -34,6 +35,7 @@ The diagnostics deliberately record only stage, outcome, target handle, and char
 Expected diagnostic stages:
 
 - `UIA`
+- `OfficeSelection`
 - `ClipboardFallback`
 
 Expected outcomes:
@@ -65,7 +67,7 @@ Expected outcomes:
 |---|---|---|---|---|
 | WordSuggestor internal editor | RichTextBox selection | Internal editor selection | `UNTESTED` | Baseline route; should not use UIA or clipboard fallback. |
 | Windows Notepad | Normal text document | UIA or clipboard fallback | `UNTESTED` | Good low-friction control case. |
-| Microsoft Word | Editable `.docx` document | UIA or clipboard fallback | `UNTESTED` | Test normal document and protected/read-only document separately. |
+| Microsoft Word | Editable `.docx` document | Word COM selection adapter | `UNTESTED` | After `WSA-RT-010C`, Word should avoid clipboard fallback because local logs linked the old synthetic-copy route to `WINWORD.EXE` crashes in `combase.dll`. Test normal document and protected/read-only document separately. |
 | Microsoft Outlook | Message body editor | UIA or clipboard fallback | `UNTESTED` | Test compose window and reading pane separately. |
 | Microsoft Edge | Normal HTML text field | UIA or clipboard fallback | `UNTESTED` | Test textarea/input on a simple web page. |
 | Google Chrome | Normal HTML text field | UIA or clipboard fallback | `UNTESTED` | Test textarea/input on a simple web page. |

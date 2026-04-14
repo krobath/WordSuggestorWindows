@@ -715,6 +715,104 @@ Known note:
 - Clipboard fallback is best-effort because some apps block synthetic copy, expose delayed clipboard formats, or do not allow WordSuggestor to bring them foreground programmatically.
 - This fallback deliberately uses a sentinel to avoid importing stale clipboard text when no copy actually happened.
 
+### WSA-RT-010B_windows_selection_snapshot_stability_and_uia_guardrails
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Make external selection import more stable and predictable for both `TXT` and `TTS`.
+- Prefer the latest valid external selection snapshot when the toolbar steals focus from the source app.
+- Ensure UI Automation polling failures never crash the Windows app.
+
+Implemented:
+
+- Extended `SelectionImportResult` with the originating external window handle so cached selection snapshots can be matched to the correct app window.
+- Removed the global `AutomationElement.FocusedElement` dependency from the foreground-selection path and now use window-scoped UI Automation lookup instead.
+- Added defensive `ArgumentException` handling around UI Automation selection reads so provider quirks do not bubble up as app-crashing exceptions.
+- Wrapped external selection polling in a safe failure boundary so timer-driven UIA errors are logged instead of terminating the WPF dispatcher.
+- Reordered external selection resolution for `TXT` and `TTS`:
+  - live external selection while another app is still foreground,
+  - recent cached external selection from the same external window,
+  - last external target window selection,
+  - guarded clipboard fallback.
+- Persisted successful external selection snapshots from both UI Automation and clipboard fallback so toolbar actions can reuse the latest valid external selection more predictably after focus changes.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This sprint specifically addresses the `UIAutomationClientSideProviders` `System.ArgumentException` crash path seen in the Windows Application log.
+- Final confirmation still depends on manual smoke in the real user workflow because app-specific Windows selection behavior is inherently runtime-dependent.
+
+### WSA-RT-010C_windows_word_selection_com_adapter
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Remove the unstable Microsoft Word import route that relied on synthetic clipboard copy.
+- Ensure `TXT` and `TTS` can resolve the latest Word selection without provoking Word crashes or long clipboard-restore stalls.
+- Keep the existing generic Windows selection logic for non-Office apps.
+
+Implemented:
+
+- Added a Word-specific COM selection adapter in `WindowsSelectionImportService`.
+- `TXT` and `TTS` now attempt `Microsoft Word COM selection` for `WINWORD.EXE` before generic fallback logic is considered.
+- Clipboard fallback now skips Microsoft Word explicitly and emits `ClipboardFallback / SkippedForWord` diagnostics instead of injecting `Ctrl+C` into Word.
+- Preserved the generic non-Word selection routes:
+  - window-scoped UI Automation selection,
+  - cached same-window snapshots,
+  - guarded clipboard fallback for other apps that still need it.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Windows Application log review on `2026-04-14` confirmed the previous Word failures were `WINWORD.EXE` crashes in `combase.dll` immediately adjacent to the clipboard-fallback path.
+
+Known note:
+
+- This sprint removes the known risky clipboard path for Microsoft Word, but it still needs fresh manual smoke in Word to confirm stable import/read-aloud behavior end to end.
+- Other Office-family hosts may still need their own adapters if they show the same clipboard instability pattern.
+
+### WSA-TS-003_windows_selection_import_word_crash_instrumentation
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Add deeper diagnostics around external selection import when testing against Microsoft Word and similar Office apps.
+- Capture enough local evidence to distinguish between:
+  - WordSuggestor-side selection routing mistakes,
+  - clipboard/foreground contention,
+  - and target-app instability during synthetic copy fallback.
+
+Implemented:
+
+- Enriched `selection-import.log` with target window metadata for UIA and clipboard fallback:
+  - window handle,
+  - process id,
+  - process name,
+  - responding state,
+  - window title,
+  - window class.
+- Added timing diagnostics for clipboard fallback success and clipboard restore duration.
+- Added explicit diagnostics for return-to-WordSuggestor foreground requests after clipboard fallback.
+- Added route-level diagnostics in `MainWindow` so `TXT`/`TTS` now log whether they resolved external text via:
+  - live external selection,
+  - cached snapshot,
+  - last external window,
+  - clipboard fallback,
+  - or no selection.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- Current logs suggest the Microsoft Word failure happens during or immediately after clipboard fallback against the Word window, but the event log still attributes the actual crash to `WINWORD.EXE` / `combase.dll`, not to a caught WordSuggestor exception.
+- The new diagnostics are intended to make the next Word reproduction precise enough to decide whether we should change behavior for Office-family apps.
+
 ### WSA-TS-002_windows_selection_import_app_compatibility_matrix
 Status: `Done` (`2026-04-12`)
 
@@ -1216,6 +1314,31 @@ Known note:
 - This sprint is specifically a stabilization pass over `WSA-RT-013G`; final confirmation still depends on manual GUI smoke because the failure mode was observed during real playback.
 - If future timing drift appears, it should be investigated as a cue-position/runtime issue, not as the old inline-command parser bug.
 
+### WSA-RT-013I_windows_tts_precise_boundary_offset_alignment
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Fix the remaining precise-highlight offset bug where OneCore playback highlighted words much later in the text than the word being spoken.
+- Preserve metadata-driven boundary timing instead of falling back to the older duration-estimate scheduler.
+- Keep user-configured reading speed without relying on SSML input that can distort cue positions.
+
+Implemented:
+
+- Reworked the precise OneCore playback bridge so it now synthesizes the raw text input through `SynthesizeTextToStreamAsync(...)` instead of wrapping the text in SSML.
+- Moved Windows reading-speed control for the OneCore precise path to the native `SpeechSynthesizer.Options.SpeakingRate` property.
+- Preserved boundary metadata emission, playback startup signaling, and the existing WPF-side highlight scheduler.
+- Removed the SSML-wrapper dependency from the precise path so `SpeechCue.StartPositionInInput` and `EndPositionInInput` align with the editor text rather than with a larger SSML string.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This sprint keeps the precise boundary-cue model; it does not reintroduce the old estimate-only highlight approach.
+- Final correctness still depends on manual GUI verification because the issue was a runtime alignment bug rather than a compile-time failure.
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
 
@@ -1319,23 +1442,27 @@ Known note:
 10. `WSA-RT-009` - language pack selection parity
 11. `WSA-RT-010` - selected text import into editor
 12. `WSA-RT-010A` - selected text import clipboard fallback
-13. `WSA-TS-002` - selected text import app compatibility matrix
-14. `WSA-RT-011` - OCR snip pipeline
-15. `WSA-RT-011A` - OCR screen snip invocation fix
-16. `WSA-RT-011B` - OCR Snipping Tool callback protocol
-17. `WSA-RT-011C` - OCR flow diagnostics
-18. `WSA-RT-011D` - OCR file-access-token callback
-19. `WSA-RT-012` - speech-to-text dictation pipeline
-20. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-21. `WSA-RT-013A` - TTS voice selection and diagnostics
-22. `WSA-RT-013B` - TTS external selection and highlight parity
-23. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
-24. `WSA-RT-013D` - OneCore TTS voice catalog and playback
-25. `WSA-RT-013E` - TTS reading highlight visibility and restore
-26. `WSA-RT-013G` - precise OneCore TTS boundary highlighting
-27. `WSA-RT-013H` - precise TTS highlight stabilization
-27. `WSA-RT-014` - error insights store and view
-26. `WSA-UX-010` - settings window parity
+13. `WSA-RT-010B` - selection snapshot stability and UIA guardrails
+14. `WSA-RT-010C` - Word COM selection adapter
+15. `WSA-TS-002` - selected text import app compatibility matrix
+16. `WSA-TS-003` - selection import Word crash instrumentation
+17. `WSA-RT-011` - OCR snip pipeline
+18. `WSA-RT-011A` - OCR screen snip invocation fix
+19. `WSA-RT-011B` - OCR Snipping Tool callback protocol
+20. `WSA-RT-011C` - OCR flow diagnostics
+21. `WSA-RT-011D` - OCR file-access-token callback
+22. `WSA-RT-012` - speech-to-text dictation pipeline
+23. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+24. `WSA-RT-013A` - TTS voice selection and diagnostics
+25. `WSA-RT-013B` - TTS external selection and highlight parity
+26. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
+27. `WSA-RT-013D` - OneCore TTS voice catalog and playback
+28. `WSA-RT-013E` - TTS reading highlight visibility and restore
+29. `WSA-RT-013G` - precise OneCore TTS boundary highlighting
+30. `WSA-RT-013H` - precise TTS highlight stabilization
+31. `WSA-RT-013I` - precise TTS boundary offset alignment
+32. `WSA-RT-014` - error insights store and view
+33. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

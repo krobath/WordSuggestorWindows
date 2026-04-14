@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-13`
+Last updated: `2026-04-14`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -270,6 +270,22 @@ Status:
 - Implemented on `2026-04-12`
 - Clipboard fallback remains best-effort because external apps can block synthetic copy or foreground activation
 
+### WSA-RT-010B_windows_selection_snapshot_stability_and_uia_guardrails
+
+Deliver:
+
+- predictable reuse of the latest valid external selection after toolbar focus changes
+- safe UI Automation polling that cannot crash the WPF app
+- stronger alignment between `TXT` and `TTS` external-selection resolution order
+
+Status:
+
+- Implemented on `2026-04-14`
+- Cached external selections are now tied to their source window handle
+- `TXT` and `TTS` now prefer the latest matching cached external snapshot before probing older fallback paths when WordSuggestor has already taken focus
+- Window-scoped UI Automation is used instead of the global focused-element probe on the foreground-selection path
+- External selection polling failures are now logged rather than crashing the dispatcher
+
 ### WSA-TS-002_windows_selection_import_app_compatibility_matrix
 
 Deliver:
@@ -282,6 +298,34 @@ Status:
 
 - Implemented on `2026-04-12`
 - App-specific rows start as `UNTESTED` and should be filled through manual desktop smoke runs
+
+### WSA-TS-003_windows_selection_import_word_crash_instrumentation
+
+Deliver:
+
+- deeper local diagnostics around external selection import in Microsoft Word and similar apps
+- visibility into foreground target identity, clipboard timings, and route choice for `TXT`/`TTS`
+
+Status:
+
+- Implemented on `2026-04-14`
+- `selection-import.log` now records target hwnd/pid/process/title/class and clipboard timing details
+- `TXT`/`TTS` now log which external selection route was chosen before import/playback
+
+### WSA-RT-010C_windows_word_selection_com_adapter
+
+Deliver:
+
+- a stable Microsoft Word selection-import path that does not rely on clipboard fallback
+- identical `TXT`/`TTS` behavior for Word where the latest selected text is imported or mirrored predictably
+- preservation of generic UIA/clipboard behavior for non-Word apps
+
+Status:
+
+- Implemented on `2026-04-14`
+- `WindowsSelectionImportService` now uses a Word-specific COM selection adapter for `WINWORD.EXE`
+- clipboard fallback is now explicitly skipped for Microsoft Word to avoid the crash-prone `Ctrl+C` route seen in local diagnostics
+- generic Windows selection routes remain in place for non-Office apps
 
 ### WSA-RT-011_windows_ocr_snip_pipeline
 
@@ -451,6 +495,21 @@ Status:
 - Replaces the fragile inline OneCore PowerShell command with a temp script plus JSON payload bridge
 - Keeps precise cue emission while avoiding parser failures on text such as Danish strings with apostrophes
 - Removes per-cue document background writes and relies on `RichTextBox` selection rendering for the visible reading highlight
+
+### WSA-RT-013I_windows_tts_precise_boundary_offset_alignment
+
+Deliver:
+
+- correct alignment between OneCore boundary cues and the editor text being highlighted
+- native OneCore reading-speed control without SSML offset distortion
+- preserve metadata-driven highlight timing rather than reverting to estimate-only scheduling
+
+Status:
+
+- Implemented on `2026-04-14`
+- The precise OneCore path now synthesizes raw text instead of SSML-wrapped text
+- Reading speed on the precise path now uses `SpeechSynthesizer.Options.SpeakingRate`
+- Boundary cues should now map to the same raw text that exists in the editor, eliminating the earlier large highlight offset caused by SSML wrapper positions
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 

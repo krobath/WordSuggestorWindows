@@ -75,6 +75,7 @@ public partial class MainWindow : Window
     private SuggestionOverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
     private bool _isApplyingSpeechHighlightSelection;
+    private bool _isResolvingExternalSelection;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -509,44 +510,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
-            _windowHandle,
-            emitDiagnostics: true);
-        if (liveExternalSelection is not null)
+        var externalSelection = await ResolvePreferredExternalSelectionAsync("TTS");
+        if (externalSelection is not null)
         {
-            MirrorAndSpeakExternalSelection(liveExternalSelection);
-            return;
-        }
-
-        var lastWindowSelection = _selectionImportService.TryReadSelectionFromWindowHandle(
-            _lastExternalWindowHandle,
-            _windowHandle,
-            "last external target",
-            emitDiagnostics: true);
-        if (lastWindowSelection is not null)
-        {
-            MirrorAndSpeakExternalSelection(lastWindowSelection);
-            return;
-        }
-
-        var recentExternalSelection = TryGetRecentExternalSelection();
-        if (recentExternalSelection is not null)
-        {
-            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
-                DateTimeOffset.Now,
-                "UIA",
-                "CachedSuccess",
-                $"Recent cached selection prepared for TTS from {recentExternalSelection.Source} with {recentExternalSelection.Text.Length} characters."));
-            MirrorAndSpeakExternalSelection(recentExternalSelection);
-            return;
-        }
-
-        var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
-            _lastExternalWindowHandle,
-            _windowHandle);
-        if (clipboardSelection is not null)
-        {
-            MirrorAndSpeakExternalSelection(clipboardSelection);
+            WriteTtsFlowDiagnostic(
+                $"UI TTS action selected external text route: source={externalSelection.Source}, chars={externalSelection.Text.Length}, hwnd=0x{externalSelection.WindowHandle.ToInt64():X}.");
+            MirrorAndSpeakExternalSelection(externalSelection);
             return;
         }
 
@@ -733,16 +702,32 @@ public partial class MainWindow : Window
 
     private void ExternalSelectionPollTimerOnTick(object? sender, EventArgs e)
     {
-        var foreground = _selectionImportService.CurrentForegroundWindow;
-        if (foreground != IntPtr.Zero && foreground != _windowHandle)
+        if (_isResolvingExternalSelection || _textToSpeechService.IsSpeaking)
         {
-            _lastExternalWindowHandle = foreground;
+            return;
         }
 
-        var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
-        if (externalSelection is not null)
+        try
         {
-            _lastExternalSelection = externalSelection;
+            var foreground = _selectionImportService.CurrentForegroundWindow;
+            if (foreground != IntPtr.Zero && foreground != _windowHandle)
+            {
+                _lastExternalWindowHandle = foreground;
+            }
+
+            var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
+            if (externalSelection is not null)
+            {
+                RememberExternalSelection(externalSelection);
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "UIA",
+                "PollFailed",
+                $"External selection poll failed safely: {ex.GetType().Name}: {ex.Message}"));
         }
     }
 
@@ -756,35 +741,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
-            _windowHandle,
-            emitDiagnostics: true);
-        if (liveExternalSelection is not null)
-        {
-            _viewModel.ImportTextIntoEditor(liveExternalSelection.Text, liveExternalSelection.Source);
-            RefocusEditor();
-            return;
-        }
-
-        var recentExternalSelection = TryGetRecentExternalSelection();
-        if (recentExternalSelection is not null)
+        var externalSelection = await ResolvePreferredExternalSelectionAsync("TXT");
+        if (externalSelection is not null)
         {
             WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                 DateTimeOffset.Now,
-                "UIA",
-                "CachedSuccess",
-                $"Recent cached selection from {recentExternalSelection.Source} exposed {recentExternalSelection.Text.Length} characters."));
-            _viewModel.ImportTextIntoEditor(recentExternalSelection.Text, recentExternalSelection.Source);
-            RefocusEditor();
-            return;
-        }
-
-        var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
-            _lastExternalWindowHandle,
-            _windowHandle);
-        if (clipboardSelection is not null)
-        {
-            _viewModel.ImportTextIntoEditor(clipboardSelection.Text, clipboardSelection.Source);
+                "Resolve",
+                "Success",
+                $"TXT selected external route: source={externalSelection.Source}, chars={externalSelection.Text.Length}, hwnd=0x{externalSelection.WindowHandle.ToInt64():X}"));
+            _viewModel.ImportTextIntoEditor(externalSelection.Text, externalSelection.Source);
             RefocusEditor();
             return;
         }
@@ -1040,9 +1005,105 @@ public partial class MainWindow : Window
         }
 
         var age = DateTimeOffset.Now - _lastExternalSelection.CapturedAt;
-        return age <= TimeSpan.FromSeconds(12)
-            ? _lastExternalSelection
-            : null;
+        if (age > TimeSpan.FromSeconds(12))
+        {
+            return null;
+        }
+
+        if (_lastExternalWindowHandle != IntPtr.Zero &&
+            _lastExternalSelection.WindowHandle != IntPtr.Zero &&
+            _lastExternalSelection.WindowHandle != _lastExternalWindowHandle)
+        {
+            return null;
+        }
+
+        return _lastExternalSelection;
+    }
+
+    private void RememberExternalSelection(SelectionImportResult selection)
+    {
+        _lastExternalSelection = selection;
+        if (selection.WindowHandle != IntPtr.Zero && selection.WindowHandle != _windowHandle)
+        {
+            _lastExternalWindowHandle = selection.WindowHandle;
+        }
+    }
+
+    private async Task<SelectionImportResult?> ResolvePreferredExternalSelectionAsync(string consumer)
+    {
+        _isResolvingExternalSelection = true;
+        try
+        {
+            var foreground = _selectionImportService.CurrentForegroundWindow;
+            if (foreground != IntPtr.Zero && foreground != _windowHandle)
+            {
+                var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
+                    _windowHandle,
+                    emitDiagnostics: true);
+                if (liveExternalSelection is not null)
+                {
+                    RememberExternalSelection(liveExternalSelection);
+                    WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                        DateTimeOffset.Now,
+                        "Resolve",
+                        "LiveExternalSuccess",
+                        $"{consumer} will use live external selection from hwnd=0x{liveExternalSelection.WindowHandle.ToInt64():X} with {liveExternalSelection.Text.Length} characters."));
+                    return liveExternalSelection;
+                }
+            }
+
+            var recentExternalSelection = TryGetRecentExternalSelection();
+            if (recentExternalSelection is not null)
+            {
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "Resolve",
+                    "CachedSuccess",
+                    $"Recent cached selection prepared for {consumer} from {recentExternalSelection.Source} with {recentExternalSelection.Text.Length} characters from hwnd=0x{recentExternalSelection.WindowHandle.ToInt64():X}."));
+                return recentExternalSelection;
+            }
+
+            var lastWindowSelection = _selectionImportService.TryReadSelectionFromWindowHandle(
+                _lastExternalWindowHandle,
+                _windowHandle,
+                "last external target",
+                emitDiagnostics: true);
+            if (lastWindowSelection is not null)
+            {
+                RememberExternalSelection(lastWindowSelection);
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "Resolve",
+                    "LastWindowSuccess",
+                    $"{consumer} resolved selection from last external window hwnd=0x{lastWindowSelection.WindowHandle.ToInt64():X} with {lastWindowSelection.Text.Length} characters."));
+                return lastWindowSelection;
+            }
+
+            var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
+                _lastExternalWindowHandle,
+                _windowHandle);
+            if (clipboardSelection is not null)
+            {
+                RememberExternalSelection(clipboardSelection);
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "Resolve",
+                    "ClipboardSuccess",
+                    $"{consumer} resolved selection via clipboard fallback from hwnd=0x{clipboardSelection.WindowHandle.ToInt64():X} with {clipboardSelection.Text.Length} characters."));
+                return clipboardSelection;
+            }
+
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "Resolve",
+                "NoSelection",
+                $"{consumer} found no external selection. lastExternalWindow=0x{_lastExternalWindowHandle.ToInt64():X}"));
+            return null;
+        }
+        finally
+        {
+            _isResolvingExternalSelection = false;
+        }
     }
 
     private int GetEditorCaretIndex()
