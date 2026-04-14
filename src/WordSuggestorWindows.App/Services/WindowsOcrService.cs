@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using WordSuggestorWindows.App.Models;
 
@@ -10,13 +11,21 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed class WindowsOcrService
 {
+    private static readonly TimeSpan LegacyScreenClipClipboardTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan SnippingToolCallbackTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CallbackPollInterval = TimeSpan.FromMilliseconds(250);
+    private const string OcrUserAgent = "WordSuggestor";
     private static readonly string OcrFlowDiagnosticLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "WordSuggestor",
         "diagnostics",
         "ocr-flow.log");
+    private enum LegacyScreenClipAttemptStatus
+    {
+        Imported,
+        LaunchUnavailable,
+        NoImportResult
+    }
     private const string OcrBridgeScript = """
         param(
             [Parameter(Mandatory = $true)]
@@ -114,6 +123,20 @@ public sealed class WindowsOcrService
 
         try
         {
+            var (legacyClipboardResult, legacyStatus) = await TryCaptureWithLegacyClipboardScreenClipAsync(correlationId, cancellationToken);
+            if (legacyClipboardResult is not null)
+            {
+                return legacyClipboardResult;
+            }
+
+            if (legacyStatus is not LegacyScreenClipAttemptStatus.LaunchUnavailable)
+            {
+                EmitDiagnostic(correlationId, $"Legacy screenclip path ended without import result. status={legacyStatus}");
+                return null;
+            }
+
+            EmitDiagnostic(correlationId, "Legacy screenclip path produced no import result. Falling back to redirect callback flow.");
+
             if (!TryEnsureCallbackProtocolRegistration(correlationId))
             {
                 EmitDiagnostic(correlationId, "Capture stopped: callback protocol registration failed.");
@@ -199,21 +222,120 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static bool TryLaunchSnippingToolProtocol(string correlationId)
+    private async Task<(OcrImportResult? Result, LegacyScreenClipAttemptStatus Status)> TryCaptureWithLegacyClipboardScreenClipAsync(
+        string correlationId,
+        CancellationToken cancellationToken)
     {
-        var query = string.Join(
-            "&",
-            "rectangle",
-            "api-version=1.0",
-            "enabledModes=RectangleSnip",
-            "auto-save=false",
-            $"user-agent={Uri.EscapeDataString("WordSuggestor")}",
-            $"x-request-correlation-id={Uri.EscapeDataString(correlationId)}",
-            $"redirect-uri={Uri.EscapeDataString(WindowsOcrCallbackBridge.CallbackUri)}");
-        var uri = $"ms-screenclip://capture/image?{query}";
+        IDataObject? originalClipboard = null;
+        var sentinel = $"__WordSuggestorOcrClipboardProbe_{Guid.NewGuid():N}__";
 
         try
         {
+            originalClipboard = TryGetClipboardDataObject();
+            if (!TrySetClipboardSentinel(sentinel))
+            {
+                EmitDiagnostic(correlationId, "Legacy screenclip path unavailable: could not place clipboard sentinel.");
+                return (null, LegacyScreenClipAttemptStatus.LaunchUnavailable);
+            }
+
+            if (!TryLaunchLegacyScreenClipProtocol(correlationId))
+            {
+                EmitDiagnostic(correlationId, "Legacy screenclip launch failed.");
+                var restoredAfterLaunchFailure = RestoreClipboard(originalClipboard);
+                EmitDiagnostic(correlationId, restoredAfterLaunchFailure
+                    ? "Legacy screenclip launch failure restored clipboard snapshot."
+                    : "Legacy screenclip launch failure could not restore clipboard snapshot.");
+                return (null, LegacyScreenClipAttemptStatus.LaunchUnavailable);
+            }
+
+            var legacyImagePath = await WaitForClipboardImageAsync(correlationId, sentinel, cancellationToken);
+            if (string.IsNullOrWhiteSpace(legacyImagePath))
+            {
+                EmitDiagnostic(correlationId, "Legacy screenclip stopped: no clipboard image arrived before timeout or cancellation.");
+                var restoredAfterTimeout = RestoreClipboard(originalClipboard);
+                EmitDiagnostic(correlationId, restoredAfterTimeout
+                    ? "Legacy screenclip timeout restored clipboard snapshot."
+                    : "Legacy screenclip timeout could not restore clipboard snapshot.");
+                return (null, LegacyScreenClipAttemptStatus.NoImportResult);
+            }
+
+            try
+            {
+                var fileInfo = new FileInfo(legacyImagePath);
+                EmitDiagnostic(correlationId, $"Legacy screenclip clipboard image saved: path={legacyImagePath}, bytes={fileInfo.Length}");
+                var text = await RecognizeTextFromImageAsync(legacyImagePath, correlationId, cancellationToken);
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    EmitDiagnostic(correlationId, "Legacy screenclip stopped: recognized text was empty.");
+                    return (null, LegacyScreenClipAttemptStatus.NoImportResult);
+                }
+
+                var normalized = NormalizeOcrText(text);
+                EmitDiagnostic(correlationId, $"Legacy screenclip OCR normalized text: chars={normalized.Length}");
+                if (!TrySetClipboardText(normalized))
+                {
+                    EmitDiagnostic(correlationId, "Legacy screenclip stopped: could not copy recognized text to clipboard.");
+                    return (null, LegacyScreenClipAttemptStatus.NoImportResult);
+                }
+
+                EmitDiagnostic(correlationId, $"Legacy screenclip OCR completed: chars={normalized.Length}, lines={normalized.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length}");
+                return (
+                    new OcrImportResult(
+                        normalized,
+                        "Windows screen snip OCR",
+                        normalized.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length,
+                        DateTimeOffset.Now),
+                    LegacyScreenClipAttemptStatus.Imported);
+            }
+            finally
+            {
+                EmitDiagnostic(correlationId, $"Deleting legacy clipboard temp image if present: {legacyImagePath}");
+                TryDeleteTempFile(legacyImagePath);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            EmitDiagnostic(correlationId, $"Legacy screenclip failed with exception: {ex.GetType().Name}: {ex.Message}");
+            var restoredAfterException = RestoreClipboard(originalClipboard);
+            EmitDiagnostic(correlationId, restoredAfterException
+                ? "Legacy screenclip exception restored clipboard snapshot."
+                : "Legacy screenclip exception could not restore clipboard snapshot.");
+            return (null, LegacyScreenClipAttemptStatus.NoImportResult);
+        }
+    }
+
+    private static bool TryLaunchLegacyScreenClipProtocol(string correlationId)
+    {
+        const string uri = "ms-screenclip:?source=WordSuggestor&clippingMode=Rectangle";
+
+        try
+        {
+            EmitDiagnostic(correlationId, $"Launching legacy screenclip URI: {uri}");
+            var startedProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = uri,
+                UseShellExecute = true
+            });
+            EmitDiagnostic(correlationId, $"Legacy screenclip protocol launched. processStarted={startedProcess is not null}");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryLaunchSnippingToolProtocol(string correlationId)
+    {
+        var uri = BuildSnippingToolCaptureUri(correlationId);
+
+        try
+        {
+            EmitDiagnostic(correlationId, $"Launching Snipping Tool URI: {uri}");
             var startedProcess = Process.Start(new ProcessStartInfo
             {
                 FileName = uri,
@@ -230,6 +352,19 @@ public sealed class WindowsOcrService
         {
             return false;
         }
+    }
+
+    private static string BuildSnippingToolCaptureUri(string correlationId)
+    {
+        // Keep the launch contract as close as possible to the current Microsoft examples:
+        // mode + user-agent + redirect-uri (+ optional correlation id).
+        var query = string.Join(
+            "&",
+            "rectangle",
+            $"user-agent={Uri.EscapeDataString(OcrUserAgent)}",
+            $"x-request-correlation-id={Uri.EscapeDataString(correlationId)}",
+            $"redirect-uri={Uri.EscapeDataString(WindowsOcrCallbackBridge.CallbackUri)}");
+        return $"ms-screenclip://capture/image?{query}";
     }
 
     private static bool TryEnsureCallbackProtocolRegistration(string correlationId)
@@ -275,7 +410,9 @@ public sealed class WindowsOcrService
         string correlationId,
         CancellationToken cancellationToken)
     {
-        EmitDiagnostic(correlationId, $"Waiting for callback file: {WindowsOcrCallbackBridge.ResolveCallbackPath(correlationId)}");
+        EmitDiagnostic(
+            correlationId,
+            $"Waiting for callback file(s): {string.Join(" | ", WindowsOcrCallbackBridge.ResolveCallbackPaths(correlationId))}");
         var deadline = DateTimeOffset.Now + SnippingToolCallbackTimeout;
         while (DateTimeOffset.Now < deadline)
         {
@@ -285,6 +422,28 @@ public sealed class WindowsOcrService
             if (callback is not null)
             {
                 return callback;
+            }
+
+            await Task.Delay(CallbackPollInterval, cancellationToken);
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> WaitForClipboardImageAsync(
+        string correlationId,
+        string sentinel,
+        CancellationToken cancellationToken)
+    {
+        EmitDiagnostic(correlationId, "Waiting for clipboard image from legacy screenclip path.");
+        var deadline = DateTimeOffset.Now + LegacyScreenClipClipboardTimeout;
+        while (DateTimeOffset.Now < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (TryPersistClipboardImageToTempFile(correlationId, sentinel, out var imagePath))
+            {
+                return imagePath;
             }
 
             await Task.Delay(CallbackPollInterval, cancellationToken);
@@ -376,6 +535,63 @@ public sealed class WindowsOcrService
 
     private static string ResolveTempPngPath(string prefix) =>
         Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}.png");
+
+    private static bool TryPersistClipboardImageToTempFile(
+        string correlationId,
+        string sentinel,
+        out string? imagePath)
+    {
+        imagePath = null;
+
+        try
+        {
+            if (!Clipboard.ContainsImage())
+            {
+                if (Clipboard.ContainsText(TextDataFormat.UnicodeText))
+                {
+                    var clipboardText = Clipboard.GetText(TextDataFormat.UnicodeText);
+                    if (string.Equals(clipboardText, sentinel, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+                }
+
+                return false;
+            }
+
+            var bitmap = Clipboard.GetImage();
+            if (bitmap is null)
+            {
+                EmitDiagnostic(correlationId, "Legacy screenclip clipboard indicated an image, but GetImage returned null.");
+                return false;
+            }
+
+            var frozen = bitmap.Clone();
+            frozen.Freeze();
+            imagePath = ResolveTempPngPath("wordsuggestor-ocr-legacy-screenclip");
+            using var stream = File.Create(imagePath);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(frozen));
+            encoder.Save(stream);
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard image captured to temp file: {imagePath}");
+            return true;
+        }
+        catch (COMException ex)
+        {
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe COMException: {ex.Message}");
+            return false;
+        }
+        catch (ExternalException ex)
+        {
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe ExternalException: {ex.Message}");
+            return false;
+        }
+        catch (IOException ex)
+        {
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard image save failed: {ex.Message}");
+            return false;
+        }
+    }
 
     private static ProcessStartInfo CreatePowerShellStartInfo(string scriptPath)
     {
@@ -497,6 +713,62 @@ public sealed class WindowsOcrService
         try
         {
             Clipboard.SetText(text, TextDataFormat.UnicodeText);
+            return true;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (ExternalException)
+        {
+            return false;
+        }
+    }
+
+    private static IDataObject? TryGetClipboardDataObject()
+    {
+        try
+        {
+            return Clipboard.GetDataObject();
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ExternalException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TrySetClipboardSentinel(string sentinel)
+    {
+        try
+        {
+            Clipboard.SetText(sentinel, TextDataFormat.UnicodeText);
+            return true;
+        }
+        catch (COMException)
+        {
+            return false;
+        }
+        catch (ExternalException)
+        {
+            return false;
+        }
+    }
+
+    private static bool RestoreClipboard(IDataObject? originalClipboard)
+    {
+        try
+        {
+            if (originalClipboard is null)
+            {
+                Clipboard.Clear();
+                return true;
+            }
+
+            Clipboard.SetDataObject(originalClipboard, copy: true);
             return true;
         }
         catch (COMException)

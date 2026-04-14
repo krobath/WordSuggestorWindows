@@ -1044,6 +1044,75 @@ Known note:
 - Local investigation showed `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` was not writable on this machine even though ACLs looked normal, which is why OCR callback persistence now needs a fallback location instead of assuming that path always works.
 - Full interactive OCR smoke with Snipping Tool still needs to be re-run after this fix.
 
+### WSA-RT-011F_windows_ocr_snipping_tool_launch_contract_refresh
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Refresh the Snipping Tool launch request so it follows the current documented `ms-screenclip` contract more closely.
+- Remove optional launch parameters that may cause Snipping Tool to ignore the request or open without entering active snip mode.
+- Improve OCR diagnostics so it is clear which callback-file paths the waiting app instance is monitoring.
+
+Implemented:
+
+- Simplified the capture URI to the documented minimum shape:
+  - `rectangle`
+  - `user-agent`
+  - `x-request-correlation-id`
+  - `redirect-uri`
+- Removed the previous optional launch parameters:
+  - `api-version`
+  - `enabledModes`
+  - `auto-save`
+- Added OCR flow diagnostics that log the exact launch URI used for Snipping Tool.
+- Updated callback wait diagnostics so OCR now logs all candidate callback-file paths instead of only the preferred path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Code path review against Microsoft Learn `Launch Snipping Tool` documentation (`2025-02-25`) -> `PASS`
+
+Known note:
+
+- This sprint makes the launch contract more conservative and documentation-aligned, but the full interactive Snipping Tool flow still needs manual confirmation on this machine.
+- If Snipping Tool still opens without entering active snip mode, the next step is a capability/discover pass or a compatibility fallback path rather than adding more optional launch parameters back immediately.
+
+### WSA-RT-011G_windows_ocr_legacy_screenclip_clipboard_compatibility
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Restore a reliable OCR user experience on Windows machines where the modern `ms-screenclip://capture/...&redirect-uri=...` path launches but does not enter interactive snip mode.
+- Prefer the screenclip route that produces the cross-hair overlay and a clipboard image the OCR bridge can consume.
+- Keep the modern callback/token path available as a fallback if the legacy screenclip launch itself is unavailable.
+
+Implemented:
+
+- Reworked `WindowsOcrService` so OCR now attempts a legacy `ms-screenclip:` rectangle snip first.
+- Added a clipboard-sentinel flow for OCR:
+  - snapshot the current clipboard
+  - place a sentinel marker
+  - launch the legacy rectangle snip overlay
+  - wait for a real clipboard image
+  - save the captured bitmap to a temp PNG
+  - run the existing OCR bridge on that PNG
+- Restored the pre-OCR clipboard snapshot when the legacy path times out, is cancelled, or fails before OCR succeeds.
+- Kept the modern `wordsuggestor-ocr:` callback + shared-storage-token path as a secondary fallback when the legacy launch cannot be started.
+- Added OCR diagnostics for:
+  - legacy screenclip URI launch
+  - clipboard-image wait
+  - temp PNG persistence from the clipboard image
+  - clipboard restoration on cancellation/failure
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- This sprint deliberately prioritizes the user-visible cross-hair snip experience over the newer callback contract on machines where the callback contract does not enter interactive capture mode reliably.
+- Full manual OCR smoke is still required to confirm that the overlay appears, the clipboard image arrives, and the recognized text is imported back into the editor on the target machine.
+
 ### WSA-RT-012_windows_speech_to_text_pipeline
 Status: `Done` (`2026-04-13`)
 
@@ -1479,18 +1548,21 @@ Known note:
 19. `WSA-RT-011B` - OCR Snipping Tool callback protocol
 20. `WSA-RT-011C` - OCR flow diagnostics
 21. `WSA-RT-011D` - OCR file-access-token callback
-22. `WSA-RT-012` - speech-to-text dictation pipeline
-23. `WSA-RT-013` - toolbar text-to-speech selection pipeline
-24. `WSA-RT-013A` - TTS voice selection and diagnostics
-25. `WSA-RT-013B` - TTS external selection and highlight parity
-26. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
-27. `WSA-RT-013D` - OneCore TTS voice catalog and playback
-28. `WSA-RT-013E` - TTS reading highlight visibility and restore
-29. `WSA-RT-013G` - precise OneCore TTS boundary highlighting
-30. `WSA-RT-013H` - precise TTS highlight stabilization
-31. `WSA-RT-013I` - precise TTS boundary offset alignment
-32. `WSA-RT-014` - error insights store and view
-33. `WSA-UX-010` - settings window parity
+22. `WSA-RT-011E` - OCR callback storage fallback
+23. `WSA-RT-011F` - OCR Snipping Tool launch contract refresh
+24. `WSA-RT-011G` - OCR legacy screenclip clipboard compatibility
+25. `WSA-RT-012` - speech-to-text dictation pipeline
+26. `WSA-RT-013` - toolbar text-to-speech selection pipeline
+27. `WSA-RT-013A` - TTS voice selection and diagnostics
+28. `WSA-RT-013B` - TTS external selection and highlight parity
+29. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
+30. `WSA-RT-013D` - OneCore TTS voice catalog and playback
+31. `WSA-RT-013E` - TTS reading highlight visibility and restore
+32. `WSA-RT-013G` - precise OneCore TTS boundary highlighting
+33. `WSA-RT-013H` - precise TTS highlight stabilization
+34. `WSA-RT-013I` - precise TTS boundary offset alignment
+35. `WSA-RT-014` - error insights store and view
+36. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

@@ -344,6 +344,8 @@ Status:
 - `WSA-RT-011C` adds token-safe local OCR flow diagnostics in `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log`
 - `WSA-RT-011D` treats the observed `file-access-token` callback query parameter as the redeemable shared-storage token, avoiding clipboard/saved-file fallback as the primary OCR path
 - `WSA-RT-011E` adds callback-file storage fallback so OCR callback persistence can recover when `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` is not writable in practice
+- `WSA-RT-011F` refreshes the Snipping Tool launch URI to a minimum, documentation-aligned request after local testing showed the richer request could start Snipping Tool without entering active snip mode
+- `WSA-RT-011G` adds a legacy `ms-screenclip:` clipboard-image compatibility path so OCR can prefer the cross-hair overlay flow on machines where the modern redirect contract does not reliably enter interactive snip mode
 - Direct PDF-file OCR import is deferred; visible PDF content can be captured through the screen snip path
 
 ### WSA-RT-012_windows_speech_to_text_pipeline

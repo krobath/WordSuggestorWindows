@@ -77,6 +77,9 @@ public static class WindowsOcrCallbackBridge
     public static string ResolveCallbackPath(string correlationId) =>
         Path.Combine(ResolvePreferredCallbackDirectory(), $"{SanitizeCorrelationId(correlationId)}.callback");
 
+    public static IReadOnlyList<string> ResolveCallbackPaths(string correlationId) =>
+        ResolveCandidateCallbackPaths(correlationId).ToArray();
+
     public static OcrScreenClipCallback? TryReadCallback(string correlationId)
     {
         foreach (var path in ResolveCandidateCallbackPaths(correlationId))
