@@ -1138,7 +1138,32 @@ Implementation update (`2026-04-14`):
 - The Windows TTS path is now source-aware end-to-end: the selected voice source flows through settings, runtime resolution, toolbar status, diagnostics, and playback dispatch.
 - `WindowsTextToSpeechService` now attempts a OneCore/WinRT playback path for OneCore-selected voices and falls back to `SAPI Desktop` with an explicit fallback reason when OneCore is unavailable.
 - Settings now warn when a matching OneCore voice exists but the current host still cannot initialize WinRT speech playback.
-- Current blocker: direct WinRT `SpeechSynthesizer` initialization on this machine still fails with `Internal Speech Error`, so actual toolbar playback still falls back to `SAPI Desktop` until the host/runtime issue is resolved.
+- Latest manual validation on `2026-04-14` shows that the Danish voice can now be selected in settings and toolbar playback runs in Danish on this machine.
+- Remaining TTS parity work moved on to reading-highlight behavior and visual feedback during playback.
+
+### WSA-RT-013E_windows_tts_reading_highlight_visibility_and_restore
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Make the active word/sentence highlight during Windows TTS visibly track playback inside the internal editor.
+- Restore the user's previous editor selection/caret cleanly after speech stops.
+- Respect the Windows `ReadingHighlightMode` setting for `none`, `word`, and `sentence`.
+
+Implemented:
+
+- Upgraded speech highlighting in `MainWindow` so the active spoken range is rendered through both document background tint and the `RichTextBox` selection renderer.
+- Captured and restored the editor's original selection/caret, so TTS no longer leaves the user stranded on the last highlighted word.
+- Suppressed caret/selection side effects while speech highlight moves through the editor.
+- Added `sentence`-mode highlight span generation in addition to the existing word-based timing path.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+
+Known note:
+
+- Windows still uses estimated highlight timing rather than native word-boundary callbacks, so this is parity-oriented visual tracking rather than exact speech-engine timing.
 
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
@@ -1255,7 +1280,8 @@ Known note:
 22. `WSA-RT-013B` - TTS external selection and highlight parity
 23. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
 24. `WSA-RT-013D` - OneCore TTS voice catalog and playback
-25. `WSA-RT-014` - error insights store and view
+25. `WSA-RT-013E` - TTS reading highlight visibility and restore
+26. `WSA-RT-014` - error insights store and view
 26. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo

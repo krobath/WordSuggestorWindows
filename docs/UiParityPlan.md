@@ -403,6 +403,26 @@ Status:
 - Settings now warn when a matching OneCore voice exists but playback is not yet usable on the current host
 - Current blocker: WinRT `SpeechSynthesizer` initialization still fails on this machine with `Internal Speech Error`, so true Danish OneCore playback remains blocked even though the catalog/runtime plumbing is in place
 
+Latest validation:
+
+- Manual validation on `2026-04-14` shows the Danish voice can now be selected in settings and used for actual Windows playback on this machine
+- Remaining TTS parity work moved to playback highlighting and editor selection restore
+
+### WSA-RT-013E_windows_tts_reading_highlight_visibility_and_restore
+
+Deliver:
+
+- visible active-word or active-sentence highlight during toolbar TTS
+- stable editor selection/caret restore after playback
+- Windows-side respect for `ReadingHighlightMode`
+
+Status:
+
+- Implemented on `2026-04-14`
+- Uses both background tint and `RichTextBox` selection rendering so spoken text stays visibly highlighted while speech advances
+- Preserves and restores the user's original selection/caret after playback
+- Supports `none`, `word`, and `sentence` modes in the Windows highlight scheduler
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 
 Deliver:

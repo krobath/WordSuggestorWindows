@@ -115,17 +115,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - External selected text read through `TTS` should be mirrored into the internal editor before playback so the user has visible reading context.
 - Pressing `Ctrl+Alt+T` while WordSuggestor is running should trigger the same TTS flow without first clicking the toolbar, which is the preferred path when Windows foreground focus matters.
 - While toolbar/hotkey TTS is active, the internal editor should show a light-blue active-token reading highlight and clear it when playback stops.
+- The editor should restore the previous caret or selection when TTS stops.
+- If `ReadingHighlightMode` is set to `none`, playback should run without moving highlight in the editor.
+- If `ReadingHighlightMode` is set to `sentence`, the Windows editor should highlight sentence-sized ranges instead of single words.
 - Clicking `TTS` while playback is active should stop the current playback.
 - Toolbar TTS should now prefer an explicitly selected OneCore or SAPI voice for the active WordSuggestor language, then any installed matching voice, then a visible fallback voice if no language match is installed.
 - TTS diagnostics should be written to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` without storing the spoken text.
-- Windows OneCore voices can be installed separately from SAPI Desktop voices; `WSA-RT-013D` now makes them visible in the Windows voice catalog and settings flow, but actual OneCore playback is still host-blocked on this machine by `Internal Speech Error`.
+- Latest manual validation on `2026-04-14` confirms the Danish voice can be selected in settings and used for playback on this machine.
 
 ## Current WSA-RT-013D status
 
 - `WSA-RT-013D` now covers OneCore voice discovery, source-aware voice selection, and OneCore-first runtime dispatch with SAPI fallback.
 - The current machine exposes `Microsoft Helle - Danish (Denmark)` under `Speech_OneCore`.
-- The remaining blocker is host/runtime initialization: WinRT `SpeechSynthesizer` still returns `Internal Speech Error`, so actual playback falls back to `SAPI Desktop`.
-- Manual follow-up for this sprint should focus on unblocking OneCore playback, not on more catalog/settings work.
+- Latest manual validation indicates that Danish playback now works on this machine.
+- Remaining TTS parity work is concentrated around playback highlighting and external-app polish.
 - Original sprint contract notes are retained below for traceability.
 - Its validation target is that `Microsoft Helle - Danish (Denmark)` becomes visible in `Generelt > Oplæsning` for `DA` and can be used for actual toolbar playback.
 - `SAPI Desktop` fallback is still required while OneCore playback is being validated in the current WPF host.

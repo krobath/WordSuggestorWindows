@@ -63,11 +63,12 @@ public partial class MainWindow : Window
     private DateTimeOffset _speechHighlightStartedAt;
     private IReadOnlyList<TextSpan> _speechHighlightSpans = [];
     private TextSpan? _currentSpeechHighlightSpan;
-    private TextSpan? _speechSelectionRangeToRestore;
+    private EditorSelectionRange? _speechSelectionRangeToRestore;
     private TimeSpan _speechHighlightDuration = TimeSpan.Zero;
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
+    private bool _isApplyingSpeechHighlightSelection;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -113,6 +114,8 @@ public partial class MainWindow : Window
 
         SyncOverlayVisibility();
         SyncEditorDocumentFromViewModel(force: true);
+        EditorTextBox.SelectionBrush = SpeechHighlightBrush;
+        EditorTextBox.SelectionOpacity = 0.52;
 
         if (_viewModel.IsEditorExpanded)
         {
@@ -485,7 +488,7 @@ public partial class MainWindow : Window
         var internalSelection = GetSelectedEditorSpeechText();
         if (internalSelection is not null)
         {
-            _speechSelectionRangeToRestore = internalSelection;
+            _speechSelectionRangeToRestore = CaptureCurrentEditorSelectionRange();
             SetEditorSelection(internalSelection.Start, 0);
             WriteTtsFlowDiagnostic($"UI TTS action using internal editor selection: chars={internalSelection.Length}.");
             SpeakText(internalSelection.Text, "intern editor-markering", internalSelection.Start);
@@ -559,6 +562,11 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (_speechSelectionRangeToRestore is null && _viewModel.IsEditorExpanded)
+            {
+                _speechSelectionRangeToRestore = CaptureCurrentEditorSelectionRange();
+            }
+
             var options = _viewModel.CreateTextToSpeechOptions(text);
             var invocation = _textToSpeechService.Speak(text, options);
             StartSpeechHighlight(text, highlightBaseOffset, options);
@@ -788,6 +796,11 @@ public partial class MainWindow : Window
 
     private void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
+        if (_isApplyingSpeechHighlightSelection)
+        {
+            return;
+        }
+
         _viewModel.CaretIndex = GetEditorCaretIndex();
         UpdateOverlayPosition();
     }
@@ -1059,10 +1072,14 @@ public partial class MainWindow : Window
 
     private void StartSpeechHighlight(string text, int baseOffset, TtsSpeechOptions options)
     {
-        var spans = WordTokenRegex()
-            .Matches(text)
-            .Select(match => new TextSpan(baseOffset + match.Index, match.Length, match.Value))
-            .ToArray();
+        var readingHighlightMode = _viewModel.LoadSettingsSnapshot().ReadingHighlightMode;
+        if (string.Equals(readingHighlightMode, "none", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteTtsFlowDiagnostic("Speech highlight skipped: reading highlight mode is none.");
+            return;
+        }
+
+        var spans = BuildSpeechHighlightSpans(text, baseOffset, readingHighlightMode);
         if (spans.Length == 0)
         {
             WriteTtsFlowDiagnostic("Speech highlight skipped: no word tokens found.");
@@ -1118,6 +1135,7 @@ public partial class MainWindow : Window
         var start = GetTextPointerAtCharOffset(span.Start);
         var end = GetTextPointerAtCharOffset(span.Start + span.Length);
         new TextRange(start, end).ApplyPropertyValue(TextElement.BackgroundProperty, SpeechHighlightBrush);
+        SelectSpeechHighlightRange(start, end);
         _currentSpeechHighlightSpan = span;
     }
 
@@ -1134,6 +1152,21 @@ public partial class MainWindow : Window
         _currentSpeechHighlightSpan = null;
     }
 
+    private void SelectSpeechHighlightRange(TextPointer start, TextPointer end)
+    {
+        _isApplyingSpeechHighlightSelection = true;
+        try
+        {
+            EditorTextBox.Selection.Select(start, end);
+            EditorTextBox.CaretPosition = end;
+            EditorTextBox.Focus();
+        }
+        finally
+        {
+            _isApplyingSpeechHighlightSelection = false;
+        }
+    }
+
     private void RestoreSpeechEditorSelection()
     {
         if (_speechSelectionRangeToRestore is null)
@@ -1143,7 +1176,15 @@ public partial class MainWindow : Window
 
         var range = _speechSelectionRangeToRestore;
         _speechSelectionRangeToRestore = null;
-        SetEditorSelection(range.Start, range.Length);
+        _isApplyingSpeechHighlightSelection = true;
+        try
+        {
+            SetEditorSelection(range.Start, range.Length);
+        }
+        finally
+        {
+            _isApplyingSpeechHighlightSelection = false;
+        }
     }
 
     private static TimeSpan EstimateSpeechDuration(string text, int wordCount, TtsSpeechOptions options)
@@ -1195,6 +1236,36 @@ public partial class MainWindow : Window
         }
 
         return text;
+    }
+
+    private EditorSelectionRange CaptureCurrentEditorSelectionRange()
+    {
+        var start = GetTextOffset(EditorTextBox.Selection.Start);
+        var end = GetTextOffset(EditorTextBox.Selection.End);
+        var safeStart = Math.Min(start, end);
+        return new EditorSelectionRange(safeStart, Math.Abs(end - start));
+    }
+
+    private static TextSpan[] BuildSpeechHighlightSpans(string text, int baseOffset, string readingHighlightMode)
+    {
+        if (string.Equals(readingHighlightMode, "sentence", StringComparison.OrdinalIgnoreCase))
+        {
+            return SentenceTokenRegex()
+                .Matches(text)
+                .Select(match =>
+                {
+                    var leadingWhitespace = match.Value.Length - match.Value.TrimStart().Length;
+                    var trimmed = match.Value.Trim();
+                    return new TextSpan(baseOffset + match.Index + leadingWhitespace, trimmed.Length, trimmed);
+                })
+                .Where(span => span.Length > 0)
+                .ToArray();
+        }
+
+        return WordTokenRegex()
+            .Matches(text)
+            .Select(match => new TextSpan(baseOffset + match.Index, match.Length, match.Value))
+            .ToArray();
     }
 
     private static EditorTokenKind ClassifyEditorToken(string token)
@@ -1277,6 +1348,9 @@ public partial class MainWindow : Window
 
     [GeneratedRegex(@"[\p{L}\p{M}\p{Nd}][\p{L}\p{M}\p{Nd}'-]*", RegexOptions.CultureInvariant)]
     private static partial Regex WordTokenRegex();
+
+    [GeneratedRegex(@"[^.!?\r\n]+[.!?]*", RegexOptions.CultureInvariant)]
+    private static partial Regex SentenceTokenRegex();
 
     private enum EditorTokenKind
     {
@@ -1530,4 +1604,6 @@ public partial class MainWindow : Window
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     private sealed record TextSpan(int Start, int Length, string Text);
+
+    private sealed record EditorSelectionRange(int Start, int Length);
 }
