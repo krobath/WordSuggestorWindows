@@ -11,7 +11,51 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed class WindowsOcrService
 {
-    private static readonly TimeSpan LegacyScreenClipClipboardTimeout = TimeSpan.FromSeconds(45);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct INPUT
+    {
+        public uint Type;
+        public INPUTUNION Union;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct INPUTUNION
+    {
+        [FieldOffset(0)] public KEYBDINPUT Keyboard;
+        [FieldOffset(0)] public MOUSEINPUT Mouse;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct KEYBDINPUT
+    {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    private const uint INPUT_KEYBOARD = 1;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const ushort VK_LWIN = 0x5B;
+    private const ushort VK_SHIFT = 0x10;
+    private const ushort VK_S = 0x53;
+
+    private static readonly TimeSpan LegacyScreenClipClipboardTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan SnippingToolCallbackTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CallbackPollInterval = TimeSpan.FromMilliseconds(250);
     private const string OcrUserAgent = "WordSuggestor";
@@ -306,25 +350,37 @@ public sealed class WindowsOcrService
 
     private static bool TryLaunchLegacyScreenClipProtocol(string correlationId)
     {
-        const string uri = "ms-screenclip:?source=WordSuggestor&clippingMode=Rectangle";
-
+        EmitDiagnostic(correlationId, "Sending Win+Shift+S to open Snipping Tool.");
         try
         {
-            EmitDiagnostic(correlationId, $"Launching legacy screenclip URI: {uri}");
-            var startedProcess = Process.Start(new ProcessStartInfo
+            INPUT MakeKeyDown(ushort vk) => new()
             {
-                FileName = uri,
-                UseShellExecute = true
-            });
-            EmitDiagnostic(correlationId, $"Legacy screenclip protocol launched. processStarted={startedProcess is not null}");
-            return true;
+                Type = INPUT_KEYBOARD,
+                Union = new INPUTUNION { Keyboard = new KEYBDINPUT { wVk = vk } }
+            };
+            INPUT MakeKeyUp(ushort vk) => new()
+            {
+                Type = INPUT_KEYBOARD,
+                Union = new INPUTUNION { Keyboard = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_KEYUP } }
+            };
+
+            var inputs = new INPUT[]
+            {
+                MakeKeyDown(VK_LWIN),
+                MakeKeyDown(VK_SHIFT),
+                MakeKeyDown(VK_S),
+                MakeKeyUp(VK_S),
+                MakeKeyUp(VK_SHIFT),
+                MakeKeyUp(VK_LWIN),
+            };
+
+            var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+            EmitDiagnostic(correlationId, $"Win+Shift+S sent: inputsSent={sent}/{inputs.Length}");
+            return sent == (uint)inputs.Length;
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return false;
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
+            EmitDiagnostic(correlationId, $"Win+Shift+S send failed: {ex.GetType().Name}: {ex.Message}");
             return false;
         }
     }
