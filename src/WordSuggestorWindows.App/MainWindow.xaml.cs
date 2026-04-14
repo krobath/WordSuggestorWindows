@@ -560,11 +560,11 @@ public partial class MainWindow : Window
         try
         {
             var options = _viewModel.CreateTextToSpeechOptions(text);
-            _textToSpeechService.Speak(text, options);
+            var invocation = _textToSpeechService.Speak(text, options);
             StartSpeechHighlight(text, highlightBaseOffset, options);
-            var voiceSummary = options.FallbackReason is null
-                ? options.VoiceDisplayName ?? "Windows standardstemme"
-                : $"fallback: {options.FallbackReason}";
+            var voiceSummary = invocation.FallbackReason is null
+                ? $"{invocation.VoiceDisplayName} ({invocation.VoiceSource})"
+                : $"fallback: {invocation.FallbackReason}";
             _viewModel.SetTextToSpeechSpeaking(
                 true,
                 $"Oplæser {text.Trim().Length} tegn fra {source} med {voiceSummary}.");

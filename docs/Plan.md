@@ -554,7 +554,7 @@ Known note:
 - Word-class coloring, underline rendering, and flagged-word interaction still need later work on top of this shell baseline.
 
 ### WSA-RT-003_windows_external_input_and_caret_integration
-Status: `Planned`
+Status: `In progress` (`2026-04-14`)
 
 Scope:
 
@@ -574,7 +574,7 @@ Policy:
 - fall back to static placement when caret anchoring is not trustworthy
 
 ### WSA-RT-004_windows_editor_right_click_correction_popover
-Status: `Planned`
+Status: `In progress` (`2026-04-14`)
 
 Scope:
 
@@ -1083,6 +1083,63 @@ Known note:
 - This sprint fixes the malformed `SendInput` call that prevented clipboard fallback from copying selected text in VS Code. Manual external-app smoke is still needed because Windows foreground/input policies are app- and focus-state-sensitive.
 - Danish OneCore playback remains a separate backend sprint. The current bridge can only use voices exposed through SAPI Desktop.
 
+### WSA-RT-013D_windows_onecore_tts_voice_catalog_and_playback
+Status: `In progress` (`2026-04-14`)
+
+Scope:
+
+- Extend Windows TTS voice discovery so WordSuggestor can see both SAPI Desktop and OneCore voices.
+- Add a Windows playback path that can actually use an installed OneCore voice such as `Microsoft Helle - Danish (Denmark)`.
+- Preserve the current SAPI Desktop bridge as fallback while the OneCore path is validated.
+- Keep the current toolbar/editor/highlight flow stable while the speech backend changes under it.
+
+Target outcome:
+
+- The Windows settings voice picker shows the installed Danish voice for `DA`.
+- Toolbar `TTS` can read Danish text using the Danish Windows voice instead of English fallback.
+- `tts-flow.log` records which backend/source was chosen: `OneCore` or `SAPI Desktop`.
+
+Planned implementation:
+
+- Expand `WindowsVoiceCatalogService` so it reads:
+  - `HKLM\SOFTWARE\Microsoft\Speech\Voices\Tokens`
+  - `HKLM\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`
+- Make voice options source-aware so settings/runtime know whether a choice comes from `SAPI Desktop` or `OneCore`.
+- Add a backend abstraction for Windows TTS playback:
+  - current SAPI bridge retained as fallback
+  - new OneCore/WinRT playback path added as the preferred route for OneCore voices
+- Update settings so `Systemstemme` can display and persist OneCore voice choices for the active WordSuggestor language.
+- Update runtime voice resolution so `DA` selection prefers:
+  - explicit OneCore voice override
+  - best OneCore language match
+  - SAPI Desktop language match
+  - visible fallback voice with diagnostics
+
+Validation plan:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1`
+- Manual settings smoke:
+  - open `Generelt > Oplæsning`
+  - confirm `Microsoft Helle - Danish (Denmark)` appears for `DA`
+- Manual playback smoke:
+  - stage Danish text in the editor
+  - confirm toolbar `TTS` reads it with the Danish voice
+- Diagnostics smoke:
+  - confirm `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` records `OneCore` backend/source when the Danish voice is selected
+
+Known risk:
+
+- Earlier shell-level WinRT speech probes returned `Internal Speech Error`, so the sprint should begin with an app-hosted technical spike before the full settings/runtime migration is committed.
+- If OneCore playback cannot be stabilized inside the current WPF/.NET 9 host, the fallback plan is a larger backend replacement sprint rather than forcing more behavior into the current SAPI-only bridge.
+
+Implementation update (`2026-04-14`):
+
+- `WindowsVoiceCatalogService` now reads both `Speech` and `Speech_OneCore`, so the Windows settings/runtime layer can see OneCore voices such as `Microsoft Helle - Danish (Denmark)`.
+- The Windows TTS path is now source-aware end-to-end: the selected voice source flows through settings, runtime resolution, toolbar status, diagnostics, and playback dispatch.
+- `WindowsTextToSpeechService` now attempts a OneCore/WinRT playback path for OneCore-selected voices and falls back to `SAPI Desktop` with an explicit fallback reason when OneCore is unavailable.
+- Settings now warn when a matching OneCore voice exists but the current host still cannot initialize WinRT speech playback.
+- Current blocker: direct WinRT `SpeechSynthesizer` initialization on this machine still fails with `Internal Speech Error`, so actual toolbar playback still falls back to `SAPI Desktop` until the host/runtime issue is resolved.
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 Status: `Done` (`2026-04-13`)
 
@@ -1197,8 +1254,9 @@ Known note:
 21. `WSA-RT-013A` - TTS voice selection and diagnostics
 22. `WSA-RT-013B` - TTS external selection and highlight parity
 23. `WSA-RT-013C` - TTS clipboard fallback and highlight tuning
-24. `WSA-RT-014` - error insights store and view
-25. `WSA-UX-010` - settings window parity
+24. `WSA-RT-013D` - OneCore TTS voice catalog and playback
+25. `WSA-RT-014` - error insights store and view
+26. `WSA-UX-010` - settings window parity
 
 ## Working rules for this repo
 

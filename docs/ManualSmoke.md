@@ -116,9 +116,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Pressing `Ctrl+Alt+T` while WordSuggestor is running should trigger the same TTS flow without first clicking the toolbar, which is the preferred path when Windows foreground focus matters.
 - While toolbar/hotkey TTS is active, the internal editor should show a light-blue active-token reading highlight and clear it when playback stops.
 - Clicking `TTS` while playback is active should stop the current playback.
-- Toolbar TTS should prefer an explicitly selected Windows Desktop voice for the active WordSuggestor language, then any installed voice matching that language, then a visible fallback voice if no language match is installed.
+- Toolbar TTS should now prefer an explicitly selected OneCore or SAPI voice for the active WordSuggestor language, then any installed matching voice, then a visible fallback voice if no language match is installed.
 - TTS diagnostics should be written to `%LOCALAPPDATA%\WordSuggestor\diagnostics\tts-flow.log` without storing the spoken text.
-- Windows OneCore voices can be installed separately from SAPI Desktop voices; the current bridge uses SAPI Desktop voices, so a Danish OneCore voice such as `Microsoft Helle - Danish (Denmark)` may still require a future OneCore speech-backend sprint before it can be selected for playback.
+- Windows OneCore voices can be installed separately from SAPI Desktop voices; `WSA-RT-013D` now makes them visible in the Windows voice catalog and settings flow, but actual OneCore playback is still host-blocked on this machine by `Internal Speech Error`.
+
+## Current WSA-RT-013D status
+
+- `WSA-RT-013D` now covers OneCore voice discovery, source-aware voice selection, and OneCore-first runtime dispatch with SAPI fallback.
+- The current machine exposes `Microsoft Helle - Danish (Denmark)` under `Speech_OneCore`.
+- The remaining blocker is host/runtime initialization: WinRT `SpeechSynthesizer` still returns `Internal Speech Error`, so actual playback falls back to `SAPI Desktop`.
+- Manual follow-up for this sprint should focus on unblocking OneCore playback, not on more catalog/settings work.
+- Original sprint contract notes are retained below for traceability.
+- Its validation target is that `Microsoft Helle - Danish (Denmark)` becomes visible in `Generelt > Oplæsning` for `DA` and can be used for actual toolbar playback.
+- `SAPI Desktop` fallback is still required while OneCore playback is being validated in the current WPF host.
 - The `INS` toolbar button should open a native Windows Insights window backed by local data from `%LOCALAPPDATA%\WordSuggestor\insights\error-insights.jsonl`.
 - Insights should update after accepted suggestions, backspace activity, and sentence boundary input in the internal editor.
 - Insights data is local-only in the current baseline and should not be written to `WordSuggestorCore` or macOS app state.

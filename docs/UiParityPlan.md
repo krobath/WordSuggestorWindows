@@ -385,6 +385,24 @@ Status:
 - Uses a stronger light-blue highlight and a longer minimum highlight duration for short TTS text
 - Confirms `Microsoft Helle - Danish (Denmark)` is installed as a OneCore voice but is not exposed through `SAPI.SpVoice.GetVoices()`; OneCore playback remains a dedicated backend follow-up
 
+### WSA-RT-013D_windows_onecore_tts_voice_catalog_and_playback
+
+Deliver:
+
+- OneCore voice discovery in the Windows settings/runtime layer
+- source-aware voice selection that distinguishes `OneCore` from `SAPI Desktop`
+- Danish playback path for installed Windows OneCore voices
+- SAPI fallback retained for hosts where OneCore playback is unavailable
+
+Status:
+
+- In progress on `2026-04-14`
+- Voice discovery now reads both `Speech` and `Speech_OneCore` registry roots
+- Settings/runtime now carry source-aware voice metadata so `OneCore` and `SAPI Desktop` choices are distinguishable
+- The TTS runtime now attempts OneCore playback for OneCore-selected voices and falls back to `SAPI Desktop` with diagnostics when OneCore is unavailable
+- Settings now warn when a matching OneCore voice exists but playback is not yet usable on the current host
+- Current blocker: WinRT `SpeechSynthesizer` initialization still fails on this machine with `Internal Speech Error`, so true Danish OneCore playback remains blocked even though the catalog/runtime plumbing is in place
+
 ### WSA-RT-014_windows_error_insights_store_and_view
 
 Deliver:

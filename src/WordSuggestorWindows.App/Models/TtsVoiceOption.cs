@@ -8,6 +8,6 @@ public sealed record TtsVoiceOption(
     bool IsFallback = false)
 {
     public string DisplayLabel => IsFallback
-        ? $"{DisplayName} ({LanguageCode}, fallback)"
-        : $"{DisplayName} ({LanguageCode})";
+        ? $"{DisplayName} ({LanguageCode}, {Source}, fallback)"
+        : $"{DisplayName} ({LanguageCode}, {Source})";
 }

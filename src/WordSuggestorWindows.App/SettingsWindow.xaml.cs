@@ -142,6 +142,7 @@ public partial class SettingsWindow : Window
         var languageCode = LanguageComboBox.SelectedValue as string ?? _settings.SelectedLanguageCode;
         var languageKey = languageCode.ToLowerInvariant();
         var matchingVoices = WindowsVoiceCatalogService.GetVoiceOptionsForLanguage(languageCode);
+        var oneCoreStatus = WindowsTextToSpeechService.GetOneCoreRuntimeStatus();
         var options = new List<SettingsOption>
         {
             new(string.Empty, "Automatisk (bedst)")
@@ -156,12 +157,18 @@ public partial class SettingsWindow : Window
                 : string.Empty;
 
         var hasLanguageVoice = WindowsVoiceCatalogService.HasLanguageVoice(languageCode);
+        var oneCoreLanguageVoice = matchingVoices.FirstOrDefault(voice =>
+            string.Equals(voice.Source, WindowsVoiceCatalogService.OneCoreSource, StringComparison.OrdinalIgnoreCase) &&
+            !voice.IsFallback);
         var useSystemSettings = UseSystemSpeechSettingsCheckBox.IsChecked == true;
         SystemVoiceComboBox.IsEnabled = !useSystemSettings && options.Count > 1;
         ReadingSpeedSlider.IsEnabled = !useSystemSettings;
-        VoiceStatusTextBlock.Text = hasLanguageVoice
-            ? $"Der findes en installeret Windows-stemme for {languageCode}."
-            : $"Ingen installeret SAPI Desktop-stemme matcher {languageCode}. Installer en Windows-stemme for sproget, ellers bruges en fallback-stemme.";
+        VoiceStatusTextBlock.Text =
+            oneCoreLanguageVoice is not null && !oneCoreStatus.IsAvailable
+                ? $"Der findes en installeret OneCore-stemme for {languageCode} ({oneCoreLanguageVoice.DisplayName}), men OneCore-playback er ikke valideret på denne host endnu: {oneCoreStatus.Detail}"
+                : hasLanguageVoice
+                    ? $"Der findes en installeret Windows-stemme for {languageCode}."
+                    : $"Ingen installeret Windows-stemme matcher {languageCode}. Installer en Windows-stemme for sproget, ellers bruges en fallback-stemme.";
         ReadingSpeedSlider_OnValueChanged(this, new RoutedPropertyChangedEventArgs<double>(ReadingSpeedSlider.Value, ReadingSpeedSlider.Value));
     }
 
