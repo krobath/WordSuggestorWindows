@@ -343,6 +343,7 @@ Status:
 - `WSA-RT-011B` supersedes `WSA-RT-011A`: the implementation no longer injects `Win+Shift+S`, but launches `ms-screenclip://capture/image?...` with a `wordsuggestor-ocr:` redirect callback and shared-storage token redemption
 - `WSA-RT-011C` adds token-safe local OCR flow diagnostics in `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log`
 - `WSA-RT-011D` treats the observed `file-access-token` callback query parameter as the redeemable shared-storage token, avoiding clipboard/saved-file fallback as the primary OCR path
+- `WSA-RT-011E` adds callback-file storage fallback so OCR callback persistence can recover when `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` is not writable in practice
 - Direct PDF-file OCR import is deferred; visible PDF content can be captured through the screen snip path
 
 ### WSA-RT-012_windows_speech_to_text_pipeline

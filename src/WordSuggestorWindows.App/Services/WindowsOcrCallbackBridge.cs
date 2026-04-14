@@ -8,10 +8,17 @@ public static class WindowsOcrCallbackBridge
     public const string CallbackScheme = "wordsuggestor-ocr";
     public const string CallbackUri = "wordsuggestor-ocr://callback";
 
-    private static readonly string CallbackDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
-        "ocr-callbacks");
+    private static readonly string[] CallbackDirectories =
+    [
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WordSuggestor",
+            "ocr-callbacks"),
+        Path.Combine(
+            Path.GetTempPath(),
+            "WordSuggestor",
+            "ocr-callbacks")
+    ];
 
     public static bool TryPersistStartupCallback(IReadOnlyList<string> args)
     {
@@ -33,9 +40,12 @@ public static class WindowsOcrCallbackBridge
                 return true;
             }
 
-            Directory.CreateDirectory(CallbackDirectory);
-            File.WriteAllText(ResolveCallbackPath(callback.CorrelationId), callback.RawUri);
-            EmitDiagnostic($"Startup callback persisted: correlation={callback.CorrelationId} code={callback.Code} tokenPresent={callback.Token is not null}");
+            if (!TryWriteCallback(callback))
+            {
+                EmitDiagnostic(
+                    $"Startup callback persistence failed: correlation={callback.CorrelationId} code={callback.Code} tokenPresent={callback.Token is not null}");
+            }
+
             return true;
         }
 
@@ -65,33 +75,107 @@ public static class WindowsOcrCallbackBridge
     }
 
     public static string ResolveCallbackPath(string correlationId) =>
-        Path.Combine(CallbackDirectory, $"{SanitizeCorrelationId(correlationId)}.uri");
+        Path.Combine(ResolvePreferredCallbackDirectory(), $"{SanitizeCorrelationId(correlationId)}.callback");
 
     public static OcrScreenClipCallback? TryReadCallback(string correlationId)
     {
-        var path = ResolveCallbackPath(correlationId);
-        if (!File.Exists(path))
+        foreach (var path in ResolveCandidateCallbackPaths(correlationId))
         {
-            return null;
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var raw = File.ReadAllText(path).Trim();
+            return Uri.TryCreate(raw, UriKind.Absolute, out var uri)
+                ? ParseCallback(uri)
+                : null;
         }
 
-        var raw = File.ReadAllText(path).Trim();
-        return Uri.TryCreate(raw, UriKind.Absolute, out var uri)
-            ? ParseCallback(uri)
-            : null;
+        return null;
     }
 
     public static void DeleteCallback(string correlationId)
     {
+        foreach (var path in ResolveCandidateCallbackPaths(correlationId))
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private static bool TryWriteCallback(OcrScreenClipCallback callback)
+    {
+        foreach (var directory in CallbackDirectories)
+        {
+            try
+            {
+                Directory.CreateDirectory(directory);
+                var path = Path.Combine(directory, $"{SanitizeCorrelationId(callback.CorrelationId)}.callback");
+                File.WriteAllText(path, callback.RawUri);
+                EmitDiagnostic(
+                    $"Startup callback persisted: correlation={callback.CorrelationId} code={callback.Code} tokenPresent={callback.Token is not null} path={path}");
+                return true;
+            }
+            catch (IOException ex)
+            {
+                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        return false;
+    }
+
+    private static string ResolvePreferredCallbackDirectory()
+    {
+        foreach (var directory in CallbackDirectories)
+        {
+            if (CanWriteToDirectory(directory))
+            {
+                return directory;
+            }
+        }
+
+        return CallbackDirectories[^1];
+    }
+
+    private static IEnumerable<string> ResolveCandidateCallbackPaths(string correlationId)
+    {
+        var fileName = $"{SanitizeCorrelationId(correlationId)}.callback";
+        return CallbackDirectories
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(directory => Path.Combine(directory, fileName));
+    }
+
+    private static bool CanWriteToDirectory(string directory)
+    {
         try
         {
-            File.Delete(ResolveCallbackPath(correlationId));
+            Directory.CreateDirectory(directory);
+            var probePath = Path.Combine(directory, $"probe-{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(probePath, "probe");
+            File.Delete(probePath);
+            return true;
         }
         catch (IOException)
         {
+            return false;
         }
         catch (UnauthorizedAccessException)
         {
+            return false;
         }
     }
 

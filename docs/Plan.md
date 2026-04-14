@@ -1016,6 +1016,34 @@ Known note:
 - Local logs showed `keys=code,file-access-token,reason,x-request-correlation-id`, which is why `file-access-token` is now treated as the token key.
 - If OCR still fails, `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-flow.log` will show whether token redemption or the OCR bridge is the failing stage.
 
+### WSA-RT-011E_windows_ocr_callback_storage_fallback
+Status: `Done` (`2026-04-14`)
+
+Scope:
+
+- Fix the OCR callback crash where the callback helper process could not persist the returned callback URI.
+- Prevent the main OCR flow from appearing to "close" WordSuggestor when the callback instance fails before the waiting app instance can resume.
+- Make callback persistence robust even when the original `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` directory is not writable in practice.
+
+Implemented:
+
+- Reworked `WindowsOcrCallbackBridge` so callback persistence now tries multiple storage locations:
+  - `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks`
+  - `%TEMP%\WordSuggestor\ocr-callbacks`
+- Changed callback files from `.uri` to `.callback` and added writable-directory probing before choosing the preferred callback path.
+- Added safe fallback logging when a callback write fails in one directory and the bridge needs to continue with the next candidate.
+- Updated callback read/delete behavior so the main OCR flow can consume callback files from either the preferred or fallback directory.
+
+Validation:
+
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1` -> `PASS`
+- Direct callback launch smoke against `WordSuggestorWindows.App.exe "wordsuggestor-ocr://callback/..."` -> `PASS` (`exit code 0`, callback file persisted under `%TEMP%\WordSuggestor\ocr-callbacks`)
+
+Known note:
+
+- Local investigation showed `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` was not writable on this machine even though ACLs looked normal, which is why OCR callback persistence now needs a fallback location instead of assuming that path always works.
+- Full interactive OCR smoke with Snipping Tool still needs to be re-run after this fix.
+
 ### WSA-RT-012_windows_speech_to_text_pipeline
 Status: `Done` (`2026-04-13`)
 
