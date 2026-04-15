@@ -1,6 +1,6 @@
 # WordSuggestorWindows Plan
 
-Last updated: `2026-04-14`
+Last updated: `2026-04-15`
 Owner: `Windows track`
 Status legend: `Done`, `In progress`, `Planned`, `Blocked`
 
@@ -1501,6 +1501,44 @@ Known note:
 - This sprint adds local Windows settings persistence and a native settings surface. It does not introduce a shared cross-platform settings sync format beyond the documented JSON baseline.
 - The disabled controls intentionally preserve macOS semantics without implying completed Windows functionality.
 
+### WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity
+Status: `Planned` (`2026-04-15`)
+
+Scope:
+
+- Restyle the Windows top toolbar action buttons so they visually align more closely with the macOS toolbar while preserving Windows-native interaction behavior.
+- Restyle the expanded editor command toggles (`Farver`, `Semantik`, `Tegnsætning`) so they read as the same product family as the macOS command row.
+- Replace the text-first language selector with a flag-based selector that mirrors the macOS language chooser more closely.
+
+Target outcome:
+
+- The Windows toolbar remains native in feel, but is immediately recognizable as the same WordSuggestor toolbar users know from macOS.
+- The language selector shows per-language flags in the collapsed toolbar instead of plain text labels.
+- The expanded editor command row visually matches the macOS command hierarchy more closely.
+
+Planned implementation:
+
+- Introduce dedicated toolbar/button chrome styles for:
+  - compact icon-first toolbar actions (`WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`)
+  - segmented/pill command toggles in the expanded editor
+- Replace the current text-only toolbar action content with icon-backed templates and retain text through tooltip/accessibility labels where needed.
+- Add flag assets or equivalent image resources for the supported toolbar languages and bind them through `LanguageOption`.
+- Re-template the toolbar language `ComboBox` so both selected state and drop-down items show flags instead of plain text-first labels.
+- Preserve the existing command routing and language-pack logic; this sprint is visual/UI-asset parity work, not language/runtime behavior work.
+
+Validation:
+
+- Manual UI smoke against the macOS reference screenshots:
+  - top toolbar action buttons
+  - language selector
+  - expanded command-row toggles
+- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1`
+
+Known note:
+
+- This sprint should prefer Windows-native symbols where they are obvious and low-confusion, but it may reuse SF Symbols or exported macOS assets where Windows does not provide a suitable equivalent.
+- The sprint must not regress existing button semantics, tooltips, accessibility labels, or language-pack availability indicators.
+
 ### WSA-TS-001_windows_smoke_and_regression_baseline
 Status: `Done` (`2026-04-09`)
 
@@ -1563,6 +1601,7 @@ Known note:
 34. `WSA-RT-013I` - precise TTS boundary offset alignment
 35. `WSA-RT-014` - error insights store and view
 36. `WSA-UX-010` - settings window parity
+37. `WSA-UX-011` - toolbar chrome and flag selector parity
 
 ## Working rules for this repo
 

@@ -1,6 +1,6 @@
 # WordSuggestorWindows UI Parity Plan
 
-Last updated: `2026-04-14`
+Last updated: `2026-04-15`
 Owner: `Windows track`
 Status: `Approved implementation baseline from macOS UI review`
 
@@ -102,7 +102,7 @@ Source references:
 | Toolbar capability | macOS behavior confirmed | Windows parity strategy | Sprint |
 |---|---|---|---|
 | Toggle word suggestions on/off | `isGlobalCaptureEnabled` starts/stops `GlobalKeyCaptureManager` and persists the setting. | Connect the Windows toggle to global typing capture, focused text tracking, external commit, and overlay visibility. | `WSA-RT-003_windows_external_input_and_caret_integration` |
-| Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge. | `WSA-RT-009_windows_language_pack_selection` done for Windows pack-aware selector baseline |
+| Language selector | Menu exposes supported languages and shows when packs are missing. | Replace Danish-only selector with a language/pack-aware selector and route selection through the core CLI bridge; add macOS-like flag presentation in the Windows toolbar selector. | `WSA-RT-009_windows_language_pack_selection` done for Windows pack-aware selector baseline; visual flag-selector parity planned in `WSA-UX-011` |
 | Word list manager | Toolbar button is a TODO; settings exposes `isDomainListsEnabled`, and the domain-list tab is a placeholder. | Match current macOS behavior first; keep as placeholder/settings entry until a shared domain-list manager design exists. | Future shared/domain-list sprint |
 | Import selected text | Prefers internal editor selection, then Accessibility/clipboard fallback from the frontmost app, then runs text analysis. | Prefer RichTextBox selection, then cached/live Windows UI Automation `TextPattern` selection, then guarded clipboard fallback; track app-specific blockers in a compatibility matrix. | `WSA-RT-010` + `WSA-RT-010A` done; `WSA-TS-002` diagnostics/matrix done |
 | OCR / screen snip | Uses macOS `screencapture`, Vision OCR, copies text to clipboard, ingests into editor, then analyzes. | Use Windows screen snip plus Windows OCR via runtime WinRT bridge, copy recognized text to clipboard, ingest into editor, and analyze. | `WSA-RT-011` baseline done; `WSA-RT-011B` callback flow done; `WSA-RT-011C` diagnostics done; `WSA-RT-011D` file-access-token callback done |
@@ -110,6 +110,7 @@ Source references:
 | Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor; supports selected/system voices and reading speed settings. | Implement toolbar-level TTS around Windows speech synthesis, language-aware voice selection, and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013` baseline done; `WSA-RT-013A` voice selection/diagnostics done |
 | Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` baseline done |
 | Settings | Opens the native macOS Settings scene with categories for general, suggestions, text analysis, error tracking, advanced settings, plus legacy placeholder tabs for domain lists/profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` baseline done |
+| Toolbar and command-row chrome | macOS uses icon-driven top-toolbar buttons plus rounded command pills in the expanded editor. | Restyle Windows toolbar buttons and expanded command toggles to match macOS hierarchy more closely while keeping Windows-native interaction behavior. | `WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity` planned |
 
 Implementation notes:
 
@@ -545,6 +546,21 @@ Status:
 - Persists active Windows settings to `%LOCALAPPDATA%\WordSuggestor\settings\settings-v1.json`
 - Categories are aligned with the current macOS settings layout: `Generelt`, `Ordforslag`, `Tekstanalyse`, `Fejlsporing`, and `Avanceret`
 - Disabled placeholder controls are used for domain-list, sentence-example, debug/performance, and deeper voice/runtime options that are not yet implemented on Windows
+
+### WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity
+
+Deliver:
+
+- macOS-like visual treatment for the Windows top-toolbar action buttons
+- macOS-like visual treatment for the expanded command toggles `Farver`, `Semantik`, and `Tegnsætning`
+- flag-based toolbar language selector presentation
+
+Status:
+
+- Planned on `2026-04-15`
+- Will keep Windows-native behavior and accessibility while moving the visual chrome closer to the macOS toolbar screenshots
+- Will add language-flag assets/bindings to the toolbar selector without changing the underlying language-pack routing logic
+- Will treat this as a UI/asset parity sprint, not as a runtime-language sprint
 
 ## Guardrails
 
