@@ -10,6 +10,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\AppIcon.png" />
+    <Resource Include="Assets\MacOSCommandIcons\paintbrush.png" />
+    <Resource Include="Assets\MacOSCommandIcons\brain_head_profile.png" />
+    <Resource Include="Assets\MacOSCommandIcons\text_quote.png" />
+    <Resource Include="Assets\MacOSCommandIcons\arrow_clockwise_abc.png" />
   </ItemGroup>
 
 </Project>

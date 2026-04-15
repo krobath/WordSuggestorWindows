@@ -563,68 +563,57 @@
 
                                     <Border Width="1" Height="20" Margin="4,0,10,0" Background="#D7DBE2" />
 
-                                    <ToggleButton Tag="coloring" IsChecked="{Binding IsAnalyzerColoringEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå farvekodning til/fra" Click="EditorCommand_OnClick">
-                                        <Grid Width="16" Height="16">
-                                            <Rectangle Width="3.2"
-                                                       Height="9.6"
-                                                       RadiusX="0.8"
-                                                       RadiusY="0.8"
-                                                       Fill="#39424E"
-                                                       HorizontalAlignment="Left"
-                                                       VerticalAlignment="Bottom"
-                                                       RenderTransformOrigin="0.5,0.5">
-                                                <Rectangle.RenderTransform>
-                                                    <RotateTransform Angle="-38" />
-                                                </Rectangle.RenderTransform>
-                                            </Rectangle>
-                                            <Path Data="M8,3 L12.2,1.6 L14.4,3.8 L10.2,5.4 Z"
-                                                  Fill="#39424E"
-                                                  Stretch="Fill"
-                                                  Width="7.2"
-                                                  Height="4.4"
-                                                  HorizontalAlignment="Right"
-                                                  VerticalAlignment="Top" />
-                                        </Grid>
+                                    <ToggleButton Tag="coloring"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsAnalyzerColoringEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå farvekodning til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="20"
+                                               Height="22"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/paintbrush.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
                                     </ToggleButton>
-                                    <ToggleButton Tag="semantic" IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå semantik til/fra" Click="EditorCommand_OnClick">
-                                        <Grid Width="16" Height="16">
-                                            <Path Data="M5.2,2.2 C8.5,2.2 11.1,4.6 11.1,7.5 C11.1,8.7 10.7,9.7 10,10.6 C10.6,11 11,11.8 11.1,13 L9.6,13 C9.3,11.8 8.3,11.1 7,11.1 L5.9,11.1 L5.9,13 L4.2,13 L4.2,9.7 C3.4,9.2 2.9,8.4 2.8,7.4 C2.8,4.5 4.1,2.2 5.2,2.2 Z"
-                                                  Fill="#39424E"
-                                                  Stretch="Fill"
-                                                  Width="9"
-                                                  Height="11"
-                                                  HorizontalAlignment="Left"
-                                                  VerticalAlignment="Top"
-                                                  Margin="2,1,0,0" />
-                                            <Path Data="M8.5,4.5 C9.6,4.7 10.2,5.4 10.2,6.3 C10.2,7.1 9.7,7.7 8.9,8.1"
-                                                  Stroke="#FFFFFF"
-                                                  StrokeThickness="0.9"
-                                                  StrokeStartLineCap="Round"
-                                                  StrokeEndLineCap="Round"
-                                                  Width="3.2"
-                                                  Height="3.8"
-                                                  HorizontalAlignment="Left"
-                                                  VerticalAlignment="Top"
-                                                  Margin="5.6,4,0,0" />
-                                        </Grid>
+                                    <ToggleButton Tag="semantic"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå semantik til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="19"
+                                               Height="22"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/brain_head_profile.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
                                     </ToggleButton>
-                                    <ToggleButton Tag="punctuation" IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå tegnsætning til/fra" Click="EditorCommand_OnClick">
-                                        <Grid Width="16" Height="16">
-                                            <TextBlock Text="&#x201F;"
-                                                       FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#39424E"
-                                                       FontFamily="Segoe UI Symbol"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0,-1,0,0" />
-                                        </Grid>
+                                    <ToggleButton Tag="punctuation"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå tegnsætning til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="19"
+                                               Height="17"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/text_quote.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
                                     </ToggleButton>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button Tag="refreshSuggestions" Style="{StaticResource CommandButtonStyle}" ToolTip="Opdater forslag" Click="EditorCommand_OnClick">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE72C;" />
+                                        <Image Width="25"
+                                               Height="25"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/arrow_clockwise_abc.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
                                     </Button>
                                 </StackPanel>
                             </Grid>

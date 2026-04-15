@@ -18,6 +18,9 @@ The Windows app already matched the macOS product structurally, but the toolbar 
 - Adjusted the `OCR` action to use a more scan/snipping-oriented custom icon instead of a folder-like glyph.
 - Reworked the expanded editor command row so `Farver`, `Semantik`, and `Tegnsætning` read as rounded command pills closer to the macOS hierarchy.
 - Added explicit inline icons to `Farver`, `Semantik`, and `Tegnsætning` so they no longer render as text-only pills.
+- Replaced the approximated command-row icon drawings with cropped macOS-derived screenshot assets for `Farver`, `Semantik`, `Tegnsætning`, and the adjacent refresh action.
+- Registered the new `Assets/MacOSCommandIcons/*.png` files as WPF `Resource` items so the icons resolve correctly at runtime when the app is launched with `dotnet run`.
+- Switched the command-row image bindings to explicit `pack://application:,,,/Assets/...` URIs so the four icons resolve reliably in the running WPF application.
 - Extended `LanguageOption` with flag presentation metadata.
 - Wired the supported Windows languages to specific flag-pattern definitions in the CLI suggestion provider.
 - Re-templated the toolbar language `ComboBox` so both the selected state and drop-down items render smaller flag visuals instead of text-first labels.
@@ -26,7 +29,7 @@ The Windows app already matched the macOS product structurally, but the toolbar 
 
 - No `WordSuggestorCore` changes.
 - No macOS code changes.
-- No language-routing or command-behavior changes; this sprint only changes presentation/templates and visual metadata.
+- No language-routing or command-behavior changes; this sprint only changes presentation, templates, and visual metadata.
 
 ## Validation
 
@@ -36,5 +39,5 @@ The Windows app already matched the macOS product structurally, but the toolbar 
 
 ## Notes
 
-- This implementation uses Windows-native glyphs plus XAML-rendered flag patterns rather than imported raster flag assets.
+- This implementation uses Windows-native glyphs plus XAML-rendered flag patterns for the language selector, while the command-row action icons now use cropped raster assets derived from the macOS screenshot reference.
 - Final acceptance still depends on manual UI comparison against the macOS screenshots in a live Windows session.
