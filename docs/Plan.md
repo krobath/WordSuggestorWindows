@@ -1502,7 +1502,7 @@ Known note:
 - The disabled controls intentionally preserve macOS semantics without implying completed Windows functionality.
 
 ### WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity
-Status: `Planned` (`2026-04-15`)
+Status: `Done` (`2026-04-15`)
 
 Scope:
 
@@ -1516,28 +1516,24 @@ Target outcome:
 - The language selector shows per-language flags in the collapsed toolbar instead of plain text labels.
 - The expanded editor command row visually matches the macOS command hierarchy more closely.
 
-Planned implementation:
+Implemented:
 
-- Introduce dedicated toolbar/button chrome styles for:
-  - compact icon-first toolbar actions (`WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`)
-  - segmented/pill command toggles in the expanded editor
-- Replace the current text-only toolbar action content with icon-backed templates and retain text through tooltip/accessibility labels where needed.
-- Add flag assets or equivalent image resources for the supported toolbar languages and bind them through `LanguageOption`.
-- Re-template the toolbar language `ComboBox` so both selected state and drop-down items show flags instead of plain text-first labels.
-- Preserve the existing command routing and language-pack logic; this sprint is visual/UI-asset parity work, not language/runtime behavior work.
+- Reworked the toolbar button chrome so the top-row actions now render as compact icon-first buttons instead of text-first placeholders.
+- Updated the top toolbar actions `WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`, and settings to use icon glyphs while preserving the existing click handlers, tooltips, and state bindings.
+- Reworked the expanded editor command-row chrome so `Farver`, `Semantik`, and `Tegnsætning` read as rounded macOS-like pills while keeping Windows-native interaction behavior.
+- Added flag presentation metadata to `LanguageOption` and wired supported languages to flag-pattern definitions in the Windows provider.
+- Re-templated the toolbar language `ComboBox` so the selected state and drop-down items now render language flags instead of text-first labels.
+- Preserved the existing language-pack routing, missing-pack state handling, and toolbar command semantics; this sprint only changes presentation and asset/template behavior.
 
 Validation:
 
-- Manual UI smoke against the macOS reference screenshots:
-  - top toolbar action buttons
-  - language selector
-  - expanded command-row toggles
-- `powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1`
+- `dotnet build .\WordSuggestorWindows\src\WordSuggestorWindows.App\WordSuggestorWindows.App.csproj --no-restore /p:UseAppHost=false /p:OutDir=...` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS`
 
 Known note:
 
-- This sprint should prefer Windows-native symbols where they are obvious and low-confusion, but it may reuse SF Symbols or exported macOS assets where Windows does not provide a suitable equivalent.
-- The sprint must not regress existing button semantics, tooltips, accessibility labels, or language-pack availability indicators.
+- This sprint uses Windows-native glyphs plus XAML-rendered flag patterns rather than imported raster flag assets.
+- Final visual approval still depends on manual comparison against the macOS screenshots in a live desktop session.
 
 ### WSA-TS-001_windows_smoke_and_regression_baseline
 Status: `Done` (`2026-04-09`)

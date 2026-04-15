@@ -259,15 +259,67 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 
     private static readonly LanguageOption[] SupportedLanguages =
     [
-        new("da-DK", "DA", "Dansk", "da_DK", "da_lexicon.sqlite"),
-        new("en-US", "EN", "English", "en_US", "en_lexicon.sqlite"),
-        new("de-DE", "DE", "Deutsch", "de_DE", null),
-        new("fr-FR", "FR", "Francais", "fr_FR", null),
-        new("es-ES", "ES", "Espanol", "es_ES", null),
-        new("it-IT", "IT", "Italiano", "it_IT", null),
-        new("sv-SE", "SV", "Svenska", "sv_SE", null),
-        new("nb-NO", "NB", "Norsk bokmal", "nb_NO", null),
+        new("da-DK", "DA", "Dansk", "da_DK", "da_lexicon.sqlite")
+        {
+            FlagPattern = "NordicCross",
+            FlagPrimaryBrush = "#B11E2E",
+            FlagSecondaryBrush = "#FFFFFF"
+        },
+        new("en-US", "EN", "English", "en_US", "en_lexicon.sqlite")
+        {
+            FlagPattern = "UsFlag",
+            FlagPrimaryBrush = "#B22234",
+            FlagSecondaryBrush = "#FFFFFF",
+            FlagAccentBrush = "#3C3B6E"
+        },
+        new("de-DE", "DE", "Deutsch", "de_DE", null)
+        {
+            FlagPattern = "HorizontalTricolor",
+            FlagPrimaryBrush = "#1F1F1F",
+            FlagSecondaryBrush = "#C62828",
+            FlagAccentBrush = "#F2C94C"
+        },
+        new("fr-FR", "FR", "Francais", "fr_FR", null)
+        {
+            FlagPattern = "VerticalTricolor",
+            FlagPrimaryBrush = "#244AA5",
+            FlagSecondaryBrush = "#FFFFFF",
+            FlagAccentBrush = "#D13D4A"
+        },
+        new("es-ES", "ES", "Espanol", "es_ES", null)
+        {
+            FlagPattern = "HorizontalTricolor",
+            FlagPrimaryBrush = "#AA151B",
+            FlagSecondaryBrush = "#F1BF00",
+            FlagAccentBrush = "#AA151B"
+        },
+        new("it-IT", "IT", "Italiano", "it_IT", null)
+        {
+            FlagPattern = "VerticalTricolor",
+            FlagPrimaryBrush = "#1E8F4D",
+            FlagSecondaryBrush = "#FFFFFF",
+            FlagAccentBrush = "#D13D4A"
+        },
+        new("sv-SE", "SV", "Svenska", "sv_SE", null)
+        {
+            FlagPattern = "NordicCross",
+            FlagPrimaryBrush = "#1661A8",
+            FlagSecondaryBrush = "#F0C84B"
+        },
+        new("nb-NO", "NB", "Norsk bokmal", "nb_NO", null)
+        {
+            FlagPattern = "NordicCrossDouble",
+            FlagPrimaryBrush = "#C93B3B",
+            FlagSecondaryBrush = "#FFFFFF",
+            FlagAccentBrush = "#203A8E"
+        },
         new("nn-NO", "NN", "Norsk nynorsk", "nn_NO", null)
+        {
+            FlagPattern = "NordicCrossDouble",
+            FlagPrimaryBrush = "#C93B3B",
+            FlagSecondaryBrush = "#FFFFFF",
+            FlagAccentBrush = "#203A8E"
+        }
     ];
 
     private sealed class CliRequestRow

@@ -110,7 +110,7 @@ Source references:
 | Text to speech | Resolves internal selection, external selection, or staged editor text; mirrors external text into the editor; supports selected/system voices and reading speed settings. | Implement toolbar-level TTS around Windows speech synthesis, language-aware voice selection, and editor highlighting; reuse/replace the current overlay-row speech service as needed. | `WSA-RT-013` baseline done; `WSA-RT-013A` voice selection/diagnostics done |
 | Insights | Opens `ErrorInsightsView`, backed by local `ErrorTracking.sqlite` aggregates for suggestions, backspace, sentences, morphology, and frequent corrections. | Implement Windows-side error tracking store and native insights view with the same aggregate/privacy posture. | `WSA-RT-014_windows_error_insights_store_and_view` baseline done |
 | Settings | Opens the native macOS Settings scene with categories for general, suggestions, text analysis, error tracking, advanced settings, plus legacy placeholder tabs for domain lists/profile. | Add a Windows-native settings window that preserves semantics, including placeholders where macOS is also placeholder-only. | `WSA-UX-010_windows_settings_window_parity` baseline done |
-| Toolbar and command-row chrome | macOS uses icon-driven top-toolbar buttons plus rounded command pills in the expanded editor. | Restyle Windows toolbar buttons and expanded command toggles to match macOS hierarchy more closely while keeping Windows-native interaction behavior. | `WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity` planned |
+| Toolbar and command-row chrome | macOS uses icon-driven top-toolbar buttons plus rounded command pills in the expanded editor. | Restyle Windows toolbar buttons and expanded command toggles to match macOS hierarchy more closely while keeping Windows-native interaction behavior. | `WSA-UX-011_windows_toolbar_chrome_and_flag_selector_parity` done |
 
 Implementation notes:
 
@@ -557,10 +557,11 @@ Deliver:
 
 Status:
 
-- Planned on `2026-04-15`
-- Will keep Windows-native behavior and accessibility while moving the visual chrome closer to the macOS toolbar screenshots
-- Will add language-flag assets/bindings to the toolbar selector without changing the underlying language-pack routing logic
-- Will treat this as a UI/asset parity sprint, not as a runtime-language sprint
+- Implemented on `2026-04-15`
+- Reworked the top-toolbar actions into compact icon-first controls with the existing Windows command bindings intact
+- Reworked the expanded command toggles into rounded macOS-like pills while preserving Windows-native interaction behavior
+- Re-templated the toolbar language selector so the selected state and drop-down render flags instead of text-first labels
+- Kept the language-pack routing/runtime logic unchanged; this sprint is presentation parity only
 
 ## Guardrails
 

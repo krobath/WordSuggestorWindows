@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:models="clr-namespace:WordSuggestorWindows.App.Models"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="WordSuggestor Windows"
@@ -20,29 +21,160 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
+        <DataTemplate x:Key="LanguageFlagTemplate" DataType="{x:Type models:LanguageOption}">
+            <Grid Width="34" Height="22">
+                <Border CornerRadius="4"
+                        BorderBrush="#C7CDD7"
+                        BorderThickness="0.8"
+                        Background="{Binding FlagPrimaryBrush}">
+                    <Grid ClipToBounds="True">
+                        <Grid x:Name="HorizontalTricolor" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Rectangle Grid.Row="0" Fill="{Binding FlagPrimaryBrush}" />
+                            <Rectangle Grid.Row="1" Fill="{Binding FlagSecondaryBrush}" />
+                            <Rectangle Grid.Row="2" Fill="{Binding FlagAccentBrush}" />
+                        </Grid>
+
+                        <Grid x:Name="VerticalTricolor" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Rectangle Grid.Column="0" Fill="{Binding FlagPrimaryBrush}" />
+                            <Rectangle Grid.Column="1" Fill="{Binding FlagSecondaryBrush}" />
+                            <Rectangle Grid.Column="2" Fill="{Binding FlagAccentBrush}" />
+                        </Grid>
+
+                        <Grid x:Name="NordicCross" Visibility="Collapsed" Background="{Binding FlagPrimaryBrush}">
+                            <Rectangle Width="6"
+                                       HorizontalAlignment="Left"
+                                       Margin="9,0,0,0"
+                                       Fill="{Binding FlagSecondaryBrush}" />
+                            <Rectangle Height="6"
+                                       VerticalAlignment="Center"
+                                       Fill="{Binding FlagSecondaryBrush}" />
+                        </Grid>
+
+                        <Grid x:Name="NordicCrossDouble" Visibility="Collapsed" Background="{Binding FlagPrimaryBrush}">
+                            <Rectangle Width="8"
+                                       HorizontalAlignment="Left"
+                                       Margin="8,0,0,0"
+                                       Fill="{Binding FlagSecondaryBrush}" />
+                            <Rectangle Height="8"
+                                       VerticalAlignment="Center"
+                                       Fill="{Binding FlagSecondaryBrush}" />
+                            <Rectangle Width="4"
+                                       HorizontalAlignment="Left"
+                                       Margin="10,0,0,0"
+                                       Fill="{Binding FlagAccentBrush}" />
+                            <Rectangle Height="4"
+                                       VerticalAlignment="Center"
+                                       Fill="{Binding FlagAccentBrush}" />
+                        </Grid>
+
+                        <Grid x:Name="UsFlag" Visibility="Collapsed" Background="{Binding FlagSecondaryBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Rectangle Grid.Row="0" Fill="{Binding FlagPrimaryBrush}" />
+                            <Rectangle Grid.Row="2" Fill="{Binding FlagPrimaryBrush}" />
+                            <Rectangle Grid.Row="4" Fill="{Binding FlagPrimaryBrush}" />
+                            <Rectangle Grid.Row="6" Fill="{Binding FlagPrimaryBrush}" />
+                            <Border Width="15"
+                                    Height="12"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="{Binding FlagAccentBrush}">
+                                <UniformGrid Rows="2" Columns="3" Margin="1.6">
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                </UniformGrid>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Ellipse Width="6"
+                         Height="6"
+                         Margin="0,1,1,0"
+                         HorizontalAlignment="Right"
+                         VerticalAlignment="Top"
+                         Fill="#F0A64A"
+                         Stroke="#FFFFFF"
+                         StrokeThickness="1"
+                         Visibility="Collapsed">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPackAvailable}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
+                </Ellipse>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding FlagPattern}" Value="HorizontalTricolor">
+                    <Setter TargetName="HorizontalTricolor" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FlagPattern}" Value="VerticalTricolor">
+                    <Setter TargetName="VerticalTricolor" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FlagPattern}" Value="NordicCross">
+                    <Setter TargetName="NordicCross" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FlagPattern}" Value="NordicCrossDouble">
+                    <Setter TargetName="NordicCrossDouble" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FlagPattern}" Value="UsFlag">
+                    <Setter TargetName="UsFlag" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <Style x:Key="ToolbarIconButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,5" />
-            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="ButtonBorder"
-                                Padding="{TemplateBinding Padding}"
                                 CornerRadius="8"
-                                Background="{TemplateBinding Background}">
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E6E9EF" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E8EAEE" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#DCE1EA" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#D9DEE6" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45" />
@@ -54,17 +186,17 @@
         </Style>
 
         <Style x:Key="CommandButtonStyle" TargetType="Button" BasedOn="{StaticResource ToolbarIconButtonStyle}">
-            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="Margin" Value="0,0,6,0" />
-            <Setter Property="Background" Value="#F5F7FA" />
-            <Setter Property="BorderBrush" Value="#D8DDE6" />
+            <Setter Property="Background" Value="#F9FAFC" />
+            <Setter Property="BorderBrush" Value="#D9DDE5" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="ButtonBorder"
-                                Padding="{TemplateBinding Padding}"
-                                CornerRadius="9"
+                                CornerRadius="10"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
@@ -73,10 +205,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#EDF2F8" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#F1F4F8" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E4EBF5" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E8EDF4" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45" />
@@ -89,9 +221,9 @@
 
         <Style x:Key="CommandToggleButtonStyle" TargetType="ToggleButton">
             <Setter Property="Margin" Value="0,0,6,0" />
-            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Padding" Value="13,6" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="#F5F7FA" />
+            <Setter Property="Background" Value="#FBFCFD" />
             <Setter Property="BorderBrush" Value="#D8DDE6" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Template">
@@ -99,7 +231,7 @@
                     <ControlTemplate TargetType="ToggleButton">
                         <Border x:Name="ButtonBorder"
                                 Padding="{TemplateBinding Padding}"
-                                CornerRadius="9"
+                                CornerRadius="11"
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
@@ -108,11 +240,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#EDF2F8" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#F2F5F9" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#E5EEF8" />
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#8EA9CF" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#EAF0F8" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#AFC0D8" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.45" />
@@ -161,11 +293,94 @@
 
         <Style x:Key="ToolbarComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Height" Value="30" />
-            <Setter Property="MinWidth" Value="94" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Background" Value="#E4E6EA" />
-            <Setter Property="BorderBrush" Value="#E4E6EA" />
+            <Setter Property="MinWidth" Value="62" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="#E7E8EC" />
+            <Setter Property="BorderBrush" Value="#D6DAE1" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="ComboBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="9">
+                                <Grid>
+                                    <ContentPresenter Margin="8,0,20,0"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+                                    <TextBlock Margin="0,0,8,0"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               FontFamily="Segoe Fluent Icons"
+                                               FontSize="10"
+                                               Foreground="#505A68"
+                                               Text="&#xE70D;" />
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom">
+                                <Border Margin="0,6,0,0"
+                                        Padding="4"
+                                        Background="#FFFFFF"
+                                        BorderBrush="#D6DAE1"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <ScrollViewer CanContentScroll="True"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboBorder" Property="Background" Value="#ECEEF2" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="#AEB8C6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ComboBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToolbarComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="8"
+                                Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#EEF2F6" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#E5ECF6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -210,33 +425,34 @@
                                           Style="{StaticResource SwitchToggleButtonStyle}"
                                           ToolTip="Aktiver eller deaktiver globale forslag" />
 
-                            <ComboBox Width="98"
+                            <ComboBox Width="68"
                                       Margin="0,0,12,0"
-                                      DisplayMemberPath="ToolbarLabel"
                                       ItemsSource="{Binding LanguageOptions}"
+                                      ItemTemplate="{StaticResource LanguageFlagTemplate}"
+                                      ItemContainerStyle="{StaticResource ToolbarComboBoxItemStyle}"
                                       SelectedItem="{Binding SelectedLanguageOption, Mode=TwoWay}"
                                       Style="{StaticResource ToolbarComboBoxStyle}"
                                       ToolTip="{Binding SelectedLanguageOption.DisplayLabel}" />
 
                             <Button Tag="wordList"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
-                                    ToolTip="Word list manager"
+                                    ToolTip="Fagordslister"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="WL" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8D2;" />
                             </Button>
 
                             <Button Tag="import"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="Importer markeret tekst til editoren"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="TXT" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8C8;" />
                             </Button>
 
-                                    <Button Tag="ocr"
-                                            Style="{StaticResource ToolbarIconButtonStyle}"
+                            <Button Tag="ocr"
+                                    Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="OCR / skærmudsnit"
-                                            Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="OCR" />
+                                    Click="ToolbarAction_OnClick">
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8B7;" />
                             </Button>
 
                             <Button Tag="speechToText"
@@ -244,7 +460,7 @@
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="{Binding SpeechToTextToolTip}"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="MIC" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE720;" />
                             </Button>
 
                             <Button Tag="textToSpeech"
@@ -252,21 +468,21 @@
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="{Binding TextToSpeechToolTip}"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="TTS" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE767;" />
                             </Button>
 
                             <Button Tag="insights"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="Fejlindsigter"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="INS" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE9D2;" />
                             </Button>
 
                             <Button Tag="settings"
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="Indstillinger"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="16" Text="&#xE713;" />
+                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Foreground="#39424E" Text="&#xE713;" />
                             </Button>
                         </StackPanel>
 
@@ -318,13 +534,13 @@
                                 <StackPanel Orientation="Horizontal"
                                             VerticalAlignment="Center">
                                     <Button Tag="cut" Style="{StaticResource CommandButtonStyle}" ToolTip="Klip" Click="EditorCommand_OnClick">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE8C6;" />
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8C6;" />
                                     </Button>
                                     <Button Tag="copy" Style="{StaticResource CommandButtonStyle}" ToolTip="Kopier" Click="EditorCommand_OnClick">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE8C8;" />
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8C8;" />
                                     </Button>
                                     <Button Tag="paste" Style="{StaticResource CommandButtonStyle}" ToolTip="Indsæt" Click="EditorCommand_OnClick">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE77F;" />
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE77F;" />
                                     </Button>
 
                                     <Border Width="1" Height="20" Margin="4,0,10,0" Background="#D7DBE2" />
@@ -342,7 +558,7 @@
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button Tag="refreshSuggestions" Style="{StaticResource CommandButtonStyle}" ToolTip="Opdater forslag" Click="EditorCommand_OnClick">
-                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="15" Text="&#xE72C;" />
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE72C;" />
                                     </Button>
                                 </StackPanel>
                             </Grid>

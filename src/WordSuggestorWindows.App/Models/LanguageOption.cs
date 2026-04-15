@@ -10,6 +10,10 @@ public sealed record LanguageOption(
     string? LegacyPackFileName)
 {
     public string? PackPath { get; init; }
+    public string FlagPattern { get; init; } = "HorizontalTricolor";
+    public string FlagPrimaryBrush { get; init; } = "#D9DDE6";
+    public string FlagSecondaryBrush { get; init; } = "#FFFFFF";
+    public string FlagAccentBrush { get; init; } = "#B9C0CC";
 
     public bool IsPackAvailable => !string.IsNullOrWhiteSpace(PackPath);
 

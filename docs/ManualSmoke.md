@@ -1,6 +1,6 @@
 # WordSuggestorWindows Manual Smoke
 
-Last updated: `2026-04-14`
+Last updated: `2026-04-15`
 Owner: `Windows track`
 
 ## Goal
@@ -42,8 +42,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 1. Run `scripts\test_core_cli.ps1` and confirm the CLI returns Danish suggestions, including rows for `læ`, `ø`, `å`, `smør`, and `blå`.
 2. Run `scripts\run_app.ps1`.
 3. Confirm the app opens as the floating toolbar shell rather than a standard document window.
-4. Confirm the language selector shows `DA` as the installed Danish baseline language.
-5. Open the language selector and confirm the macOS-supported languages are visible; languages without local SQLite packs should show a missing-pack marker such as `!`.
+4. Confirm the language selector now shows a flag-first compact selector rather than a text-first `DA` dropdown.
+5. Open the language selector and confirm the macOS-supported languages are visible as flags; languages without local SQLite packs should still show a visible missing-pack marker.
 6. Select a missing-pack language and confirm the app reports that the language pack is missing instead of crashing or showing stale Danish suggestions.
 7. Select `DA` again and confirm Danish suggestions resume for an incomplete Danish token.
 8. Mark text inside the internal editor, click `TXT`, and confirm the editor is replaced with the selected text.
@@ -78,6 +78,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 37. In smoke mode, confirm the shell starts collapsed even when startup text is injected.
 38. Open the editor manually and confirm the startup text is already inserted.
 39. Confirm the expanded editor now shows a structured command row, one compact status bar, and analyzer legend section.
+40. Confirm the top-toolbar action buttons (`WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`) now render as icon-first toolbar controls closer to the macOS toolbar hierarchy.
+41. Confirm the expanded editor command toggles `Farver`, `Semantik`, and `Tegnsætning` now read as rounded command pills rather than plain Windows placeholder toggles.
 40. Confirm there is no implementation-note copy under the `Tekstanalyse` label.
 41. Confirm the editor field expands vertically to use the available space above the compact status bar and `Tekstanalyse` legend.
 42. Confirm the status bar reads as inline metrics such as `Aa 69 tegn`, not separate cards.
@@ -101,7 +103,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 ## Expected current behavior
 
 - The app should launch as a floating toolbar shell.
-- The toolbar language selector should expose the macOS-supported language set.
+- The top-toolbar action buttons should render as compact icon-first controls rather than text-first placeholders.
+- The toolbar language selector should expose the macOS-supported language set and render it as a compact flag-first selector.
 - The selector should route installed packs into the core CLI bridge and mark missing packs without making the app fail.
 - In the current workspace, `DA` should be the only installed language because `WordSuggestorCore\Ressources\da_lexicon.sqlite` is the only local pack file.
 - The `TXT` toolbar button should import selected text from the internal editor first, then from a recent Windows UI Automation-compatible external selection when available, then by guarded clipboard fallback.
