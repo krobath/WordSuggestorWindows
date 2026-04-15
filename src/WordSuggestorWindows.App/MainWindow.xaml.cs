@@ -88,6 +88,7 @@ public partial class MainWindow : Window
     private SettingsWindow? _settingsWindow;
     private bool _isApplyingSpeechHighlightSelection;
     private bool _isResolvingExternalSelection;
+    private bool _isUpdatingExternalSuggestionAnchor;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -307,7 +308,6 @@ public partial class MainWindow : Window
             try
             {
                 _globalSuggestionCaptureService.Start(_windowHandle);
-                RegisterExternalSuggestionHotKeys();
                 WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                     DateTimeOffset.Now,
                     "GlobalSuggestionCapture",
@@ -434,7 +434,7 @@ public partial class MainWindow : Window
                 _viewModel.UpdateExternalSuggestionToken(e.Token, e.WindowHandle, source);
             }
 
-            UpdateExternalSuggestionAnchor();
+            UpdateExternalSuggestionAnchorAsync();
             WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                 DateTimeOffset.Now,
                 "GlobalSuggestionCapture",
@@ -926,7 +926,6 @@ public partial class MainWindow : Window
 
             if (_viewModel.IsExternalSuggestionSessionActive)
             {
-                UpdateExternalSuggestionAnchor();
                 UpdateExternalPollingInterval(activeExternalSession: true);
             }
             else
@@ -1002,6 +1001,64 @@ public partial class MainWindow : Window
             _lastExternalSuggestionAnchor is null
                 ? $"No anchor was resolved for hwnd=0x{targetWindow.ToInt64():X}."
                 : $"Resolved {_lastExternalSuggestionAnchor.Quality} anchor at {_lastExternalSuggestionAnchor.ScreenRect} for hwnd=0x{targetWindow.ToInt64():X}."));
+    }
+
+    private void UpdateExternalSuggestionAnchorAsync()
+    {
+        if (!_viewModel.IsExternalSuggestionSessionActive || _isUpdatingExternalSuggestionAnchor)
+        {
+            return;
+        }
+
+        var targetWindow = _viewModel.ExternalSuggestionWindowHandle != IntPtr.Zero
+            ? _viewModel.ExternalSuggestionWindowHandle
+            : _lastExternalWindowHandle;
+
+        if (targetWindow == IntPtr.Zero || targetWindow == _windowHandle)
+        {
+            _lastExternalSuggestionAnchor = null;
+            _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
+            return;
+        }
+
+        _isUpdatingExternalSuggestionAnchor = true;
+        var capturedMainWindow = _windowHandle;
+        _ = Task.Run(() =>
+        {
+            var anchor = _selectionImportService.TryReadSuggestionAnchorFromWindowHandle(
+                targetWindow, capturedMainWindow, "external suggestion session");
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                _isUpdatingExternalSuggestionAnchor = false;
+
+                if (!_viewModel.IsExternalSuggestionSessionActive)
+                {
+                    return;
+                }
+
+                var signature = anchor is null
+                    ? $"missing:{targetWindow.ToInt64():X}"
+                    : $"rect:{targetWindow.ToInt64():X}:{anchor.Quality}:{anchor.ScreenRect}";
+
+                if (string.Equals(signature, _lastExternalSuggestionAnchorDiagnosticSignature, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _lastExternalSuggestionAnchorDiagnosticSignature = signature;
+                _lastExternalSuggestionAnchor = anchor;
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "SuggestionAnchor",
+                    anchor is null ? "Unavailable" : "Updated",
+                    anchor is null
+                        ? $"No anchor was resolved for hwnd=0x{targetWindow.ToInt64():X}."
+                        : $"Resolved {anchor.Quality} anchor at {anchor.ScreenRect} for hwnd=0x{targetWindow.ToInt64():X}."));
+
+                UpdateOverlayPosition();
+            });
+        });
     }
 
     private string DescribeExternalWindow(IntPtr windowHandle)
@@ -1883,6 +1940,7 @@ public partial class MainWindow : Window
         }
 
         EnsureOverlayWindow();
+        RegisterExternalSuggestionHotKeys();
         UpdateOverlayPosition();
 
         if (_overlayWindow is not null && !_overlayWindow.IsVisible)
@@ -1919,6 +1977,7 @@ public partial class MainWindow : Window
     {
         if (_overlayWindow is not null && _overlayWindow.IsVisible)
         {
+            UnregisterExternalSuggestionHotKeys();
             _overlayWindow.Hide();
             WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                 DateTimeOffset.Now,
