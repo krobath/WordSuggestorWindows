@@ -34,6 +34,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isTextToSpeechSpeaking;
     private int _currentSuggestionPage;
     private SuggestionPlacementMode _suggestionPlacementMode = SuggestionPlacementMode.FollowCaret;
+    private bool _isExternalSuggestionSessionActive;
+    private IntPtr _externalSuggestionWindowHandle;
+    private string _externalSuggestionToken = string.Empty;
+    private string _externalSuggestionSource = string.Empty;
 
     public MainWindowViewModel(
         ISuggestionProvider suggestionProvider,
@@ -179,7 +183,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 PersistCurrentSettings();
                 StatusMessage = value
-                    ? "Global forslag er slået til. Cross-app integration kommer i WSA-RT-003."
+                    ? "Global forslag er slået til for understøttede Windows-apps."
                     : "Global forslag er slået fra i Windows-shell'en.";
             }
         }
@@ -350,6 +354,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string SuggestionPanelCountSummary => $"{TotalSuggestionCount} forslag";
 
+    public bool IsExternalSuggestionSessionActive => _isExternalSuggestionSessionActive;
+
+    public IntPtr ExternalSuggestionWindowHandle => _externalSuggestionWindowHandle;
+
+    public string ExternalSuggestionToken => _externalSuggestionToken;
+
+    public string ExternalSuggestionSource => _externalSuggestionSource;
+
     public IReadOnlyList<SuggestionOverlayEntry> VisibleSuggestions
     {
         get
@@ -374,7 +386,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool HasSuggestions => Suggestions.Count > 0;
 
-    public bool ShouldShowSuggestionOverlay => IsEditorExpanded && _isSuggestionOverlaySessionVisible;
+    public bool ShouldShowSuggestionOverlay =>
+        _isSuggestionOverlaySessionVisible && (IsEditorExpanded || _isExternalSuggestionSessionActive);
 
     public bool AcceptSelectedSuggestion()
     {
@@ -423,6 +436,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void ImportTextIntoEditor(string text, string source)
     {
+        EndExternalSuggestionSession(hideOverlayWhenPossible: false);
         var normalized = NormalizeImportedText(text);
         if (string.IsNullOrWhiteSpace(normalized))
         {
@@ -438,6 +452,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void InsertDictatedText(string text, string source)
     {
+        EndExternalSuggestionSession(hideOverlayWhenPossible: false);
         var normalized = NormalizeDictatedText(text);
         if (string.IsNullOrWhiteSpace(normalized))
         {
@@ -617,6 +632,93 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = $"Viser {SuggestionPageSummary.ToLowerInvariant()} i ordforslagsboksen.";
     }
 
+    public void UpdateExternalSuggestionToken(string token, IntPtr windowHandle, string source)
+    {
+        _externalSuggestionWindowHandle = windowHandle;
+        _externalSuggestionToken = token;
+        _externalSuggestionSource = source;
+        _isExternalSuggestionSessionActive = true;
+        _isSuggestionOverlaySessionVisible = true;
+        OnPropertyChanged(nameof(IsExternalSuggestionSessionActive));
+        OnPropertyChanged(nameof(ExternalSuggestionWindowHandle));
+        OnPropertyChanged(nameof(ExternalSuggestionToken));
+        OnPropertyChanged(nameof(ExternalSuggestionSource));
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            ClearSuggestionResults(keepOverlayVisible: true);
+            StatusMessage = $"Ordforslagsboksen er klar til næste ord i {source}.";
+            return;
+        }
+
+        ScheduleSuggestionsRefresh(token, delayMs: 75);
+    }
+
+    public void EndExternalSuggestionSession(bool hideOverlayWhenPossible)
+    {
+        _externalSuggestionWindowHandle = IntPtr.Zero;
+        _externalSuggestionToken = string.Empty;
+        _externalSuggestionSource = string.Empty;
+        if (!_isExternalSuggestionSessionActive)
+        {
+            return;
+        }
+
+        _isExternalSuggestionSessionActive = false;
+        OnPropertyChanged(nameof(IsExternalSuggestionSessionActive));
+        OnPropertyChanged(nameof(ExternalSuggestionWindowHandle));
+        OnPropertyChanged(nameof(ExternalSuggestionToken));
+        OnPropertyChanged(nameof(ExternalSuggestionSource));
+
+        if (hideOverlayWhenPossible && !IsEditorExpanded)
+        {
+            ClearSuggestionResults(keepOverlayVisible: false);
+        }
+        else
+        {
+            OnPropertyChanged(nameof(ShouldShowSuggestionOverlay));
+        }
+    }
+
+    public ExternalSuggestionCommitRequest? CreateExternalSuggestionCommitRequest(int visibleIndex)
+    {
+        if (!_isExternalSuggestionSessionActive || _externalSuggestionWindowHandle == IntPtr.Zero)
+        {
+            return null;
+        }
+
+        var visible = VisibleSuggestions;
+        if (visibleIndex < 0 || visibleIndex >= visible.Count)
+        {
+            return null;
+        }
+
+        return new ExternalSuggestionCommitRequest(
+            visible[visibleIndex].Suggestion,
+            _externalSuggestionToken,
+            _externalSuggestionToken.Length,
+            _externalSuggestionWindowHandle);
+    }
+
+    public void CompleteExternalSuggestionCommit(ExternalSuggestionCommitRequest request)
+    {
+        if (_isErrorTrackingEnabled)
+        {
+            var acceptedRankIndex = Suggestions.IndexOf(request.Suggestion);
+            var acceptedRank = acceptedRankIndex >= 0 ? acceptedRankIndex + 1 : (int?)null;
+            _insightsStore.RecordAcceptedSuggestion(
+                request.TypedToken,
+                request.Suggestion,
+                SelectedLanguageOption.LanguageCode,
+                acceptedRank);
+        }
+
+        _externalSuggestionToken = string.Empty;
+        OnPropertyChanged(nameof(ExternalSuggestionToken));
+        ClearSuggestionSession(keepOverlayVisible: true);
+        StatusMessage = $"Indsatte '{request.Suggestion.Term}' i den eksterne app. Skriv videre for nye forslag.";
+    }
+
     private void ExecuteAcceptSelectedSuggestion()
     {
         if (SelectedSuggestion is null)
@@ -665,6 +767,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ScheduleSuggestionsRefresh()
     {
+        ScheduleSuggestionsRefresh(EditorText, delayMs: 220);
+    }
+
+    private void ScheduleSuggestionsRefresh(string text, int delayMs)
+    {
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = new CancellationTokenSource();
@@ -674,8 +781,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             try
             {
-                await Task.Delay(220, token);
-                await RefreshSuggestionsAsync(EditorText, token);
+                await Task.Delay(delayMs, token);
+                await RefreshSuggestionsAsync(text, token);
             }
             catch (OperationCanceledException)
             {

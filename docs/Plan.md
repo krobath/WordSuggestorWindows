@@ -573,6 +573,42 @@ Policy:
 - prefer follow-caret when supported
 - fall back to static placement when caret anchoring is not trustworthy
 
+### WSA-RT-015_windows_cross_app_suggestion_overlay_and_hotkey_commit_baseline
+Status: `Done` (`2026-04-15`)
+
+Scope:
+
+- Establish a real Windows cross-app suggestion-session baseline instead of keeping the overlay editor-bound.
+- Keep suggestion updates extremely responsive while typing in supported external apps.
+- Add a first guarded external commit path so users can accept suggestions without first switching back to the internal editor.
+
+Implemented:
+
+- Added a low-level Windows keyboard-capture service that tracks the active token in the current foreground app without relying on the internal editor.
+- Added a Windows external suggestion-session model in the view-model so the floating overlay can stay visible and active even when the internal editor is collapsed.
+- Reduced external-session refresh delay to `75 ms` and tightened anchor polling to a faster runtime interval while an external suggestion session is active.
+- Added UI Automation-based external anchor extraction for the suggestion overlay with two quality levels:
+  - confirmed text-range anchor
+  - approximate focused-element fallback
+- Updated overlay placement so follow-caret can use external app anchors instead of only the internal editor caret.
+- Added global `Ctrl+1` through `Ctrl+0` accept hotkeys and `Ctrl+Left` / `Ctrl+Right` page hotkeys for external suggestion sessions.
+- Added a Windows external commit service that performs replacement via guarded synthetic input:
+  - delete the tracked token length
+  - insert the accepted term
+  - append one trailing space
+- Kept the existing static-placement fallback path when no trustworthy external anchor is available.
+- Preserved the internal-editor overlay path; the new work extends runtime scope rather than replacing the existing editor behavior.
+
+Validation:
+
+- `dotnet build .\WordSuggestorWindows\src\WordSuggestorWindows.App\WordSuggestorWindows.App.csproj -t:Rebuild --no-restore /p:UseAppHost=false /p:OutDir=C:\Users\mswin01\Code\WordSuggestor\.build-validate\WordSuggestorWindows.App\` -> `PASS`
+- `git -C .\WordSuggestorWindows diff --check` -> `PASS` (only Git CRLF/LF normalization warning)
+
+Known note:
+
+- This sprint provides the first Windows cross-app runtime baseline, not final compatibility closure across every editor/control stack.
+- App-specific commit/caret quirks should still be recorded as follow-up compatibility work where Windows input/security policy or custom editor implementations limit reliability.
+
 ### WSA-RT-004_windows_editor_right_click_correction_popover
 Status: `In progress` (`2026-04-14`)
 
@@ -1597,8 +1633,9 @@ Known note:
 33. `WSA-RT-013H` - precise TTS highlight stabilization
 34. `WSA-RT-013I` - precise TTS boundary offset alignment
 35. `WSA-RT-014` - error insights store and view
-36. `WSA-UX-010` - settings window parity
-37. `WSA-UX-011` - toolbar chrome and flag selector parity
+36. `WSA-RT-015` - cross-app suggestion overlay and hotkey commit baseline
+37. `WSA-UX-010` - settings window parity
+38. `WSA-UX-011` - toolbar chrome and flag selector parity
 
 ## Working rules for this repo
 

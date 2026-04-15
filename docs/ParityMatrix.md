@@ -14,7 +14,7 @@ Status: `Parity plan aligned with macOS UI review`
 | Shared app icon | `Assets.xcassets/AppIcon.appiconset` | Reuse same app icon asset on Windows | `Baseline done` |
 | Floating top toolbar shell | `FloatingToolbarView` + `FloatingToolbarPanel` | Rebuild with Windows-native chrome and same control ordering | `Baseline done` |
 | Toolbar control ordering | `FloatingToolbarView` | Preserve macOS ordering, allow Windows-native icons where obvious | `Baseline done; visual chrome refinement done in WSA-UX-011` |
-| Toolbar global suggestions toggle | `AppState.isGlobalCaptureEnabled` + `GlobalKeyCaptureManager` | Connect existing Windows toggle to global capture, focused text tracking, and overlay session control | `Planned: WSA-RT-003` |
+| Toolbar global suggestions toggle | `AppState.isGlobalCaptureEnabled` + `GlobalKeyCaptureManager` | Connect existing Windows toggle to global capture, focused text tracking, overlay session control, and external hotkeys | `Baseline done: WSA-RT-015` |
 | Toolbar language selector | `FloatingToolbarView.supportedLanguages` + `SQLiteLanguagePackSource.defaultLocator` | Replace Danish-only Windows selector with language/pack-aware selector; add flag-based toolbar rendering | `Baseline done: WSA-RT-009; visual flag selector done in WSA-UX-011` |
 | Toolbar word-list button | `FloatingToolbarView` TODO + `SettingsView.domainTab` placeholder | Preserve placeholder/settings behavior until shared domain-list manager exists | `Placeholder parity only` |
 | Toolbar selected-text import | `AppState.importSelectionForAnalysis()` | Use internal editor selection first, then stable live/recent cached Windows UI Automation selection, then guarded clipboard fallback; use a Word-specific COM adapter instead of clipboard fallback for Microsoft Word; track app-specific blockers in a compatibility matrix | `Baseline done: WSA-RT-010 + WSA-RT-010A; stability/guardrails done: WSA-RT-010B; Word adapter done: WSA-RT-010C; diagnostics/matrix done: WSA-TS-002 + WSA-TS-003` |
@@ -42,9 +42,9 @@ Status: `Parity plan aligned with macOS UI review`
 | Manual static placement behavior | `AppState` placement control semantics | Let user drag overlay and keep absolute static placement until moved again | `Baseline done for session runtime` |
 | Follow-caret fallback policy | `AppState` + `MacSuggestionPanelController` | Fall back to static placement when caret confidence is low | `Baseline done in internal editor path` |
 | Windows candidate shortcuts | macOS option-based shortcuts | Use `Ctrl+1` through `Ctrl+0` on Windows | `Baseline done` |
-| Global key capture | `GlobalKeyCaptureManager.swift` | New Windows impl | `Planned: WSA-RT-003` |
-| Cross-app focused text access | macOS AX | New Windows impl via Windows APIs | `Planned: WSA-RT-003` |
-| Caret anchor extraction | macOS AX | New Windows impl via Windows APIs | `Planned: WSA-RT-003` |
+| Global key capture | `GlobalKeyCaptureManager.swift` | New Windows impl | `Baseline done: WSA-RT-015` |
+| Cross-app focused text access | macOS AX | New Windows impl via Windows APIs | `Baseline done: WSA-RT-015` |
+| Caret anchor extraction | macOS AX | New Windows impl via Windows APIs | `Baseline done: WSA-RT-015` |
 | Floating suggestion panel | `MacSuggestionPanelController.swift` | New Windows impl | `Baseline done in internal editor path` |
 | Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Baseline done: WSA-UX-010` |
 | OCR / screen snip | `ScreenSnipper.swift` | New Windows impl using a legacy screenclip clipboard-image compatibility path first, then Snipping Tool protocol callback fallback, shared-storage token redemption, `file-access-token` parsing, callback-file storage fallback, launch-contract refresh, and Windows OCR bridge | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B; diagnostics: WSA-RT-011C; file-access-token callback: WSA-RT-011D; callback storage fallback: WSA-RT-011E; launch-contract refresh: WSA-RT-011F; legacy screenclip clipboard compatibility: WSA-RT-011G` |

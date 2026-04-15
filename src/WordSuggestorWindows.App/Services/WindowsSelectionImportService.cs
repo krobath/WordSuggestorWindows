@@ -59,6 +59,82 @@ public sealed class WindowsSelectionImportService
         return null;
     }
 
+    public ExternalSuggestionAnchorSnapshot? TryReadSuggestionAnchorFromForegroundWindow(
+        IntPtr excludedWindowHandle,
+        bool emitDiagnostics = false)
+    {
+        var foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero || foreground == excludedWindowHandle)
+        {
+            return null;
+        }
+
+        return TryReadSuggestionAnchorFromWindowHandle(foreground, excludedWindowHandle, "foreground", emitDiagnostics);
+    }
+
+    public ExternalSuggestionAnchorSnapshot? TryReadSuggestionAnchorFromWindowHandle(
+        IntPtr windowHandle,
+        IntPtr excludedWindowHandle,
+        string source,
+        bool emitDiagnostics = false)
+    {
+        if (windowHandle == IntPtr.Zero || windowHandle == excludedWindowHandle)
+        {
+            return null;
+        }
+
+        try
+        {
+            var root = AutomationElement.FromHandle(windowHandle);
+            if (root is null)
+            {
+                return null;
+            }
+
+            var focused = root.FindFirst(
+                TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true));
+            var anchor = focused is not null
+                ? TryReadTextPatternAnchor(focused, "Windows UI Automation focused descendant", windowHandle)
+                : TryReadTextPatternAnchor(root, "Windows UI Automation window", windowHandle);
+
+            if (anchor is not null)
+            {
+                EmitIf(
+                    emitDiagnostics,
+                    "SuggestionAnchor",
+                    "Success",
+                    $"{source} anchor resolved via {anchor.Source} quality={anchor.Quality} rect={anchor.ScreenRect} {DescribeWindowHandle(windowHandle)}");
+            }
+            else
+            {
+                EmitIf(
+                    emitDiagnostics,
+                    "SuggestionAnchor",
+                    "NoAnchor",
+                    $"{source} window did not expose a suggestion anchor. {DescribeWindowHandle(windowHandle)}");
+            }
+
+            return anchor;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return null;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     public SelectionImportResult? TryReadSelectionFromWindowHandle(
         IntPtr windowHandle,
         IntPtr excludedWindowHandle,
@@ -406,6 +482,79 @@ public sealed class WindowsSelectionImportService
         {
             return null;
         }
+    }
+
+    private static ExternalSuggestionAnchorSnapshot? TryReadTextPatternAnchor(AutomationElement? element, string source, IntPtr windowHandle)
+    {
+        if (element is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(TextPattern.Pattern, out var patternObject) &&
+                patternObject is TextPattern textPattern)
+            {
+                foreach (var range in textPattern.GetSelection())
+                {
+                    var rangeRect = TryResolveRangeRect(range.GetBoundingRectangles());
+                    if (rangeRect is not null)
+                    {
+                        return new ExternalSuggestionAnchorSnapshot(
+                            rangeRect.Value,
+                            source,
+                            DateTimeOffset.Now,
+                            windowHandle,
+                            SuggestionAnchorQuality.Confirmed);
+                    }
+                }
+            }
+
+            var elementRect = element.Current.BoundingRectangle;
+            if (!elementRect.IsEmpty && elementRect.Width > 1 && elementRect.Height > 1)
+            {
+                return new ExternalSuggestionAnchorSnapshot(
+                    new Rect(elementRect.Left, elementRect.Top, elementRect.Width, elementRect.Height),
+                    $"{source} (element fallback)",
+                    DateTimeOffset.Now,
+                    windowHandle,
+                    SuggestionAnchorQuality.Approximate);
+            }
+
+            return null;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return null;
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static Rect? TryResolveRangeRect(Rect[] rects)
+    {
+        foreach (var rect in rects)
+        {
+            if (rect.Width <= 0 || rect.Height <= 0)
+            {
+                continue;
+            }
+
+            return new Rect(rect.Left, rect.Top, Math.Max(1, rect.Width), Math.Max(18, rect.Height));
+        }
+
+        return null;
     }
 
     private static string? TryGetClipboardText()

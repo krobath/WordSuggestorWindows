@@ -161,6 +161,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Opening the editor manually should reveal the injected startup text.
 - The current suggestion UX uses a separate floating overlay window with page controls and placement mode buttons.
 - The default first page should fit all 10 visible candidates without needing vertical scrolling, and each row should read as visibly denser than the earlier overlay baseline.
+- With global suggestions enabled, typing in a supported external text app should also open the same floating overlay without requiring the internal editor to be expanded first.
+- The external suggestion overlay should now be created without an owner window, so it can float above Word, Edge, and Google Docs instead of behaving like a child of the compact WordSuggestor shell.
+- `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` should now include `GlobalSuggestionCapture`, `SuggestionAnchor`, and `SuggestionOverlay` lines during external typing so missing overlays can be triaged from token capture through final panel visibility.
 - Each row should now present inline match type, secondary metadata, row-level TTS, and an info affordance.
 - The expanded editor should no longer feel like a plain textbox screen; it should expose the same core editor information architecture as macOS.
 - The editor input should be a fixed-size rich text surface inside the expanded shell, with vertical scrolling and horizontal wrapping.
@@ -173,10 +176,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - Accepting a suggestion should clear the old suggestion list immediately while keeping the overlay box visible as an empty panel.
 - Boundary input such as `Space` or `Enter` should leave the overlay visible but empty until the next token begins.
 - `Ctrl+Left` and `Ctrl+Right` should page the overlay when more than one page of suggestions is available.
+- During an external suggestion session, `Ctrl+1` through `Ctrl+0` should accept the matching visible suggestion into the foreground app and append one trailing space.
+- During an external suggestion session, `Ctrl+Left` and `Ctrl+Right` should change overlay pages without switching back to the internal editor.
 - The editor should no longer show separate informational cards above or directly below the text input that duplicate toggle state or overlay placement state.
 - If caret anchoring is not available, the overlay should fall back to a stable static position near the editor.
 - In static mode, dragging the overlay header should establish the new resting position for the remainder of the session.
-- External app typing, caret tracking, and overlay placement are not in scope for this smoke.
+- For supported external apps, follow-caret should be preferred; if Windows cannot expose a trustworthy external caret anchor, the overlay should still stay usable through static fallback rather than disappearing.
 
 ## Failure triage
 
@@ -186,6 +191,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_app.ps1 -SampleText "Jeg 
 - If the app opens but the list is empty, verify the startup text ends with an incomplete Danish token such as `skri`.
 - If bootstrap prints `warning: couldn't find pc file for sqlite3` but `scripts\test_core_cli.ps1` returns suggestions and logs `Pack opened ... da_lexicon.sqlite`, the SQLite pack is loading; the warning is from pkg-config discovery during the Swift build.
 - If selected-text import works in one app but not another, use `docs/SelectionImportCompatibilityMatrix.md` to record whether UI Automation or clipboard fallback was blocked.
+- If typing in Word, Edge, or Google Docs does not open the suggestion overlay, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\selection-import.log` for the sequence `GlobalSuggestionCapture -> SuggestionAnchor -> SuggestionOverlay`; this distinguishes "no token captured", "no caret anchor resolved", and "overlay was never shown".
 - If OCR returns no text, verify that the callback log contains `token` or `file-access-token`, and that Windows OCR language support is installed for the active user profile.
 - If OCR never returns to WordSuggestor after selecting a region, inspect `%LOCALAPPDATA%\WordSuggestor\diagnostics\ocr-callback.log` and confirm the per-user `wordsuggestor-ocr:` protocol handler exists under `HKCU\Software\Classes\wordsuggestor-ocr`.
 - If OCR hides WordSuggestor and then appears to do nothing for about 90 seconds, inspect `ocr-flow.log` for `Capture stopped: no callback before timeout.` and confirm whether a callback file was written under either `%LOCALAPPDATA%\WordSuggestor\ocr-callbacks` or `%TEMP%\WordSuggestor\ocr-callbacks`.

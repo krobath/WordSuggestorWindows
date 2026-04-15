@@ -229,6 +229,24 @@ Deliver:
 - initial support focus on word processors, mail clients, and Google Docs-capable browsers
 - fallback to static placement when follow-caret quality is insufficient
 
+### WSA-RT-015_windows_cross_app_suggestion_overlay_and_hotkey_commit_baseline
+
+Deliver:
+
+- make the floating suggestion overlay usable outside the internal editor
+- keep external suggestion refresh low-latency while the user types in supported apps
+- add a first Windows-native external commit baseline via global hotkeys
+
+Status:
+
+- Implemented on `2026-04-15`
+- Added a low-level Windows keyboard-capture baseline that tracks the active token in the current foreground app without routing through the internal editor
+- Added an external suggestion-session path so the overlay can remain visible while WordSuggestor stays collapsed
+- Added external anchor extraction through Windows UI Automation with confirmed and approximate quality levels
+- Added global `Ctrl+1` through `Ctrl+0` accept shortcuts and `Ctrl+Left` / `Ctrl+Right` paging while an external suggestion session is active
+- Added a guarded synthetic-input commit baseline that deletes the tracked token, inserts the accepted suggestion, and appends one trailing space
+- Preserved static fallback when external follow-caret anchoring is unavailable or not trustworthy
+
 ### WSA-RT-009_windows_language_pack_selection
 
 Deliver:

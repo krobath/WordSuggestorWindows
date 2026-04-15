@@ -27,10 +27,17 @@ public partial class MainWindow : Window
     private const double StaticOverlayHorizontalOffset = 118;
     private const double StaticOverlayVerticalOffset = 44;
     private const int TextToSpeechHotKeyId = 0x5754;
+    private const int ExternalSuggestionAcceptBaseHotKeyId = 0x5800;
+    private const int ExternalSuggestionPreviousPageHotKeyId = 0x5810;
+    private const int ExternalSuggestionNextPageHotKeyId = 0x5811;
     private const int WmHotKey = 0x0312;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint VirtualKeyT = 0x54;
+    private const uint VirtualKey0 = 0x30;
+    private const uint VirtualKey1 = 0x31;
+    private const uint VirtualKeyLeft = 0x25;
+    private const uint VirtualKeyRight = 0x27;
     private static readonly string SelectionImportDiagnosticLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "WordSuggestor",
@@ -49,6 +56,8 @@ public partial class MainWindow : Window
     private static readonly Brush SpeechHighlightBrush = BrushFromHex("#8DCCFF");
     private readonly MainWindowViewModel _viewModel;
     private readonly WindowsSelectionImportService _selectionImportService = new();
+    private readonly WindowsGlobalSuggestionCaptureService _globalSuggestionCaptureService = new();
+    private readonly WindowsExternalSuggestionCommitService _externalSuggestionCommitService = new();
     private readonly WindowsOcrService _ocrService = new();
     private readonly WindowsSpeechToTextService _speechToTextService = new();
     private readonly WindowsTextToSpeechService _textToSpeechService = new();
@@ -60,7 +69,10 @@ public partial class MainWindow : Window
     private bool _isInitialPositionApplied;
     private bool _isSynchronizingEditorDocument;
     private bool _isTextToSpeechHotKeyRegistered;
+    private bool _areExternalSuggestionHotKeysRegistered;
     private SelectionImportResult? _lastExternalSelection;
+    private ExternalSuggestionAnchorSnapshot? _lastExternalSuggestionAnchor;
+    private string _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
     private DateTimeOffset _speechHighlightStartedAt;
     private IReadOnlyList<TextSpan> _speechHighlightSpans = [];
     private TextSpan? _currentSpeechHighlightSpan;
@@ -82,7 +94,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         _externalSelectionPollTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(350)
+            Interval = TimeSpan.FromMilliseconds(120)
         };
         _externalSelectionPollTimer.Tick += ExternalSelectionPollTimerOnTick;
         _speechHighlightTimer = new DispatcherTimer
@@ -93,6 +105,8 @@ public partial class MainWindow : Window
         _preciseSpeechHighlightTimer = new DispatcherTimer();
         _preciseSpeechHighlightTimer.Tick += PreciseSpeechHighlightTimerOnTick;
         _selectionImportService.DiagnosticEmitted += SelectionImportServiceOnDiagnosticEmitted;
+        _globalSuggestionCaptureService.DiagnosticEmitted += SelectionImportServiceOnDiagnosticEmitted;
+        _globalSuggestionCaptureService.TokenChanged += GlobalSuggestionCaptureServiceOnTokenChanged;
         InitializeComponent();
         DataContext = _viewModel;
         Loaded += OnLoaded;
@@ -114,6 +128,7 @@ public partial class MainWindow : Window
         _windowHandle = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(_windowHandle)?.AddHook(WindowMessageHook);
         RegisterTextToSpeechHotKey();
+        SyncGlobalSuggestionCapture();
         _externalSelectionPollTimer.Start();
 
         if (!_isInitialPositionApplied)
@@ -149,9 +164,13 @@ public partial class MainWindow : Window
         {
             HwndSource.FromHwnd(_windowHandle)?.RemoveHook(WindowMessageHook);
             UnregisterTextToSpeechHotKey();
+            UnregisterExternalSuggestionHotKeys();
         }
 
         _selectionImportService.DiagnosticEmitted -= SelectionImportServiceOnDiagnosticEmitted;
+        _globalSuggestionCaptureService.DiagnosticEmitted -= SelectionImportServiceOnDiagnosticEmitted;
+        _globalSuggestionCaptureService.TokenChanged -= GlobalSuggestionCaptureServiceOnTokenChanged;
+        _globalSuggestionCaptureService.Dispose();
         _speechToTextService.TranscriptReceived -= SpeechToTextServiceOnTranscriptReceived;
         _speechToTextService.StatusChanged -= SpeechToTextServiceOnStatusChanged;
         _speechToTextService.SessionStopped -= SpeechToTextServiceOnSessionStopped;
@@ -211,6 +230,60 @@ public partial class MainWindow : Window
             : $"Global TTS hotkey registration failed: GetLastWin32Error={Marshal.GetLastWin32Error()}.");
     }
 
+    private void RegisterExternalSuggestionHotKeys()
+    {
+        if (_windowHandle == IntPtr.Zero || _areExternalSuggestionHotKeysRegistered)
+        {
+            return;
+        }
+
+        var allSucceeded = true;
+        for (var i = 0; i < 10; i++)
+        {
+            var virtualKey = i == 9 ? VirtualKey0 : VirtualKey1 + (uint)i;
+            if (!RegisterHotKey(_windowHandle, ExternalSuggestionAcceptBaseHotKeyId + i, ModControl, virtualKey))
+            {
+                allSucceeded = false;
+            }
+        }
+
+        if (!RegisterHotKey(_windowHandle, ExternalSuggestionPreviousPageHotKeyId, ModControl, VirtualKeyLeft))
+        {
+            allSucceeded = false;
+        }
+
+        if (!RegisterHotKey(_windowHandle, ExternalSuggestionNextPageHotKeyId, ModControl, VirtualKeyRight))
+        {
+            allSucceeded = false;
+        }
+
+        _areExternalSuggestionHotKeysRegistered = true;
+        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+            DateTimeOffset.Now,
+            "ExternalSuggestionHotkeys",
+            allSucceeded ? "Registered" : "Partial",
+            allSucceeded
+                ? "Registered Ctrl+1..0 and Ctrl+Left/Right for external suggestion sessions."
+                : $"One or more external suggestion hotkeys failed to register. GetLastWin32Error={Marshal.GetLastWin32Error()}"));
+    }
+
+    private void UnregisterExternalSuggestionHotKeys()
+    {
+        if (!_areExternalSuggestionHotKeysRegistered || _windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        for (var i = 0; i < 10; i++)
+        {
+            _ = UnregisterHotKey(_windowHandle, ExternalSuggestionAcceptBaseHotKeyId + i);
+        }
+
+        _ = UnregisterHotKey(_windowHandle, ExternalSuggestionPreviousPageHotKeyId);
+        _ = UnregisterHotKey(_windowHandle, ExternalSuggestionNextPageHotKeyId);
+        _areExternalSuggestionHotKeysRegistered = false;
+    }
+
     private void UnregisterTextToSpeechHotKey()
     {
         if (!_isTextToSpeechHotKeyRegistered || _windowHandle == IntPtr.Zero)
@@ -222,6 +295,43 @@ public partial class MainWindow : Window
         _isTextToSpeechHotKeyRegistered = false;
     }
 
+    private void SyncGlobalSuggestionCapture()
+    {
+        if (_windowHandle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        if (_viewModel.IsGlobalCaptureEnabled)
+        {
+            try
+            {
+                _globalSuggestionCaptureService.Start(_windowHandle);
+                RegisterExternalSuggestionHotKeys();
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "GlobalSuggestionCapture",
+                    "Started",
+                    "Windows global suggestion capture started."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                    DateTimeOffset.Now,
+                    "GlobalSuggestionCapture",
+                    "Failed",
+                    ex.Message));
+            }
+
+            return;
+        }
+
+        _globalSuggestionCaptureService.Stop();
+        UnregisterExternalSuggestionHotKeys();
+        _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+        _lastExternalSuggestionAnchor = null;
+    }
+
     private IntPtr WindowMessageHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotKey && wParam.ToInt32() == TextToSpeechHotKeyId)
@@ -229,6 +339,36 @@ public partial class MainWindow : Window
             handled = true;
             WriteTtsFlowDiagnostic("Global TTS hotkey invoked.");
             _ = Dispatcher.InvokeAsync(async () => await SpeakSelectionOrEditorTextAsync());
+            return IntPtr.Zero;
+        }
+
+        if (msg == WmHotKey)
+        {
+            var hotKeyId = wParam.ToInt32();
+            if (_viewModel.IsExternalSuggestionSessionActive)
+            {
+                if (hotKeyId >= ExternalSuggestionAcceptBaseHotKeyId &&
+                    hotKeyId < ExternalSuggestionAcceptBaseHotKeyId + 10)
+                {
+                    handled = true;
+                    TryAcceptExternalSuggestion(hotKeyId - ExternalSuggestionAcceptBaseHotKeyId);
+                    return IntPtr.Zero;
+                }
+
+                if (hotKeyId == ExternalSuggestionPreviousPageHotKeyId)
+                {
+                    handled = true;
+                    _viewModel.ChangeSuggestionPage(-1);
+                    return IntPtr.Zero;
+                }
+
+                if (hotKeyId == ExternalSuggestionNextPageHotKeyId)
+                {
+                    handled = true;
+                    _viewModel.ChangeSuggestionPage(1);
+                    return IntPtr.Zero;
+                }
+            }
         }
 
         return IntPtr.Zero;
@@ -266,7 +406,76 @@ public partial class MainWindow : Window
 
                 SyncOverlayVisibility();
                 break;
+            case nameof(MainWindowViewModel.IsGlobalCaptureEnabled):
+                SyncGlobalSuggestionCapture();
+                break;
         }
+    }
+
+    private void GlobalSuggestionCaptureServiceOnTokenChanged(object? sender, ExternalSuggestionTokenChangedEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_viewModel.IsGlobalCaptureEnabled ||
+                e.WindowHandle == IntPtr.Zero ||
+                e.WindowHandle == _windowHandle)
+            {
+                return;
+            }
+
+            _lastExternalWindowHandle = e.WindowHandle;
+            var source = DescribeExternalWindow(e.WindowHandle);
+            if (e.IsBoundary)
+            {
+                _viewModel.UpdateExternalSuggestionToken(string.Empty, e.WindowHandle, source);
+            }
+            else
+            {
+                _viewModel.UpdateExternalSuggestionToken(e.Token, e.WindowHandle, source);
+            }
+
+            UpdateExternalSuggestionAnchor();
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "GlobalSuggestionCapture",
+                "TokenDispatched",
+                $"source={source}, boundary={e.IsBoundary}, token=\"{e.Token}\", activeExternalSession={_viewModel.IsExternalSuggestionSessionActive}"));
+            SyncOverlayVisibility();
+        });
+    }
+
+    private void TryAcceptExternalSuggestion(int visibleIndex)
+    {
+        var request = _viewModel.CreateExternalSuggestionCommitRequest(visibleIndex);
+        if (request is null)
+        {
+            return;
+        }
+
+        _globalSuggestionCaptureService.SuppressSyntheticInput(TimeSpan.FromMilliseconds(550));
+        var committed = _externalSuggestionCommitService.TryCommitSuggestion(
+            _windowHandle,
+            request.Suggestion.Term,
+            request.ReplaceCharacterCount,
+            appendTrailingSpace: true,
+            out var diagnostic);
+
+        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+            DateTimeOffset.Now,
+            "ExternalSuggestionCommit",
+            committed ? "Success" : "Failed",
+            diagnostic));
+
+        if (!committed)
+        {
+            _viewModel.SetStatusMessage($"Ekstern indsættelse mislykkedes: {diagnostic}");
+            return;
+        }
+
+        _globalSuggestionCaptureService.ClearTokenAfterCommittedSuggestion();
+        _viewModel.CompleteExternalSuggestionCommit(request);
+        _lastExternalSuggestionAnchor = null;
+        SyncOverlayVisibility();
     }
 
     private void OnWindowLocationOrSizeChanged(object? sender, EventArgs e)
@@ -715,6 +924,16 @@ public partial class MainWindow : Window
                 _lastExternalWindowHandle = foreground;
             }
 
+            if (_viewModel.IsExternalSuggestionSessionActive)
+            {
+                UpdateExternalSuggestionAnchor();
+                UpdateExternalPollingInterval(activeExternalSession: true);
+            }
+            else
+            {
+                UpdateExternalPollingInterval(activeExternalSession: false);
+            }
+
             var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
             if (externalSelection is not null)
             {
@@ -728,6 +947,85 @@ public partial class MainWindow : Window
                 "UIA",
                 "PollFailed",
                 $"External selection poll failed safely: {ex.GetType().Name}: {ex.Message}"));
+        }
+    }
+
+    private void UpdateExternalPollingInterval(bool activeExternalSession)
+    {
+        var target = activeExternalSession
+            ? TimeSpan.FromMilliseconds(120)
+            : TimeSpan.FromMilliseconds(350);
+        if (_externalSelectionPollTimer.Interval != target)
+        {
+            _externalSelectionPollTimer.Interval = target;
+        }
+    }
+
+    private void UpdateExternalSuggestionAnchor()
+    {
+        if (!_viewModel.IsExternalSuggestionSessionActive)
+        {
+            _lastExternalSuggestionAnchor = null;
+            _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
+            return;
+        }
+
+        var targetWindow = _viewModel.ExternalSuggestionWindowHandle != IntPtr.Zero
+            ? _viewModel.ExternalSuggestionWindowHandle
+            : _lastExternalWindowHandle;
+        if (targetWindow == IntPtr.Zero || targetWindow == _windowHandle)
+        {
+            _lastExternalSuggestionAnchor = null;
+            _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
+            return;
+        }
+
+        _lastExternalSuggestionAnchor = _selectionImportService.TryReadSuggestionAnchorFromWindowHandle(
+            targetWindow,
+            _windowHandle,
+            "external suggestion session");
+
+        var signature = _lastExternalSuggestionAnchor is null
+            ? $"missing:{targetWindow.ToInt64():X}"
+            : $"rect:{targetWindow.ToInt64():X}:{_lastExternalSuggestionAnchor.Quality}:{_lastExternalSuggestionAnchor.ScreenRect}";
+
+        if (string.Equals(signature, _lastExternalSuggestionAnchorDiagnosticSignature, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _lastExternalSuggestionAnchorDiagnosticSignature = signature;
+        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+            DateTimeOffset.Now,
+            "SuggestionAnchor",
+            _lastExternalSuggestionAnchor is null ? "Unavailable" : "Updated",
+            _lastExternalSuggestionAnchor is null
+                ? $"No anchor was resolved for hwnd=0x{targetWindow.ToInt64():X}."
+                : $"Resolved {_lastExternalSuggestionAnchor.Quality} anchor at {_lastExternalSuggestionAnchor.ScreenRect} for hwnd=0x{targetWindow.ToInt64():X}."));
+    }
+
+    private string DescribeExternalWindow(IntPtr windowHandle)
+    {
+        if (windowHandle == IntPtr.Zero)
+        {
+            return "ekstern app";
+        }
+
+        GetWindowThreadProcessId(windowHandle, out var processId);
+        try
+        {
+            var process = Process.GetProcessById((int)processId);
+            return string.IsNullOrWhiteSpace(process.ProcessName)
+                ? "ekstern app"
+                : process.ProcessName;
+        }
+        catch (ArgumentException)
+        {
+            return "ekstern app";
+        }
+        catch (InvalidOperationException)
+        {
+            return "ekstern app";
         }
     }
 
@@ -1590,6 +1888,11 @@ public partial class MainWindow : Window
         if (_overlayWindow is not null && !_overlayWindow.IsVisible)
         {
             _overlayWindow.Show();
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "SuggestionOverlay",
+                "Shown",
+                $"Overlay shown. externalSession={_viewModel.IsExternalSuggestionSessionActive}, topmost={_overlayWindow.Topmost}, owner={( _overlayWindow.Owner is null ? "none" : "main-window")}"));
         }
     }
 
@@ -1602,9 +1905,14 @@ public partial class MainWindow : Window
 
         _overlayWindow = new SuggestionOverlayWindow(_viewModel)
         {
-            Owner = this
+            Topmost = true
         };
         _overlayWindow.ManualPlacementCommitted += OverlayWindowOnManualPlacementCommitted;
+        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+            DateTimeOffset.Now,
+            "SuggestionOverlay",
+            "Created",
+            "Created overlay window without owner so it can float above external apps."));
     }
 
     private void HideOverlayWindow()
@@ -1612,6 +1920,11 @@ public partial class MainWindow : Window
         if (_overlayWindow is not null && _overlayWindow.IsVisible)
         {
             _overlayWindow.Hide();
+            WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
+                DateTimeOffset.Now,
+                "SuggestionOverlay",
+                "Hidden",
+                "Overlay window was hidden because the suggestion session is no longer visible."));
         }
     }
 
@@ -1648,6 +1961,34 @@ public partial class MainWindow : Window
 
     private Point ResolveOverlayAnchor()
     {
+        if (_viewModel.IsExternalSuggestionSessionActive)
+        {
+            if (_lastExternalSuggestionAnchor is { Quality: SuggestionAnchorQuality.Confirmed } confirmedAnchor)
+            {
+                // Exact caret position from TextPattern (Word, Notepad, terminals, etc.)
+                return new Point(
+                    confirmedAnchor.ScreenRect.Left + (confirmedAnchor.ScreenRect.Width / 2),
+                    confirmedAnchor.ScreenRect.Bottom);
+            }
+
+            // No confirmed caret position (web apps like Google Docs in Edge):
+            // use mouse cursor as the best available proxy for where the user is typing.
+            if (GetCursorPos(out var cursorPos))
+            {
+                return new Point(cursorPos.X, cursorPos.Y);
+            }
+
+            // Last resort: approximate element bounds from UIA if available.
+            if (_lastExternalSuggestionAnchor is { } approximateAnchor)
+            {
+                return new Point(
+                    approximateAnchor.ScreenRect.Left + (approximateAnchor.ScreenRect.Width / 2),
+                    approximateAnchor.ScreenRect.Bottom);
+            }
+
+            return new Point(Left + 150, Top + 96);
+        }
+
         if (_viewModel.IsFollowCaretPlacementMode &&
             TryGetCaretScreenRect(out var caretRect))
         {
@@ -1777,6 +2118,20 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
 
     private sealed record TextSpan(int Start, int Length, string Text);
 
