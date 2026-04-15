@@ -1519,10 +1519,11 @@ Target outcome:
 Implemented:
 
 - Reworked the toolbar button chrome so the top-row actions now render as compact icon-first buttons instead of text-first placeholders.
-- Updated the top toolbar actions `WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`, and settings to use icon glyphs while preserving the existing click handlers, tooltips, and state bindings.
+- Updated the top toolbar actions `WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`, and settings to use icon glyphs or compact custom icon visuals while preserving the existing click handlers, tooltips, and state bindings.
 - Reworked the expanded editor command-row chrome so `Farver`, `Semantik`, and `Tegnsætning` read as rounded macOS-like pills while keeping Windows-native interaction behavior.
+- Added explicit inline icons to `Farver`, `Semantik`, and `TegnsÃ¦tning` so they no longer render as text-only pills.
 - Added flag presentation metadata to `LanguageOption` and wired supported languages to flag-pattern definitions in the Windows provider.
-- Re-templated the toolbar language `ComboBox` so the selected state and drop-down items now render language flags instead of text-first labels.
+- Re-templated the toolbar language `ComboBox` so the selected state and drop-down items now render smaller language flags instead of text-first labels.
 - Preserved the existing language-pack routing, missing-pack state handling, and toolbar command semantics; this sprint only changes presentation and asset/template behavior.
 
 Validation:

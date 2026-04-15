@@ -22,8 +22,8 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
         <DataTemplate x:Key="LanguageFlagTemplate" DataType="{x:Type models:LanguageOption}">
-            <Grid Width="34" Height="22">
-                <Border CornerRadius="4"
+            <Grid Width="23" Height="15">
+                <Border CornerRadius="3"
                         BorderBrush="#C7CDD7"
                         BorderThickness="0.8"
                         Background="{Binding FlagPrimaryBrush}">
@@ -51,28 +51,28 @@
                         </Grid>
 
                         <Grid x:Name="NordicCross" Visibility="Collapsed" Background="{Binding FlagPrimaryBrush}">
-                            <Rectangle Width="6"
+                            <Rectangle Width="4"
                                        HorizontalAlignment="Left"
-                                       Margin="9,0,0,0"
+                                       Margin="6,0,0,0"
                                        Fill="{Binding FlagSecondaryBrush}" />
-                            <Rectangle Height="6"
+                            <Rectangle Height="4"
                                        VerticalAlignment="Center"
                                        Fill="{Binding FlagSecondaryBrush}" />
                         </Grid>
 
                         <Grid x:Name="NordicCrossDouble" Visibility="Collapsed" Background="{Binding FlagPrimaryBrush}">
-                            <Rectangle Width="8"
+                            <Rectangle Width="5"
                                        HorizontalAlignment="Left"
-                                       Margin="8,0,0,0"
+                                       Margin="5,0,0,0"
                                        Fill="{Binding FlagSecondaryBrush}" />
-                            <Rectangle Height="8"
+                            <Rectangle Height="5"
                                        VerticalAlignment="Center"
                                        Fill="{Binding FlagSecondaryBrush}" />
-                            <Rectangle Width="4"
+                            <Rectangle Width="3"
                                        HorizontalAlignment="Left"
-                                       Margin="10,0,0,0"
+                                       Margin="6,0,0,0"
                                        Fill="{Binding FlagAccentBrush}" />
-                            <Rectangle Height="4"
+                            <Rectangle Height="3"
                                        VerticalAlignment="Center"
                                        Fill="{Binding FlagAccentBrush}" />
                         </Grid>
@@ -91,26 +91,26 @@
                             <Rectangle Grid.Row="2" Fill="{Binding FlagPrimaryBrush}" />
                             <Rectangle Grid.Row="4" Fill="{Binding FlagPrimaryBrush}" />
                             <Rectangle Grid.Row="6" Fill="{Binding FlagPrimaryBrush}" />
-                            <Border Width="15"
-                                    Height="12"
+                            <Border Width="10"
+                                    Height="8"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Top"
                                     Background="{Binding FlagAccentBrush}">
-                                <UniformGrid Rows="2" Columns="3" Margin="1.6">
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
-                                    <Ellipse Width="1.2" Height="1.2" Fill="#FFFFFF" />
+                                <UniformGrid Rows="2" Columns="3" Margin="1">
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
+                                    <Ellipse Width="0.9" Height="0.9" Fill="#FFFFFF" />
                                 </UniformGrid>
                             </Border>
                         </Grid>
                     </Grid>
                 </Border>
 
-                <Ellipse Width="6"
-                         Height="6"
+                <Ellipse Width="5"
+                         Height="5"
                          Margin="0,1,1,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Top"
@@ -293,7 +293,7 @@
 
         <Style x:Key="ToolbarComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Height" Value="30" />
-            <Setter Property="MinWidth" Value="62" />
+            <Setter Property="MinWidth" Value="54" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="#E7E8EC" />
             <Setter Property="BorderBrush" Value="#D6DAE1" />
@@ -308,7 +308,7 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="9">
                                 <Grid>
-                                    <ContentPresenter Margin="8,0,20,0"
+                                    <ContentPresenter Margin="6,0,18,0"
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center"
                                                       Content="{TemplateBinding SelectionBoxItem}"
@@ -359,7 +359,7 @@
 
         <Style x:Key="ToolbarComboBoxItemStyle" TargetType="ComboBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Padding" Value="6,5" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBoxItem">
@@ -425,7 +425,7 @@
                                           Style="{StaticResource SwitchToggleButtonStyle}"
                                           ToolTip="Aktiver eller deaktiver globale forslag" />
 
-                            <ComboBox Width="68"
+                            <ComboBox Width="58"
                                       Margin="0,0,12,0"
                                       ItemsSource="{Binding LanguageOptions}"
                                       ItemTemplate="{StaticResource LanguageFlagTemplate}"
@@ -452,7 +452,25 @@
                                     Style="{StaticResource ToolbarIconButtonStyle}"
                                     ToolTip="OCR / skærmudsnit"
                                     Click="ToolbarAction_OnClick">
-                                <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8B7;" />
+                                <Grid Width="16" Height="14">
+                                    <Rectangle RadiusX="2"
+                                               RadiusY="2"
+                                               Stroke="#39424E"
+                                               StrokeThickness="1.1"
+                                               StrokeDashArray="2,1" />
+                                    <Rectangle Width="8"
+                                               Height="1.2"
+                                               Margin="0,4,0,0"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Top"
+                                               Fill="#39424E" />
+                                    <Rectangle Width="6"
+                                               Height="1.2"
+                                               Margin="0,0,0,4"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Bottom"
+                                               Fill="#39424E" />
+                                </Grid>
                             </Button>
 
                             <Button Tag="speechToText"
@@ -545,14 +563,62 @@
 
                                     <Border Width="1" Height="20" Margin="4,0,10,0" Background="#D7DBE2" />
 
-                                    <ToggleButton Tag="coloring" IsChecked="{Binding IsAnalyzerColoringEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Farvekodning" Click="EditorCommand_OnClick">
-                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Farver" />
+                                    <ToggleButton Tag="coloring" IsChecked="{Binding IsAnalyzerColoringEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå farvekodning til/fra" Click="EditorCommand_OnClick">
+                                        <Grid Width="16" Height="16">
+                                            <Rectangle Width="3.2"
+                                                       Height="9.6"
+                                                       RadiusX="0.8"
+                                                       RadiusY="0.8"
+                                                       Fill="#39424E"
+                                                       HorizontalAlignment="Left"
+                                                       VerticalAlignment="Bottom"
+                                                       RenderTransformOrigin="0.5,0.5">
+                                                <Rectangle.RenderTransform>
+                                                    <RotateTransform Angle="-38" />
+                                                </Rectangle.RenderTransform>
+                                            </Rectangle>
+                                            <Path Data="M8,3 L12.2,1.6 L14.4,3.8 L10.2,5.4 Z"
+                                                  Fill="#39424E"
+                                                  Stretch="Fill"
+                                                  Width="7.2"
+                                                  Height="4.4"
+                                                  HorizontalAlignment="Right"
+                                                  VerticalAlignment="Top" />
+                                        </Grid>
                                     </ToggleButton>
-                                    <ToggleButton Tag="semantic" IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Semantik" Click="EditorCommand_OnClick">
-                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Semantik" />
+                                    <ToggleButton Tag="semantic" IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå semantik til/fra" Click="EditorCommand_OnClick">
+                                        <Grid Width="16" Height="16">
+                                            <Path Data="M5.2,2.2 C8.5,2.2 11.1,4.6 11.1,7.5 C11.1,8.7 10.7,9.7 10,10.6 C10.6,11 11,11.8 11.1,13 L9.6,13 C9.3,11.8 8.3,11.1 7,11.1 L5.9,11.1 L5.9,13 L4.2,13 L4.2,9.7 C3.4,9.2 2.9,8.4 2.8,7.4 C2.8,4.5 4.1,2.2 5.2,2.2 Z"
+                                                  Fill="#39424E"
+                                                  Stretch="Fill"
+                                                  Width="9"
+                                                  Height="11"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Top"
+                                                  Margin="2,1,0,0" />
+                                            <Path Data="M8.5,4.5 C9.6,4.7 10.2,5.4 10.2,6.3 C10.2,7.1 9.7,7.7 8.9,8.1"
+                                                  Stroke="#FFFFFF"
+                                                  StrokeThickness="0.9"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  Width="3.2"
+                                                  Height="3.8"
+                                                  HorizontalAlignment="Left"
+                                                  VerticalAlignment="Top"
+                                                  Margin="5.6,4,0,0" />
+                                        </Grid>
                                     </ToggleButton>
-                                    <ToggleButton Tag="punctuation" IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Tegnsætning" Click="EditorCommand_OnClick">
-                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="Tegnsætning" />
+                                    <ToggleButton Tag="punctuation" IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}" Style="{StaticResource CommandToggleButtonStyle}" ToolTip="Slå tegnsætning til/fra" Click="EditorCommand_OnClick">
+                                        <Grid Width="16" Height="16">
+                                            <TextBlock Text="&#x201F;"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#39424E"
+                                                       FontFamily="Segoe UI Symbol"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,-1,0,0" />
+                                        </Grid>
                                     </ToggleButton>
                                 </StackPanel>
 

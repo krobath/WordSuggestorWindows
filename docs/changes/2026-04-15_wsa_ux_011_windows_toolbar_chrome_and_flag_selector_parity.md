@@ -14,11 +14,13 @@ The Windows app already matched the macOS product structurally, but the toolbar 
 ## Implemented
 
 - Reworked the Windows toolbar button chrome so the top-row actions now render as compact icon-first controls.
-- Updated the top toolbar actions `WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`, and settings to use icon glyphs while preserving their existing click handlers, tooltips, and state bindings.
+- Updated the top toolbar actions `WL`, `TXT`, `OCR`, `MIC`, `TTS`, `INS`, and settings to use icon glyphs or compact custom icon visuals while preserving their existing click handlers, tooltips, and state bindings.
+- Adjusted the `OCR` action to use a more scan/snipping-oriented custom icon instead of a folder-like glyph.
 - Reworked the expanded editor command row so `Farver`, `Semantik`, and `Tegnsætning` read as rounded command pills closer to the macOS hierarchy.
+- Added explicit inline icons to `Farver`, `Semantik`, and `Tegnsætning` so they no longer render as text-only pills.
 - Extended `LanguageOption` with flag presentation metadata.
 - Wired the supported Windows languages to specific flag-pattern definitions in the CLI suggestion provider.
-- Re-templated the toolbar language `ComboBox` so both the selected state and drop-down items render flag visuals instead of text-first labels.
+- Re-templated the toolbar language `ComboBox` so both the selected state and drop-down items render smaller flag visuals instead of text-first labels.
 
 ## Guardrails kept
 
