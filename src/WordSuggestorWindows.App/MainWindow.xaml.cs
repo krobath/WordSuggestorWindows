@@ -933,10 +933,17 @@ public partial class MainWindow : Window
                 UpdateExternalPollingInterval(activeExternalSession: false);
             }
 
-            var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
-            if (externalSelection is not null)
+            // Skip UIA selection polling while global capture is active.
+            // The keyboard hook tracks what the user types for suggestions; polling
+            // UIA simultaneously blocks the UI thread and can crash via AccessViolationException
+            // from Word's COM accessibility layer, which bypasses normal catch (Exception) handling.
+            if (!_viewModel.IsGlobalCaptureEnabled)
             {
-                RememberExternalSelection(externalSelection);
+                var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
+                if (externalSelection is not null)
+                {
+                    RememberExternalSelection(externalSelection);
+                }
             }
         }
         catch (Exception ex)
