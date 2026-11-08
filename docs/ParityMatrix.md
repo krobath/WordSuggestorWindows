@@ -26,7 +26,7 @@ was delivered, not all target programs or accessibility modes were verified.
 | Analysis/correction | Heuristic C# POS/spelling guesses; real analyzer absent | Neutral rendering and disabled analysis controls; preferences preserved | Core document-analysis bridge and right-click corrections |
 | Login/backend | Not implemented | Offline suggestions require no backend/token; account sync unavailable | Backend contract/access and Windows secure credential storage |
 | Packaging/update | No installer/updater | Validated self-contained MSIX; trusted signing gate; HTTPS App Installer scripts; beta identity/rollback documented | Signing identity/feed, install/update/tamper/uninstall/rollback on VM |
-| Build reproducibility | Only cached local builds proven | Pinned SDK/SQLite checksum, no protected SDK mutation, clean Core release build passed | Clean committed-export result in delivery note |
+| Build reproducibility | Only cached local builds proven | Pinned SDK/SQLite checksum, no protected SDK mutation; fresh committed Windows/Core export builds and all six/54 checks pass | Fresh Windows VM/toolchain installation remains separate |
 
 Read `ReleaseAudit.md` for preserve/refactor/restart comparison, `BridgeContract.md`
 for pack/wire details, `Release.md` for secure delivery and `ManualSmoke.md` for

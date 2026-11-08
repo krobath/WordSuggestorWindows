@@ -36,12 +36,12 @@ suggestions remain offline. No production credentials are needed.
 | `powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1` | PASS, zero warnings/errors on app build |
 | `powershell -ExecutionPolicy Bypass -File scripts\test_core_cli.ps1` | PASS, six ordered DA batch/JSON term/kind/score parity fixtures |
 | `powershell -ExecutionPolicy Bypass -File scripts\test_app.ps1` | PASS, 54 checks: real Core/DA, metadata/schema/columns, user words/restart, timeout/cancel/reap, adversarial processes, stale/duplicate commits, privacy, settings/future formats, UTF-16 selection and placement geometry |
-| `powershell -ExecutionPolicy Bypass -File scripts\test_gui.ps1` | PASS, 23 real desktop checks before extending native Open coverage; final extended result below |
+| `powershell -ExecutionPolicy Bypass -File scripts\test_gui.ps1` | PASS, 23 checks on development app; extended 25-check suite also passes on the final standalone payload through test_package |
 | `powershell -ExecutionPolicy Bypass -File scripts\test_media.ps1` | PASS, three adapter/contract checks: actual Windows OCR on generated PNG, actual OneCore Helle playback process, production STT encoder/receiver UTF-8/tab fixture |
 | Clean optimized Core build using existing bootstrap with fresh scratch | PASS, 115.20 seconds; local SDK VFS overlay fixes mixed-SDK imports without modifying protected SDK files |
-| `powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1 -SkipCoreBuild -CoreCliPath <verified-release-cli>` | PASS, self-contained x64 publish and Windows SDK MakeAppx manifest/package validation |
+| `powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1` | PASS complete default flow: optimized Core build (143.10 seconds), self-contained x64 publish and Windows SDK MakeAppx validation |
 | `scripts\test_package.ps1 -AppDirectory <artifact-app-directory>` | PASS, 25 desktop checks on self-contained payload copied outside source with SDK paths removed; includes actual native Open/Save Unicode round-trips |
-| `scripts\test_clean_checkout.ps1` | Final committed-export result below |
+| `scripts\test_clean_checkout.ps1` | PASS at Windows `54acfb2` / locked Core `5d8d7a0`: fresh app build 0 warnings/errors, SQLite compiled from downloaded checksum-pinned source, fresh Core build, six parity fixtures and 54 app checks |
 
 Swift's existing `executeTask` Sendable warning, missing sqlite pkg-config and
 symlink warnings are distinct from app build warnings. The initial Core smoke
@@ -51,12 +51,15 @@ the corrected local overlay was then verified from a fresh scratch directory.
 GUI test development also exposed real caret initialization/selection feedback
 defects, which were fixed and regression-tested. Shell-dialog UIA SetValue proved
 insufficient; file-dialog smoke now uses real keyboard entry into unique test paths.
+The first committed-export attempt additionally caught missing pinned SDK headers
+when selecting Visual Studio Build Tools. `54acfb2` moves SDK paths before SQLite
+compilation; a new committed export then passed without source build caches.
 
 Current artifact (ignored, not committed):
 
 ```text
-.artifacts/release/0.2.0.0-27dfad98074b468aad0a59d8a51132f8/WordSuggestor.Beta.0.2.0.0.unsigned.msix
-SHA256 E98370656C47BB4626BB9F5F4BC419E697FBDC6E622272DB296B5C59728BCE1D
+.artifacts/release/0.2.0.0-26a1bba905f74fae9adf437b3f15262d/WordSuggestor.Beta.0.2.0.0.unsigned.msix
+SHA256 2E243FD78A4B734F5F00AE1106B9E18F3CBC241EE3AE42FC3575BFA16729C1F8
 ```
 
 The payload includes .NET 10, Swift runtime/resources, optimized Core and real DA
@@ -103,18 +106,46 @@ Notepad tested: 11.2607.14.0; one physical monitor at 96 DPI.
 ## Source review and commits
 
 Core commit: `5d8d7a0` — `WSA-RT-016_windows_beta_hardening: add versioned stdin bridge and persistent Core user words`.
-Windows integration and final evidence commits are recorded after qualification.
+Windows integration: `b1e0c3d` — `WSA-RT-016_windows_beta_hardening: deliver native editor, guarded commits and MSIX beta flow`.
+Clean-build correction: `54acfb2` — `WSA-DX-004_windows_clean_build: set pinned SDK paths before compiling SQLite`.
+Docs handoff: `9091c99` — `WSA-RT-016_windows_beta_handoff: record implementation evidence and release gates`.
 Generated packages, dependency caches, credentials and machine-specific output
 paths are excluded. Existing user data and reference repositories are preserved.
 
 ## Final qualification results
 
-Updated after isolated payload and committed-export execution.
+Clean committed-export PASS: `.artifacts/clean-checkout/d54c503a48d84240b04943fdeb1b1a3d`.
+Both exported repos contain committed source only, no copied bin/obj/.build or
+SQLite artifacts. Existing installed toolchains and the NuGet machine cache are
+prerequisites; this is a clean-source build, not a fresh Windows VM qualification.
+Core CLI built in 38.47 seconds; six real Danish parity fixtures and 54 app checks
+passed. Full Core engine unit suites and macOS-machine parity were not run.
+
+Final isolated payload PASS: 25 real desktop checks on the exact artifact above,
+including Unicode Open/Save, copied outside the workspace with SDK paths removed.
+Core SHA-256: `F1C61DAADC5017C38A6BBD7C1D69B0F4706BFFAA114C14BB6BA9855E779F5EA3`.
+DA SHA-256: `6970C398077C235355F513D9491E4193534FE88B751AEEA07EDDEF9ABC3FB82F`.
+MSIX length: 125,656,140 bytes. MakeAppx reports `Package creation succeeded`.
+The same test was also run against the preceding staging payload; both passed.
+
+Final diff review found no newly committed binary artifacts, credential patterns,
+private keys or user-specific absolute paths; whitespace check passed. Synthetic
+GUI document canaries were absent from the final run's diagnostics. This is scoped
+evidence, not a claim that all historical logs or user-supplied files are sanitized.
+No unrelated source changes were discarded; macOS and Tools worktrees remain clean.
 
 ## Changed files
 
 The inventory below records the implementation and documentation files, excluding
 ignored build/test/package output.
+
+Other repositories:
+
+- `WordSuggestorCore/Tools/SuggestCLI/main.swift`
+- `WordSuggestorCore/Tools/SuggestCLI/StdioProtocol.swift`
+- `WordSuggestorDocs/90_agent_ops/handoffs/windows_track.md`
+
+Windows repository:
 
 - `.gitattributes`
 - `.gitignore`

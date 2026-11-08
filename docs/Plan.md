@@ -18,8 +18,8 @@ the focus/commit defects. Details: `ReleaseAudit.md` and `Architecture.md`.
 
 ## Next qualification work
 
-1. Record committed-export verification and keep desktop/hardware evidence scoped;
-   never relabel partial GUI coverage as full manual smoke.
+1. Keep the passing clean-export/isolated-payload checks in release qualification
+   and complete human/hardware smoke without relabeling partial coverage.
 2. Choose a signing identity and controlled HTTPS beta endpoint before publishing.
    The user currently has no signing service. Do not install trust roots or create
    an unsigned production feed as a workaround.

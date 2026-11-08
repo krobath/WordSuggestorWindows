@@ -44,7 +44,7 @@ Windows/Core source and builds/tests without copied repository build output.
 | Mouse and Ctrl+1 accepts | PASS internal and real Notepad; correct replacement/caret |
 | Unicode and paragraph offsets | PASS actual RichTextBox with æ/ø/å, emoji and CRLF |
 | User selection preservation/replacement | PASS actual RichTextBox selection scenario |
-| Native file save/open/quit guards | Native Save PASS through actual keyboard; extended Open result in delivery note; manual cancel/overwrite/quit paths still required |
+| Native file save/open/quit guards | Native Open and Save PASS through actual keyboard with Unicode round-trips; manual cancel/overwrite/quit paths still required |
 | External clipboard retention/stale snapshot rejection | PASS Notepad; targeted commit never touches clipboard |
 | Per-monitor placement math | PASS negative-origin/oversized-overlay cases; physical mixed-DPI hardware not tested |
 | Screen-reader semantics | UIA names/TextPattern checked; human Narrator/NVDA walkthrough NOT RUN |
@@ -52,7 +52,8 @@ Windows/Core source and builds/tests without copied repository build output.
 | UIA/Word COM TXT/TTS import | Preserved; app-specific end-to-end qualification still required |
 | TTS/STT/OCR | PASS actual OCR image recognition, OneCore Helle playback process and STT UTF-8/tab wire contract; microphone/human audio/snipping not run |
 | Offline backend | Local path has no backend requirement; actual account/backend integration absent |
-| Standalone copied payload | Result in delivery note; does not prove signed installation |
+| Standalone copied payload | PASS 25 desktop checks outside workspace/SDK paths; does not prove signed installation |
+| Clean committed checkout | PASS fresh app/SQLite/Core builds, six parity fixtures and 54 checks at Windows 54acfb2 / Core 5d8d7a0 |
 | Signed install/update/uninstall/tamper/rollback | NOT RUN: signing identity/feed unavailable; no trust root installed or unsigned feed enabled |
 
 ## Human manual checks still required
