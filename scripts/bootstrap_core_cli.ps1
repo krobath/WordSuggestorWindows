@@ -108,6 +108,25 @@ foreach ($name in @("INCLUDE", "EXTERNAL_INCLUDE", "LIB", "EXTERNAL_LIB", "LIBPA
     Normalize-WindowsSdkPathVar -Name $name -PinnedVersion $WindowsSdkVersion
 }
 
+$requiredInclude = @(
+    (Join-Path $pinnedIncludeRoot "ucrt"),
+    (Join-Path $pinnedIncludeRoot "um"),
+    (Join-Path $pinnedIncludeRoot "shared"),
+    (Join-Path $pinnedIncludeRoot "winrt"),
+    (Join-Path $pinnedIncludeRoot "cppwinrt"),
+    $sqliteBuildRoot
+)
+$requiredLib = @(
+    (Join-Path $pinnedLibRoot "ucrt\x64"),
+    (Join-Path $pinnedLibRoot "um\x64"),
+    $sqliteBuildRoot
+)
+
+Merge-EnvPath -Name "INCLUDE" -Required $requiredInclude
+Merge-EnvPath -Name "EXTERNAL_INCLUDE" -Required $requiredInclude
+Merge-EnvPath -Name "LIB" -Required $requiredLib
+Merge-EnvPath -Name "EXTERNAL_LIB" -Required $requiredLib
+
 $sqliteHeader = Join-Path $sqliteBuildRoot "sqlite3.h"
 $sqliteLib = Join-Path $sqliteBuildRoot "sqlite3.lib"
 
@@ -154,25 +173,6 @@ $env:LIBRARY_PATH = $sqliteBuildRoot
 
 # Swift's SDK owns module maps. Never patch protected Windows SDK files here.
 $null = Get-Command swift -ErrorAction Stop
-$requiredInclude = @(
-    (Join-Path $pinnedIncludeRoot "ucrt"),
-    (Join-Path $pinnedIncludeRoot "um"),
-    (Join-Path $pinnedIncludeRoot "shared"),
-    (Join-Path $pinnedIncludeRoot "winrt"),
-    (Join-Path $pinnedIncludeRoot "cppwinrt"),
-    $sqliteBuildRoot
-)
-$requiredLib = @(
-    (Join-Path $pinnedLibRoot "ucrt\x64"),
-    (Join-Path $pinnedLibRoot "um\x64"),
-    $sqliteBuildRoot
-)
-
-Merge-EnvPath -Name "INCLUDE" -Required $requiredInclude
-Merge-EnvPath -Name "EXTERNAL_INCLUDE" -Required $requiredInclude
-Merge-EnvPath -Name "LIB" -Required $requiredLib
-Merge-EnvPath -Name "EXTERNAL_LIB" -Required $requiredLib
-
 $swiftBuildArgs = @('--package-path', [string]$coreRepo, '--configuration', $Configuration)
 $overlayPath = & (Join-Path $PSScriptRoot 'swift_sdk_overlay.ps1') -PinnedIncludeRoot $pinnedIncludeRoot -OutputDirectory (Join-Path $artifactsRoot 'swift-sdk-overlay')
 $compilerArgs = @('-Xswiftc','-windows-sdk-version','-Xswiftc',$WindowsSdkVersion,
