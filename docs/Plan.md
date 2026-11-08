@@ -1,3 +1,41 @@
+# Current Windows beta track — 2026-11-08
+
+This section supersedes the historical plan below. Evidence and release gates are
+in `ManualSmoke.md`, `ReleaseAudit.md` and the 2026-11-08 delivery note. No signed
+public RC is claimed while signing/install/update qualification remains open.
+
+| Sprint | Delivery | Status |
+|---|---|---|
+| WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
+| WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
+| WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
+| WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |
+
+The April 17 editor-split handoff replaces the older expandable-toolbar contract.
+WPF is retained because its native controls/adapters work; a WinUI/new-solution
+rewrite would discard working speech/OCR/selection/settings code without resolving
+the focus/commit defects. Details: `ReleaseAudit.md` and `Architecture.md`.
+
+## Next qualification work
+
+1. Record committed-export verification and keep desktop/hardware evidence scoped;
+   never relabel partial GUI coverage as full manual smoke.
+2. Choose a signing identity and controlled HTTPS beta endpoint before publishing.
+   The user currently has no signing service. Do not install trust roots or create
+   an unsigned production feed as a workaround.
+3. Qualify signed N → N+1 → known-good N+2, offline/interrupted installation,
+   uninstall retention, screen reader and physical mixed-DPI/multiple monitors.
+4. Add qualified Word, Outlook, HTML input and Google Docs commit adapters in that
+   order. Generic keyboard injection remains gated; selected-text import is separate.
+5. Expose Core document analysis and restore word coloring/diagnostic popovers from
+   Core results; do not restore C# suffix guesses. Preserve existing preferences.
+6. Qualify modern metadata-complete Danish and later EN/DE packs on Windows/macOS
+   with identical Core revision/pack hashes; legacy DA is an explicit compatibility path.
+
+---
+
+## Historical sprint record (April 2026)
+
 # WordSuggestorWindows Plan
 
 Last updated: `2026-04-15`

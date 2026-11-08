@@ -1,3 +1,40 @@
+# Current native Windows UX contract — 2026-11-08
+
+The April 17 WSA-UX-012 handoff and the supplied November macOS recordings supersede
+the expanded-toolbar descriptions retained below for history. The implementation
+uses three independent surfaces: compact non-activating toolbar, normal activating
+editor, non-activating suggestion overlay. Opening the editor is an explicit focus
+action; ordinary toolbar/candidate clicks preserve the typing target.
+
+Preserved: product icon, action order, language selection semantics, editor command/
+text/status/legend structure, candidate metadata/audio/info, static/follow modes,
+ten candidates/four pages, Ctrl+digits and shared mouse/keyboard acceptance.
+Windows uses normal window chrome, native menus/file dialogs, familiar clipboard
+shortcuts and accessibility names. No AppKit/CGEventTap code was ported.
+
+Real desktop checks cover Notepad plus the normal editor, Unicode/paragraphs,
+candidate mouse/keyboard paths and focus. Core document analysis and right-click
+diagnostic popovers remain deferred. Previous local heuristic coloring is explicitly
+disabled; saved preferences and recognizable control positions remain. Unavailable
+analysis metrics are shown as unavailable, not successful zero-error analysis.
+
+Missing or incompatible packs, missing Core, empty candidates and offline operation
+must remain calm. Selection-import clipboard fallback is explicit and target-verified.
+Unknown caret geometry uses stable static placement, not mouse position.
+
+Reference review: frames from `start_wordsuggestor_click_through_menubarView.mov`,
+`Skrivning i intern editor.mov`, `Features i den interne editor.mov`, `SettingsPanel.mov`
+confirm independent editor/toolbar, dense separate candidate panel, command order
+and grouped settings. Current recordings also show newer macOS document tabs,
+analysis and account surfaces absent from the older handoffs; those are recorded as
+parity gaps, not invented Windows implementations. Reference media stays untracked.
+
+See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
+
+---
+
+## Historical UX plan
+
 # WordSuggestorWindows UI Parity Plan
 
 Last updated: `2026-04-15`

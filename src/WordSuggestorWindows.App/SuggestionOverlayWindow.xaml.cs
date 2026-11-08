@@ -19,6 +19,7 @@ public partial class SuggestionOverlayWindow : Window
     public SuggestionOverlayWindow(MainWindowViewModel viewModel)
     {
         InitializeComponent();
+        NonActivatingWindow.Apply(this);
         _viewModel = viewModel;
         DataContext = viewModel;
         Closed += OnClosed;
@@ -54,7 +55,7 @@ public partial class SuggestionOverlayWindow : Window
         }
 
         DragMove();
-        ManualPlacementCommitted?.Invoke(this, new Point(Left, Top));
+        ManualPlacementCommitted?.Invoke(this, ScreenPlacement.TopLeft(this));
     }
 
     private void SuggestionRow_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -68,6 +69,12 @@ public partial class SuggestionOverlayWindow : Window
         {
             _viewModel.AcceptSuggestion(entry.Suggestion);
         }
+    }
+
+    private void AcceptButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: SuggestionOverlayEntry entry })
+            _viewModel.AcceptSuggestion(entry.Suggestion);
     }
 
     private void SuggestionOverlayWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)

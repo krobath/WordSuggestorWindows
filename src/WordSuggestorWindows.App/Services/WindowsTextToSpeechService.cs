@@ -10,8 +10,7 @@ namespace WordSuggestorWindows.App.Services;
 public sealed class WindowsTextToSpeechService : IDisposable
 {
     private static readonly string DiagnosticLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
+        WindowsDataPaths.Root,
         "diagnostics",
         "tts-flow.log");
     private static readonly Lazy<OneCoreRuntimeStatus> OneCoreRuntimeStatusCache =
@@ -183,7 +182,7 @@ public sealed class WindowsTextToSpeechService : IDisposable
             }
             catch (InvalidOperationException ex)
             {
-                WriteDiagnostic($"Speak process exit inspection failed: {ex.Message}");
+                WriteDiagnostic($"Speak process exit inspection failed: {ex.GetType().Name}");
             }
         }
 
@@ -546,14 +545,7 @@ try {
         }
     }
 
-    private static string TrimForDiagnostic(string value)
-    {
-        var singleLine = value
-            .Replace("\r", " ", StringComparison.Ordinal)
-            .Replace("\n", " ", StringComparison.Ordinal)
-            .Trim();
-        return singleLine.Length <= 500 ? singleLine : singleLine[..500];
-    }
+    private static string TrimForDiagnostic(string value) => "<process diagnostics omitted>";
 
     private void CleanupTemporaryArtifacts()
     {

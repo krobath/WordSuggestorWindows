@@ -1,70 +1,33 @@
-# WordSuggestor macOS -> Windows Parity Matrix
+# Windows evidence-based parity matrix
 
-Last updated: `2026-04-15`
-Status: `Parity plan aligned with macOS UI review`
+Updated 2026-11-08. Source: baseline audit at Windows `4d67106`, current source,
+real Core contract tests and real-desktop smoke. Historical "Done" labels mean code
+was delivered, not all target programs or accessibility modes were verified.
 
-## Legend
-
-- `Shared` - expected to reuse `WordSuggestorCore` or shared semantics
-- `New Windows impl` - requires Windows-native implementation
-- `Deferred` - not part of the first Windows milestone
-
-| Capability | macOS source | Windows strategy | Status |
+| Capability | Baseline finding | Current implementation/evidence | Remaining qualification |
 |---|---|---|---|
-| Shared app icon | `Assets.xcassets/AppIcon.appiconset` | Reuse same app icon asset on Windows | `Baseline done` |
-| Floating top toolbar shell | `FloatingToolbarView` + `FloatingToolbarPanel` | Rebuild with Windows-native chrome and same control ordering | `Baseline done` |
-| Toolbar control ordering | `FloatingToolbarView` | Preserve macOS ordering, allow Windows-native icons where obvious | `Baseline done; visual chrome refinement done in WSA-UX-011` |
-| Toolbar global suggestions toggle | `AppState.isGlobalCaptureEnabled` + `GlobalKeyCaptureManager` | Connect existing Windows toggle to global capture, focused text tracking, overlay session control, and external hotkeys | `Baseline done: WSA-RT-015` |
-| Toolbar language selector | `FloatingToolbarView.supportedLanguages` + `SQLiteLanguagePackSource.defaultLocator` | Replace Danish-only Windows selector with language/pack-aware selector; add flag-based toolbar rendering | `Baseline done: WSA-RT-009; visual flag selector done in WSA-UX-011` |
-| Toolbar word-list button | `FloatingToolbarView` TODO + `SettingsView.domainTab` placeholder | Preserve placeholder/settings behavior until shared domain-list manager exists | `Placeholder parity only` |
-| Toolbar selected-text import | `AppState.importSelectionForAnalysis()` | Use internal editor selection first, then stable live/recent cached Windows UI Automation selection, then guarded clipboard fallback; use a Word-specific COM adapter instead of clipboard fallback for Microsoft Word; track app-specific blockers in a compatibility matrix | `Baseline done: WSA-RT-010 + WSA-RT-010A; stability/guardrails done: WSA-RT-010B; Word adapter done: WSA-RT-010C; diagnostics/matrix done: WSA-TS-002 + WSA-TS-003` |
-| Toolbar OCR action | `ScreenSnipper.swift` + `AppState.ingestOCRText()` | Windows screen snip, Windows OCR via runtime WinRT bridge, clipboard copy, editor ingest, analysis refresh | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B; diagnostics: WSA-RT-011C; file-access-token callback: WSA-RT-011D; callback storage fallback: WSA-RT-011E; launch-contract refresh: WSA-RT-011F; legacy screenclip clipboard compatibility: WSA-RT-011G` |
-| Toolbar speech-to-text action | `AppState.toggleSpeechToTextIntoEditor()` + `SpeechToTextService.swift` | Windows speech recognition bridge with MIC start/stop state and final transcript insertion into the internal editor | `Baseline done: WSA-RT-012` |
-| Toolbar text-to-speech action | `FloatingToolbarView.speakSelection()` + `SpeechHighlighter.swift` | Windows-native selected/staged text speech with external selection mirroring, source-aware Windows voice selection, diagnostics, hotkey path, and editor reading highlight | `Baseline done: WSA-RT-013; voice fallback done: WSA-RT-013A; external selection/highlight pass: WSA-RT-013B; OneCore catalog/runtime in progress: WSA-RT-013D; highlight visibility/restore done: WSA-RT-013E; precise OneCore cue timing done: WSA-RT-013G; stabilization done: WSA-RT-013H; boundary-offset alignment done: WSA-RT-013I` |
-| Toolbar insights action | `ErrorInsightsView.swift` + `ErrorTrackingStore.swift` | Windows local error tracking store plus native insights view | `Baseline done: WSA-RT-014` |
-| Toolbar settings action | SwiftUI `Settings` scene + `SettingsView.swift` | Windows-native settings window preserving macOS semantics | `Baseline done: WSA-UX-010` |
-| Toolbar/action button chrome parity | `FloatingToolbarView` | Rebuild toolbar action-button visuals so Windows remains native but matches macOS hierarchy and affordances more closely | `Done: WSA-UX-011` |
-| Expand/collapse toolbar -> editor shell | `FloatingToolbarInstaller` sizing/placement | Rebuild in Windows panel host | `Baseline done` |
-| Suggestion engine | `WordSuggestorCore` | Reuse shared core | `Shared` |
-| Language packs / SQLite lexicon | `WordSuggestorCore` | Reuse shared core and pack assets | `Shared; Windows dynamic routing baseline done in WSA-RT-009` |
-| Internal editor typing flow | SwiftUI/AppKit app state | Rebuild in Windows app shell | `Baseline done inside structured editor shell` |
-| Editor surface structure | `WordSugestorApp.swift` + `TextAnalyzerPanelView.swift` | Rebuild command row, editor area, status row, and analyzer panel layout natively on Windows | `Baseline done` |
-| Editor command-row chrome | `TextAnalyzerPanelView.swift` command toggles | Restyle `Farver`, `Semantik`, and `Tegnsætning` to match the macOS command-row look more closely | `Done: WSA-UX-011` |
-| Editor analysis coloring | `MacTextEditorRepresentable.swift` + `TextAnalyzer.swift` | Recreate attributed-text behavior in Windows editor | `Planned on top of shell baseline` |
-| Right-click correction/context popover | `MacTextEditorRepresentable.swift` | Start with right-click popover on flagged words | `Planned` |
-| Suggestion list rendering | `SuggestionPanelView.swift` semantics | Recreate with Windows-native UI | `Baseline done in separate overlay window` |
-| Suggestion row metadata | `SuggestionPanelView.swift` candidate rows | Show inline match label plus POS/grammar metadata in Windows overlay | `Baseline done in internal editor path` |
-| Suggestion row kind tinting | `SuggestionPanelView.swift` row background semantics | Preserve distinct visual treatment for ordinary / phonetic / misspelling / synonym | `Baseline done in internal editor path` |
-| Suggestion row speaker/info actions | `SuggestionPanelView.swift` row actions | Recreate with Windows-native action buttons | `Baseline done in internal editor path` |
-| In-app suggestion accept | `AppState` + local commit path | New Windows impl | `Baseline done in overlay` |
-| Suggestion pagination | `AppState.pageSize` + `SuggestionPanelView` | Preserve 10-per-page and up to 4 pages | `Baseline done in internal editor path` |
-| Static/follow-caret placement toggle | `SuggestionPanelView` + `AppState` | Preserve both modes in Windows overlay | `Baseline done in internal editor path` |
-| Manual static placement behavior | `AppState` placement control semantics | Let user drag overlay and keep absolute static placement until moved again | `Baseline done for session runtime` |
-| Follow-caret fallback policy | `AppState` + `MacSuggestionPanelController` | Fall back to static placement when caret confidence is low | `Baseline done in internal editor path` |
-| Windows candidate shortcuts | macOS option-based shortcuts | Use `Ctrl+1` through `Ctrl+0` on Windows | `Baseline done` |
-| Global key capture | `GlobalKeyCaptureManager.swift` | New Windows impl | `Baseline done: WSA-RT-015` |
-| Cross-app focused text access | macOS AX | New Windows impl via Windows APIs | `Baseline done: WSA-RT-015` |
-| Caret anchor extraction | macOS AX | New Windows impl via Windows APIs | `Baseline done: WSA-RT-015` |
-| Floating suggestion panel | `MacSuggestionPanelController.swift` | New Windows impl | `Baseline done in internal editor path` |
-| Settings semantics | `SettingsView.swift` | Preserve semantics, render natively on Windows | `Baseline done: WSA-UX-010` |
-| OCR / screen snip | `ScreenSnipper.swift` | New Windows impl using a legacy screenclip clipboard-image compatibility path first, then Snipping Tool protocol callback fallback, shared-storage token redemption, `file-access-token` parsing, callback-file storage fallback, launch-contract refresh, and Windows OCR bridge | `Baseline done: WSA-RT-011; callback flow: WSA-RT-011B; diagnostics: WSA-RT-011C; file-access-token callback: WSA-RT-011D; callback storage fallback: WSA-RT-011E; launch-contract refresh: WSA-RT-011F; legacy screenclip clipboard compatibility: WSA-RT-011G` |
-| Speech to text | `SpeechToTextService.swift` | New Windows impl through local Windows Desktop Speech Recognition bridge | `Baseline done: WSA-RT-012` |
-| Suggestion row text to speech | `SuggestionPanelView.swift` + system TTS | New Windows impl for overlay row speaker action | `Baseline done in internal editor path` |
-| Full app text to speech feature | `NeuralTTSService.swift` / system TTS | New Windows impl through toolbar-level speech bridge with per-language voice override baseline, external selection hotkey, editor reading highlight, and source-aware OneCore runtime path | `Baseline done: WSA-RT-013; language voice selection: WSA-RT-013A; selection/highlight pass: WSA-RT-013B; OneCore catalog/runtime in progress: WSA-RT-013D; highlight visibility/restore done: WSA-RT-013E; precise OneCore cue timing done: WSA-RT-013G; stabilization done: WSA-RT-013H; boundary-offset alignment done: WSA-RT-013I` |
-| Error insights / diagnostics UI | macOS app views | Windows local insights store and native WPF summary view | `Baseline done: WSA-RT-014` |
+| Native shell | WPF/.NET 9 built; 560×68 toolbar observed | WPF/.NET 10, compact non-activating toolbar; desktop startup/focus checks pass | Human visual approval |
+| Editor window | Shared topmost toolbar/editor conflicted with new handoff | Separate normal activating editor; actual local edits/Unicode/paragraph/selection checks pass with Notepad open | Extended document/file-dialog checks recorded in delivery note |
+| Core reuse | Real CLI but failed builds could return success/stale binary | Versioned stdin JSON, timeout/cancellation/process reap, generation guards; real fixtures and failure-host tests pass | Mac-machine fixture execution |
+| Danish pack | Legacy schema 0, no pack_meta | Read-only integrity/schema validation; explicit DA legacy profile; real suggestions pass | Metadata-complete modern DA artifact |
+| EN/DE | Empty EN file incorrectly considered installed; DE absent | Empty/corrupt/wrong-language/future schema rejected; routing preserved | Actual compatible EN/DE packs |
+| Suggestions/paging | Separate overlay, 10/page, 4 pages | Shared accept path; stale/duplicate results rejected; real mouse/Ctrl+1 pass | Broader keyboard/screen-reader coverage |
+| Caret/selection | End-of-document requests; paragraph offsets/selection fragile | Context before caret, UTF-16 editing transaction, actual multiline emoji/Danish and selection checks pass | Long-document editing/undo soak |
+| Follow/static placement | Mouse/approximate bounds treated as caret; primary-screen clamp | Confirmed caret only, static fallback, persisted physical position and per-monitor geometry | Real mixed DPI/multiple displays; one 96-DPI display tested |
+| External Notepad | Optimistic foreground SendInput; mouse used local path | Snapshot-bound native Edit/RichEdit commit, verified resulting text/caret; real mouse/Ctrl+1/clipboard checks pass | >60,000 UTF-16 units unsupported; more Notepad versions |
+| Word/Outlook/browser commits | Generic route present without E2E qualification | Unsafe route removed; those targets fail closed for suggestion commits | Isolated qualified adapter per host; no generic injection |
+| Selection import | UIA, Word COM, automatic clipboard fallback | UIA/Word COM retained on explicit actions; no passive full-selection poll; explicit snapshot-qualified clipboard import | App-specific import matrix remains mostly untested |
+| Settings/data | Local JSON; no backup/future-schema protection | Same data location/schema, atomic replace/backup, future schema protection; restart tests pass | Signed upgrade/uninstall tests |
+| User words | No Windows persistence/management | Explicit user-word UI, Core overlay format/normalization; restart/future-schema tests pass | Shared learning/profile UI parity |
+| Diagnostics/insights | Raw typed words/window titles; examples always recorded | Typed key capture replaced; stage/outcome diagnostics; stderr omitted; examples off by default; canary checks pass | Retention/rotation and opt-in usage statistics design |
+| TTS | Substantive OneCore/SAPI and highlight implementation | Preserved; sanitized diagnostics; see media/manual smoke evidence | Human hearing/highlight timing across voices |
+| STT | Local speech bridge, historical recognizer limits | Preserved; see media/manual smoke evidence | Real microphone/DA recognizer/permissions |
+| OCR | Legacy screenclip plus callback/WinRT bridge | Preserved; callback GUID checks and sanitized diagnostics | Full interactive snip, cancel, clipboard and packaged callback tests |
+| Analysis/correction | Heuristic C# POS/spelling guesses; real analyzer absent | Neutral rendering and disabled analysis controls; preferences preserved | Core document-analysis bridge and right-click corrections |
+| Login/backend | Not implemented | Offline suggestions require no backend/token; account sync unavailable | Backend contract/access and Windows secure credential storage |
+| Packaging/update | No installer/updater | Validated self-contained MSIX; trusted signing gate; HTTPS App Installer scripts; beta identity/rollback documented | Signing identity/feed, install/update/tamper/uninstall/rollback on VM |
+| Build reproducibility | Only cached local builds proven | Pinned SDK/SQLite checksum, no protected SDK mutation, clean Core release build passed | Clean committed-export result in delivery note |
 
-## First milestone parity target
-
-The next Windows UI parity milestone should cover:
-
-- Internal editor correction and analysis styling baseline
-- Right-click correction/context popover on flagged words
-- Cleaner visual refinement of the overlay and editor pairing
-- Toolbar feature parity roadmap from `WSA-DX-003`, starting with language selection and external-input foundations
-
-## Highest-risk parity areas
-
-1. Global input capture
-2. Caret extraction in external apps
-3. Committing text back into third-party apps
-4. Overlay placement reliability across different Windows apps
+Read `ReleaseAudit.md` for preserve/refactor/restart comparison, `BridgeContract.md`
+for pack/wire details, `Release.md` for secure delivery and `ManualSmoke.md` for
+test scope. No source or runtime behavior was removed merely for aesthetic reasons.

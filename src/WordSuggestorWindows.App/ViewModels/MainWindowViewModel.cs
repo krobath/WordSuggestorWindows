@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -8,7 +8,7 @@ using WordSuggestorWindows.App.Services;
 
 namespace WordSuggestorWindows.App.ViewModels;
 
-public sealed class MainWindowViewModel : INotifyPropertyChanged
+public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 {
     private const int SuggestionPageSize = 10;
     private const int MaxSuggestionPages = 4;
@@ -22,6 +22,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _statusMessage;
     private bool _isBusy;
     private int _caretIndex;
+    private int _selectionStart;
+    private int _selectionEnd;
+    private bool _isLocalEditorActive;
+    private long _requestRevision;
+    private string _suggestionContext = string.Empty;
     private bool _isEditorExpanded;
     private bool _isSuggestionOverlaySessionVisible;
     private bool _isGlobalCaptureEnabled = true;
@@ -51,6 +56,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var settings = _settingsService.Load();
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
+        _selectionStart = _selectionEnd = _caretIndex;
         _statusMessage = string.IsNullOrWhiteSpace(initialEditorText)
             ? "Windows toolbar shell klar. Udvid editoren for at skrive og hente forslag."
             : "Startuptekst er klar. Åbn editoren for at vise og redigere teksten.";
@@ -64,6 +70,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _isSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
         _isPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
         _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
+        _insightsStore.StoreTextExamples = settings.StoreSentenceExamples;
         _suggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
@@ -76,6 +83,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public Func<bool>? CanCommitLocally { get; set; }
+    public Func<ExternalSuggestionCommitRequest, bool>? ExternalCommitRequested { get; set; }
+    public bool IsLocalEditorActive => _isLocalEditorActive;
+
+    public void SetLocalEditorActive(bool active)
+    {
+        if (_isLocalEditorActive == active) return;
+        _isLocalEditorActive = active;
+        ClearSuggestionSession(keepOverlayVisible: false);
+        if (active)
+        {
+            EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+            ScheduleSuggestionsRefresh();
+        }
+        OnPropertyChanged(nameof(ShouldShowSuggestionOverlay));
+    }
+
+    public void UpdateEditorSelection(int start, int end)
+    {
+        CaretIndex = Math.Clamp(end, 0, EditorText.Length);
+        _selectionStart = Math.Clamp(start, 0, EditorText.Length);
+        _selectionEnd = Math.Clamp(end, _selectionStart, EditorText.Length);
+
+        if (_isLocalEditorActive) ScheduleSuggestionsRefresh();
+    }
 
     public ObservableCollection<SuggestionItem> Suggestions { get; }
 
@@ -85,12 +117,23 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public string ProviderDescription => _suggestionProvider.ProviderDescription;
 
+    public Task AddUserWordAsync(string word) => _suggestionProvider.AddUserWordAsync(word);
+
+    public void SaveOverlayPosition(double x, double y)
+    {
+        if (!double.IsFinite(x) || !double.IsFinite(y)) return;
+        var settings = _settingsService.Load();
+        settings.OverlayLeftPhysical = x;
+        settings.OverlayTopPhysical = y;
+        TrySaveSettings(settings);
+    }
+
     public IReadOnlyList<EditorStatusMetric> StatusMetrics =>
     [
         new("Aa", "Tegn", CharacterCount.ToString()),
         new("≡", "Ord", WordCount.ToString()),
-        new("!", "Stavefejl", SpellingCount.ToString()),
-        new("●", "Grammatik/tegnsætning", GrammarCount.ToString())
+        new("!", "Stavefejl", "—"),
+        new("●", "Grammatik/tegnsætning", "—")
     ];
 
     public IReadOnlyList<AnalyzerLegendMetric> AnalyzerLegendMetrics =>
@@ -117,7 +160,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             if (SetProperty(ref _editorText, value))
             {
                 NotifyEditorMetricsChanged();
-                if (ShouldClearSuggestionsForBoundaryText(_editorText))
+                if (ShouldClearSuggestionsForBoundaryText(_editorText[..Math.Clamp(CaretIndex, 0, _editorText.Length)]))
                 {
                     ClearSuggestionSession(keepOverlayVisible: _editorText.Length > 0);
                 }
@@ -157,7 +200,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public int CaretIndex
     {
         get => _caretIndex;
-        set => SetProperty(ref _caretIndex, value);
+        set
+        {
+            if (SetProperty(ref _caretIndex, value))
+            {
+                _selectionStart = _selectionEnd = value;
+            }
+        }
     }
 
     public bool IsEditorExpanded
@@ -201,6 +250,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             if (SetProperty(ref _selectedLanguageOption, value))
             {
+                ClearSuggestionSession(keepOverlayVisible: false);
                 _suggestionProvider.SetLanguage(value);
                 PersistCurrentSettings();
                 OnPropertyChanged(nameof(ProviderDescription));
@@ -214,6 +264,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 }
 
                 StatusMessage = $"{value.DisplayName} er aktivt sprog. {value.PackAvailabilityLabel}.";
+                if (_isExternalSuggestionSessionActive)
+                {
+                    ScheduleSuggestionsRefresh(_externalSuggestionToken, delayMs: 75);
+                    return;
+                }
                 if (ShouldClearSuggestionsForBoundaryText(EditorText))
                 {
                     ClearSuggestionSession(keepOverlayVisible: IsEditorExpanded && EditorText.Length > 0);
@@ -286,9 +341,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         ? "#E5EEF8"
         : "Transparent";
 
-    public string ExpandCollapseGlyph => IsEditorExpanded ? "\uE70E" : "\uE70D";
+    public string ExpandCollapseGlyph => "\uE70F";
 
-    public string ExpandCollapseToolTip => IsEditorExpanded ? "Skjul editor" : "Vis editor";
+    public string ExpandCollapseToolTip => "Åbn editor";
 
     public int CharacterCount => EditorText.Length;
 
@@ -387,7 +442,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public bool HasSuggestions => Suggestions.Count > 0;
 
     public bool ShouldShowSuggestionOverlay =>
-        _isSuggestionOverlaySessionVisible && (IsEditorExpanded || _isExternalSuggestionSessionActive);
+        _isSuggestionOverlaySessionVisible && (_isLocalEditorActive || _isExternalSuggestionSessionActive);
 
     public bool AcceptSelectedSuggestion()
     {
@@ -396,8 +451,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return false;
         }
 
-        ExecuteAcceptSelectedSuggestion();
-        return true;
+        return TryAcceptSelectedSuggestion();
     }
 
     public bool AcceptSuggestion(SuggestionItem suggestion)
@@ -570,7 +624,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void ApplySettingsSnapshot(AppSettingsSnapshot settings)
     {
-        _settingsService.Save(settings);
+        if (!TrySaveSettings(settings)) return;
 
         var selectedLanguage = LanguageOptions.FirstOrDefault(option =>
             string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase));
@@ -584,6 +638,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IsSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
         IsPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
         _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
+        _insightsStore.StoreTextExamples = settings.StoreSentenceExamples;
         SuggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
         NotifyEditorSurfaceStateChanged();
         OnPropertyChanged(nameof(OverlaySupportSummary));
@@ -634,6 +689,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public void UpdateExternalSuggestionToken(string token, IntPtr windowHandle, string source)
     {
+        if (_isLocalEditorActive) return;
         _externalSuggestionWindowHandle = windowHandle;
         _externalSuggestionToken = token;
         _externalSuggestionSource = source;
@@ -664,6 +720,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
+        ClearSuggestionSession(keepOverlayVisible: false);
         _isExternalSuggestionSessionActive = false;
         OnPropertyChanged(nameof(IsExternalSuggestionSessionActive));
         OnPropertyChanged(nameof(ExternalSuggestionWindowHandle));
@@ -719,36 +776,40 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = $"Indsatte '{request.Suggestion.Term}' i den eksterne app. Skriv videre for nye forslag.";
     }
 
-    private void ExecuteAcceptSelectedSuggestion()
+    private void ExecuteAcceptSelectedSuggestion() => TryAcceptSelectedSuggestion();
+
+    private bool TryAcceptSelectedSuggestion()
     {
-        if (SelectedSuggestion is null)
+        if (SelectedSuggestion is null || !Suggestions.Contains(SelectedSuggestion)) return false;
+        if (_isExternalSuggestionSessionActive)
         {
-            return;
+            var request = new ExternalSuggestionCommitRequest(SelectedSuggestion, _externalSuggestionToken,
+                _externalSuggestionToken.Length, _externalSuggestionWindowHandle);
+            if (ExternalCommitRequested?.Invoke(request) != true) return false;
+            CompleteExternalSuggestionCommit(request);
+            return true;
         }
-
-        var acceptedSuggestion = SelectedSuggestion;
-        var acceptedTerm = acceptedSuggestion.Term;
-        var acceptedRankIndex = Suggestions.IndexOf(acceptedSuggestion);
-        var acceptedRank = acceptedRankIndex >= 0 ? acceptedRankIndex + 1 : (int?)null;
-        var typedToken = CurrentTokenAtCaret(EditorText, CaretIndex);
-        var nextText = ReplaceActiveToken(EditorText, CaretIndex, acceptedTerm, out var nextCaretIndex);
-        EditorText = nextText;
-        CaretIndex = nextCaretIndex;
-        if (_isErrorTrackingEnabled)
-        {
-            _insightsStore.RecordAcceptedSuggestion(
-                typedToken,
-                acceptedSuggestion,
-                SelectedLanguageOption.LanguageCode,
-                acceptedRank);
-        }
-
+        if (!_isLocalEditorActive || CanCommitLocally?.Invoke() != true) return false;
+        if (_suggestionContext != EditorText[..Math.Clamp(CaretIndex, 0, EditorText.Length)]) return false;
+        var accepted = SelectedSuggestion;
+        var typed = CurrentTokenAtCaret(EditorText, CaretIndex);
+        var result = EditorCommit.Replace(EditorText, _selectionStart, _selectionEnd, accepted.Term);
+        var rank = Suggestions.IndexOf(accepted) + 1;
+        // Set both backing values before notifying WPF: text/caret are one transaction.
+        _caretIndex = _selectionStart = _selectionEnd = result.Caret;
+        _editorText = result.Text;
+        OnPropertyChanged(nameof(EditorText));
+        OnPropertyChanged(nameof(CaretIndex));
+        NotifyEditorMetricsChanged();
+        if (_isErrorTrackingEnabled) _insightsStore.RecordAcceptedSuggestion(typed, accepted, SelectedLanguageOption.LanguageCode, rank);
         ClearSuggestionSession(keepOverlayVisible: true);
-        StatusMessage = $"Indsatte '{acceptedTerm}'. Skriv videre for nye forslag.";
+        StatusMessage = "Forslag indsat. Skriv videre for nye forslag.";
+        return true;
     }
 
     private void ClearSuggestionSession(bool keepOverlayVisible)
     {
+        Interlocked.Increment(ref _requestRevision);
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = null;
@@ -767,22 +828,26 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ScheduleSuggestionsRefresh()
     {
-        ScheduleSuggestionsRefresh(EditorText, delayMs: 220);
+        if (!_isLocalEditorActive) return;
+        ScheduleSuggestionsRefresh(EditorText[..Math.Clamp(CaretIndex, 0, EditorText.Length)], delayMs: 180);
     }
 
     private void ScheduleSuggestionsRefresh(string text, int delayMs)
     {
+        Interlocked.Increment(ref _requestRevision);
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = new CancellationTokenSource();
         var token = _suggestionCts.Token;
+        var revision = _requestRevision;
+        ClearSuggestionResults(keepOverlayVisible: text.Length > 0);
 
         _ = Task.Run(async () =>
         {
             try
             {
                 await Task.Delay(delayMs, token);
-                await RefreshSuggestionsAsync(text, token);
+                await RefreshSuggestionsAsync(text, revision, token);
             }
             catch (OperationCanceledException)
             {
@@ -790,12 +855,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }, token);
     }
 
-    private async Task RefreshSuggestionsAsync(string text, CancellationToken cancellationToken)
+    private async Task RefreshSuggestionsAsync(string text, long revision, CancellationToken cancellationToken)
     {
         if (text.Length == 0)
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 ClearSuggestionResults(keepOverlayVisible: false);
                 StatusMessage = "Skriv i editoren for at hente live forslag fra WordSuggestorCore.";
             });
@@ -806,6 +872,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 ClearSuggestionResults(keepOverlayVisible: true);
                 StatusMessage = "Ordforslagsboksen er klar til næste ord.";
             });
@@ -817,6 +884,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 ClearSuggestionResults(keepOverlayVisible: true);
                 StatusMessage = $"{selectedLanguage.DisplayName} er valgt, men sprogpakken mangler.";
             });
@@ -825,10 +893,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
         await App.Current.Dispatcher.InvokeAsync(() =>
         {
+            if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
             _isSuggestionOverlaySessionVisible = true;
             IsBusy = true;
             UpdateSuggestionPageState();
-            StatusMessage = "Requesting suggestions from WordSuggestorCore...";
+            StatusMessage = "Henter ordforslag…";
         });
 
         try
@@ -837,17 +906,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 _isSuggestionOverlaySessionVisible = true;
+                _suggestionContext = text;
                 Suggestions.Clear();
-                foreach (var suggestion in suggestions)
+                foreach (var suggestion in suggestions.Take(40))
                 {
                     Suggestions.Add(suggestion);
                 }
 
                 SelectedSuggestion = VisibleSuggestions.FirstOrDefault()?.Suggestion;
-                StatusMessage = suggestions.Count == 0
-                    ? "No suggestions returned for the current input."
-                    : $"Received {suggestions.Count} suggestion(s) from WordSuggestorCore.";
+                StatusMessage = _suggestionProvider.HealthWarning ?? (suggestions.Count == 0
+                    ? "Ingen forslag til den aktuelle tekst."
+                    : $"{suggestions.Count} ordforslag klar.");
             });
         }
         catch (OperationCanceledException)
@@ -857,13 +928,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 ClearSuggestionResults(keepOverlayVisible: false);
-                StatusMessage = $"Suggestion request failed: {ex.Message}";
+                StatusMessage = $"Ordforslag er midlertidigt utilgængelige ({ex.GetType().Name}). Kontrollér Core og sprogpakken.";
             });
         }
         finally
         {
-            await App.Current.Dispatcher.InvokeAsync(() => IsBusy = false);
+            await App.Current.Dispatcher.InvokeAsync(() => { if (revision == _requestRevision) IsBusy = false; });
         }
     }
 
@@ -906,32 +978,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return text[start..safeCaret];
     }
 
-    private static string ReplaceActiveToken(string text, int caretIndex, string replacement, out int nextCaretIndex)
-    {
-        var safeCaret = Math.Clamp(caretIndex, 0, text.Length);
-        var start = safeCaret;
-        var end = safeCaret;
-
-        while (start > 0 && IsTokenCharacter(text[start - 1]))
-        {
-            start--;
-        }
-
-        while (end < text.Length && IsTokenCharacter(text[end]))
-        {
-            end++;
-        }
-
-        var prefix = text[..start];
-        var suffix = text[end..];
-        var spacing = suffix.StartsWith(' ') || suffix.StartsWith(Environment.NewLine) ? string.Empty : " ";
-        var nextText = prefix + replacement + spacing + suffix;
-        nextCaretIndex = (prefix + replacement + spacing).Length;
-        return nextText;
-    }
-
-    private static bool IsTokenCharacter(char c) =>
-        char.IsLetterOrDigit(c) || c is '\'' or '-';
+    private static bool IsTokenCharacter(char c) => EditorCommit.IsTokenCharacter(c);
 
     private static bool ShouldClearSuggestionsForBoundaryText(string text) =>
         text.Length == 0 || !HasActiveSuggestionToken(text);
@@ -980,7 +1027,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         return SelectedLanguageOption.LanguageCode;
     }
 
-    private void PersistCurrentSettings() => _settingsService.Save(CaptureCurrentSettings(_settingsService.Load()));
+    private void PersistCurrentSettings() => TrySaveSettings(CaptureCurrentSettings(_settingsService.Load()));
+
+    private bool TrySaveSettings(AppSettingsSnapshot settings)
+    {
+        try { _settingsService.Save(settings); return true; }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            StatusMessage = "Indstillingerne kunne ikke gemmes. Eksisterende data er bevaret.";
+            return false;
+        }
+    }
 
     private static SuggestionPlacementMode ResolveSuggestionPlacementMode(string? value) =>
         string.Equals(value, "static", StringComparison.OrdinalIgnoreCase)
@@ -1013,6 +1070,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     {
         OnPropertyChanged(nameof(EditorReadinessSummary));
         OnPropertyChanged(nameof(AnalyzerToggleSummary));
+    }
+
+    public void Dispose()
+    {
+        Interlocked.Increment(ref _requestRevision);
+        _suggestionCts?.Cancel();
+        _suggestionCts?.Dispose();
+        _suggestionCts = null;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

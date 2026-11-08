@@ -8,253 +8,175 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 {
-    private const int DefaultMaxSuggestions = 40;
-    private readonly string _workspaceRoot;
-    private readonly string _coreRepoPath;
-    private readonly string? _prebuiltCliPath;
+    private readonly string _baseDirectory;
+    private readonly string? _workspaceRoot;
+    private readonly string _localDataRoot;
+    private readonly string? _cliPath;
+    private readonly TimeSpan _timeout;
+    private readonly SemaphoreSlim _processGate = new(1, 1);
     private LanguageOption _selectedLanguage;
+    private readonly Dictionary<string, (long Length, DateTime Modified, PackValidation Result)> _validated = new();
 
-    public WordSuggestorCoreCliSuggestionProvider()
+    public WordSuggestorCoreCliSuggestionProvider(string? baseDirectory = null, string? localDataRoot = null,
+        string? cliPath = null, TimeSpan? timeout = null)
     {
-        _workspaceRoot = ResolveWorkspaceRoot();
-        _coreRepoPath = Path.Combine(_workspaceRoot, "WordSuggestorCore");
-        _prebuiltCliPath = ResolvePrebuiltCliPath();
-        LanguageOptions = BuildLanguageOptions();
-        _selectedLanguage = LanguageOptions.FirstOrDefault(option => option.LanguageCode == "da-DK")
-            ?? LanguageOptions.FirstOrDefault(option => option.IsPackAvailable)
-            ?? LanguageOptions.First();
+        _baseDirectory = baseDirectory ?? AppContext.BaseDirectory;
+        _localDataRoot = localDataRoot ?? WindowsDataPaths.Root;
+        _workspaceRoot = FindWorkspace(_baseDirectory);
+        _timeout = timeout ?? TimeSpan.FromSeconds(8);
+        _cliPath = cliPath ?? ResolveCli();
+        LanguageOptions = SupportedLanguages.Select(language => language with { PackPath = ResolvePack(language) }).ToArray();
+        _selectedLanguage = LanguageOptions.First();
     }
 
-    public string ProviderDescription =>
-        _prebuiltCliPath is not null
-            ? $"WordSuggestorCore CLI ({SelectedLanguage.ShortLabel}, {Path.GetFileName(_prebuiltCliPath)})"
-            : $"WordSuggestorCore CLI ({SelectedLanguage.ShortLabel}, swift run fallback)";
-
+    public string ProviderDescription => $"WordSuggestorCore JSON v1 ({SelectedLanguage.ShortLabel})";
+    public string? HealthWarning { get; private set; }
     public IReadOnlyList<LanguageOption> LanguageOptions { get; }
-
     public LanguageOption SelectedLanguage => _selectedLanguage;
+    public void SetLanguage(LanguageOption language) => _selectedLanguage = LanguageOptions.FirstOrDefault(l => l.LanguageCode == language.LanguageCode) ?? LanguageOptions.First();
 
-    public void SetLanguage(LanguageOption language)
+    public async Task<IReadOnlyList<SuggestionItem>> SuggestAsync(string textBeforeCaret, CancellationToken cancellationToken)
     {
-        var next = LanguageOptions.FirstOrDefault(option => option.LanguageCode == language.LanguageCode)
-            ?? LanguageOptions.First();
-        _selectedLanguage = next;
+        if (string.IsNullOrWhiteSpace(textBeforeCaret)) return [];
+        var response = await ExecuteAsync("suggest", textBeforeCaret, cancellationToken);
+        return response.Suggestions.Take(40).Select(row => new SuggestionItem(row.Term, row.Score, row.Kind, row.Type, row.Pos, row.Gram)).ToArray();
     }
 
-    public async Task<IReadOnlyList<SuggestionItem>> SuggestAsync(
-        string textBeforeCaret,
-        CancellationToken cancellationToken)
+    public async Task AddUserWordAsync(string word, CancellationToken cancellationToken = default) =>
+        _ = await ExecuteAsync("addUserWord", word, cancellationToken);
+
+    private async Task<BridgeResponse> ExecuteAsync(string operation, string text, CancellationToken cancellationToken)
     {
-        var normalizedInput = textBeforeCaret.TrimEnd();
-        if (string.IsNullOrWhiteSpace(normalizedInput))
-        {
-            return [];
-        }
-
         var language = SelectedLanguage;
-        if (!language.IsPackAvailable)
-        {
-            return [];
-        }
-
-        EnsureCoreArtifactsExist(language);
-
-        var tempInputPath = Path.Combine(Path.GetTempPath(), $"wsw_input_{Guid.NewGuid():N}.txt");
-
+        if (language.PackPath is null || !ValidateCached(language.PackPath, language).Compatible)
+            throw new InvalidOperationException("Sprogpakken mangler eller er inkompatibel.");
+        if (_cliPath is null || !File.Exists(_cliPath)) throw new FileNotFoundException("Core er ikke installeret.");
+        await _processGate.WaitAsync(cancellationToken);
         try
         {
-            await File.WriteAllTextAsync(
-                tempInputPath,
-                normalizedInput + Environment.NewLine,
-                Encoding.UTF8,
-                cancellationToken);
-
-            var startInfo = BuildStartInfo(tempInputPath, language);
-            using var process = new Process { StartInfo = startInfo };
-
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
-
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-
-            if (process.ExitCode != 0)
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(_timeout);
+            var token = deadline.Token;
+            var requestId = Guid.NewGuid().ToString("N");
+            var userWordsPath = Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(userWordsPath)!);
+            var request = new { version = 1, requestId, operation, language = language.LanguageCode,
+                packPath = language.PackPath, textBeforeCaret = text.Length > 16000 ? text[^16000..] : text,
+                maxSuggestions = 40, userWordsPath };
+            var info = new ProcessStartInfo(_cliPath)
             {
-                throw new InvalidOperationException(
-                    $"WordSuggestorCore CLI exited with code {process.ExitCode}.{Environment.NewLine}{stderr}".Trim());
-            }
-
-            var rows = JsonSerializer.Deserialize<List<CliRequestRow>>(stdout, JsonOptions.Default);
-            var firstRow = rows?.FirstOrDefault();
-
-            return firstRow?.Suggestions?
-                .Select(static suggestion => new SuggestionItem(
-                    suggestion.Term,
-                    suggestion.Score,
-                    suggestion.Kind,
-                    suggestion.Type,
-                    suggestion.Pos,
-                    suggestion.Gram))
-                .ToList()
-                ?? [];
-        }
-        finally
-        {
-            TryDelete(tempInputPath);
-        }
-    }
-
-    private ProcessStartInfo BuildStartInfo(string inputPath, LanguageOption language)
-    {
-        if (_prebuiltCliPath is not null)
-        {
-            return new ProcessStartInfo
-            {
-                FileName = _prebuiltCliPath,
-                Arguments = BuildCliArguments(inputPath, language),
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = _coreRepoPath,
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = Path.GetDirectoryName(_cliPath)!
             };
-        }
-
-        return new ProcessStartInfo
-        {
-            FileName = "swift",
-            Arguments = $"run --package-path \"{_coreRepoPath}\" WordSuggestorSuggestCLI {BuildCliArguments(inputPath, language)}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = _coreRepoPath,
-        };
-    }
-
-    private string BuildCliArguments(string inputPath, LanguageOption language)
-    {
-        return $"--lang {language.LanguageCode} --pack \"{language.PackPath}\" --inputs \"{inputPath}\" --k {DefaultMaxSuggestions}";
-    }
-
-    private void EnsureCoreArtifactsExist(LanguageOption language)
-    {
-        if (!Directory.Exists(_coreRepoPath))
-        {
-            throw new DirectoryNotFoundException($"Could not locate WordSuggestorCore repository at '{_coreRepoPath}'.");
-        }
-
-        if (string.IsNullOrWhiteSpace(language.PackPath) || !File.Exists(language.PackPath))
-        {
-            throw new FileNotFoundException(
-                $"Could not locate {language.DisplayName} pack for '{language.LanguageCode}'.",
-                language.PackPath);
-        }
-    }
-
-    private IReadOnlyList<LanguageOption> BuildLanguageOptions() =>
-        SupportedLanguages
-            .Select(template => template with { PackPath = ResolvePackPath(template) })
-            .ToArray();
-
-    private string? ResolvePackPath(LanguageOption language)
-    {
-        var searchRoots = new List<string>();
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        if (!string.IsNullOrWhiteSpace(appData))
-        {
-            searchRoots.Add(Path.Combine(appData, "WordSuggestor", "Packs"));
-        }
-
-        searchRoots.Add(Path.Combine(_workspaceRoot, "WordSuggestorWindows", "Packs"));
-        searchRoots.Add(Path.Combine(_coreRepoPath, "Ressources"));
-
-        foreach (var root in searchRoots.Where(Directory.Exists))
-        {
-            var versioned = Directory
-                .EnumerateFiles(root, $"{language.PackTag}_pack_v*.sqlite", SearchOption.TopDirectoryOnly)
-                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (versioned is not null)
+            info.ArgumentList.Add("--stdio-json-v1");
+            // Pack/runtime logs must not contain user content, even on process failure.
+            info.Environment["WORDSUGGESTOR_CORE_DEBUG"] = "0";
+            using var process = new Process { StartInfo = info };
+            process.Start();
+            var stdout = ReadBoundedAsync(process.StandardOutput, 2 * 1024 * 1024, token);
+            var stderr = ReadBoundedAsync(process.StandardError, 256 * 1024, token);
+            try
             {
-                return versioned;
+                await process.StandardInput.WriteAsync(JsonSerializer.Serialize(request).AsMemory(), token);
+                process.StandardInput.Close();
+                await process.WaitForExitAsync(token);
+                var output = await stdout;
+                _ = await stderr; // never forward raw process diagnostics into UI/logs
+                if (process.ExitCode != 0) throw new InvalidOperationException($"Core exit code {process.ExitCode}.");
+                var response = JsonSerializer.Deserialize<BridgeResponse>(output, JsonOptions);
+                if (response is null || response.Version != 1 || response.RequestId != requestId)
+                    throw new InvalidOperationException("Core-protokollen er inkompatibel.");
+                if (response.ErrorCode is not null) throw new InvalidOperationException("Core afviste forespørgslen.");
+                HealthWarning = response.WarningCode == "user_words_unavailable" ? "Brugerord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
+                if (response.Suggestions is null || response.Suggestions.Any(r => string.IsNullOrWhiteSpace(r.Term) || r.Term.Length > 512 || !double.IsFinite(r.Score)))
+                    throw new InvalidOperationException("Core returnerede ugyldige forslag.");
+                return response;
             }
-
-            var alias = Path.Combine(root, $"{language.PackTag}_pack.sqlite");
-            if (File.Exists(alias))
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            { throw new TimeoutException("Core svarede ikke inden tidsgrænsen."); }
+            finally
             {
-                return alias;
-            }
-
-            if (!string.IsNullOrWhiteSpace(language.LegacyPackFileName))
-            {
-                var legacy = Path.Combine(root, language.LegacyPackFileName);
-                if (File.Exists(legacy))
+                if (!process.HasExited)
                 {
-                    return legacy;
+                    process.Kill(entireProcessTree: true);
+                    using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    try { await process.WaitForExitAsync(cleanup.Token); } catch (OperationCanceledException) { }
                 }
+                try { await Task.WhenAll(stdout, stderr); } catch (Exception) { /* observed, no content logging */ }
             }
         }
+        finally { _processGate.Release(); }
+    }
 
+    private static async Task<string> ReadBoundedAsync(StreamReader reader, int maximum, CancellationToken token)
+    {
+        var result = new StringBuilder();
+        var buffer = new char[4096];
+        int count;
+        while ((count = await reader.ReadAsync(buffer.AsMemory(), token)) > 0)
+        {
+            if (result.Length + count > maximum) throw new InvalidOperationException("Core response exceeded limit.");
+            result.Append(buffer, 0, count);
+        }
+        return result.ToString();
+    }
+
+    private PackValidation ValidateCached(string path, LanguageOption language)
+    {
+        if (!File.Exists(path)) return new(false, "missing");
+        var file = new FileInfo(path);
+        lock (_validated)
+        {
+            if (_validated.TryGetValue(path, out var cached) && cached.Length == file.Length && cached.Modified == file.LastWriteTimeUtc) return cached.Result;
+            var result = LanguagePackValidator.Validate(path, language.PackTag,
+                Path.GetFileName(path) == language.LegacyPackFileName);
+            _validated[path] = (file.Length, file.LastWriteTimeUtc, result);
+            return result;
+        }
+    }
+
+    private string? ResolvePack(LanguageOption language)
+    {
+        var roots = new List<string> { Path.Combine(_localDataRoot, "Packs"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WordSuggestor", "Packs"),
+            Path.Combine(_baseDirectory, "Packs") };
+        if (_workspaceRoot is not null)
+        {
+            roots.Add(Path.Combine(_workspaceRoot, "WordSuggestorWindows", "Packs"));
+            roots.Add(Path.Combine(_workspaceRoot, "WordSuggestorCore", "Ressources"));
+        }
+        foreach (var root in roots.Where(Directory.Exists))
+        {
+            var files = Directory.EnumerateFiles(root, $"{language.PackTag}_pack_v*.sqlite").ToList();
+            files.Add(Path.Combine(root, $"{language.PackTag}_pack.sqlite"));
+            if (language.LegacyPackFileName is not null) files.Add(Path.Combine(root, language.LegacyPackFileName));
+            var valid = files.Where(File.Exists).Select(path => (Path: path, Result: ValidateCached(path, language)))
+                .Where(pack => pack.Result.Compatible)
+                .OrderByDescending(pack => Version.TryParse(pack.Result.Version, out var version) ? version : new Version(0, 0))
+                .ThenBy(pack => pack.Path, StringComparer.Ordinal).FirstOrDefault();
+            if (valid.Path is not null) return valid.Path;
+        }
         return null;
     }
 
-    private string ResolveWorkspaceRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (current is not null)
-        {
-            if (Directory.Exists(Path.Combine(current.FullName, "WordSuggestorCore")) &&
-                Directory.Exists(Path.Combine(current.FullName, "WordSuggestorWindows")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException(
-            "Could not locate the workspace root containing both WordSuggestorCore and WordSuggestorWindows.");
-    }
-
-    private string? ResolvePrebuiltCliPath()
+    private string? ResolveCli()
     {
         var configured = Environment.GetEnvironmentVariable("WORDSUGGESTOR_SUGGEST_CLI_PATH");
-        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
-        {
-            return configured;
-        }
-
-        var candidates = new[]
-        {
-            Path.Combine(_coreRepoPath, ".build", "debug", "WordSuggestorSuggestCLI.exe"),
-            Path.Combine(_coreRepoPath, ".build", "debug", "WordSuggestorSuggestCLI"),
-            Path.Combine(_coreRepoPath, ".build", "x86_64-unknown-windows-msvc", "debug", "WordSuggestorSuggestCLI.exe"),
-        };
-
-        return candidates.FirstOrDefault(File.Exists);
+        if (!string.IsNullOrWhiteSpace(configured)) return Path.GetFullPath(configured);
+        var bundled = Path.Combine(_baseDirectory, "Core", "WordSuggestorSuggestCLI.exe");
+        if (File.Exists(bundled)) return bundled;
+        if (_workspaceRoot is null) return null;
+        return new[] { Path.Combine(_workspaceRoot, "WordSuggestorCore", ".build", "debug", "WordSuggestorSuggestCLI.exe"),
+            Path.Combine(_workspaceRoot, "WordSuggestorCore", ".build", "x86_64-unknown-windows-msvc", "debug", "WordSuggestorSuggestCLI.exe") }.FirstOrDefault(File.Exists);
     }
 
-    private static void TryDelete(string path)
+    private static string? FindWorkspace(string directory)
     {
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch
-        {
-        }
+        for (var current = new DirectoryInfo(directory); current is not null; current = current.Parent)
+            if (Directory.Exists(Path.Combine(current.FullName, "WordSuggestorCore")) && Directory.Exists(Path.Combine(current.FullName, "WordSuggestorWindows"))) return current.FullName;
+        return null;
     }
 
     private static readonly LanguageOption[] SupportedLanguages =
@@ -322,33 +244,8 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
         }
     ];
 
-    private sealed class CliRequestRow
-    {
-        public required string Input { get; init; }
 
-        public required List<CliSuggestionRow> Suggestions { get; init; }
-    }
-
-    private sealed class CliSuggestionRow
-    {
-        public required string Term { get; init; }
-
-        public required double Score { get; init; }
-
-        public required string Kind { get; init; }
-
-        public string Type { get; init; } = "word";
-
-        public string? Pos { get; init; }
-
-        public string? Gram { get; init; }
-    }
-
-    private static class JsonOptions
-    {
-        public static readonly JsonSerializerOptions Default = new()
-        {
-            PropertyNameCaseInsensitive = true,
-        };
-    }
+    private sealed record BridgeResponse(int Version, string RequestId, List<BridgeSuggestion> Suggestions, string? ErrorCode, string? WarningCode = null);
+    private sealed record BridgeSuggestion(string Term, double Score, string Kind, string Type = "word", string? Pos = null, string? Gram = null);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 }

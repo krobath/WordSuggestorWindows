@@ -1,5 +1,7 @@
 param(
     [string]$WindowsSdkVersion = "10.0.22621.0",
+    [ValidateSet("debug", "release")][string]$Configuration = "debug",
+    [string]$ScratchPath,
     [switch]$SkipCliBuild
 )
 
@@ -63,58 +65,6 @@ function Normalize-WindowsSdkPathVar {
     [Environment]::SetEnvironmentVariable($Name, ($filtered -join ';'), "Process")
 }
 
-function Resolve-ModulemapSource {
-    param(
-        [string[]]$Names,
-        [string[]]$Roots
-    )
-
-    foreach ($root in $Roots) {
-        foreach ($name in $Names) {
-            $candidate = Join-Path $root $name
-            if (Test-Path $candidate) {
-                return $candidate
-            }
-        }
-    }
-
-    return $null
-}
-
-function Ensure-Modulemap {
-    param(
-        [string]$Label,
-        [string]$Destination,
-        [string[]]$SourceNames,
-        [bool]$Required,
-        [string[]]$Roots
-    )
-
-    if (Test-Path $Destination) {
-        return
-    }
-
-    $source = Resolve-ModulemapSource -Names $SourceNames -Roots $Roots
-    if ($source) {
-        New-Item -ItemType Directory -Force -Path (Split-Path $Destination -Parent) | Out-Null
-        Copy-Item $source -Destination $Destination -Force
-        return
-    }
-
-    $existing = foreach ($root in $Roots) {
-        if (Test-Path $root) {
-            Get-ChildItem -Path $root -Filter "*.modulemap" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
-        }
-    }
-
-    $message = "Missing modulemap source for $Label. Expected one of [$($SourceNames -join ', ')]. Source roots: [$($Roots -join '; ')]. Existing modulemaps: [$($existing -join ', ')]."
-    if ($Required) {
-        throw $message
-    }
-
-    Write-Warning $message
-}
-
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $workspaceRoot = Split-Path $repoRoot -Parent
 $coreRepo = Join-Path $workspaceRoot "WordSuggestorCore"
@@ -122,7 +72,14 @@ $artifactsRoot = Join-Path $repoRoot ".artifacts"
 $sqliteRoot = Join-Path $artifactsRoot "sqlite-dev"
 $sqliteSrcRoot = Join-Path $sqliteRoot "src"
 $sqliteBuildRoot = Join-Path $sqliteRoot "build"
-$vsDevShell = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\Launch-VsDevShell.ps1"
+$vsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+$vsRoot = $env:VSINSTALLDIR
+if (Test-Path -LiteralPath $vsWhere) {
+    $vsRoot = & $vsWhere -latest -version '[17.0,18.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    if ($LASTEXITCODE -ne 0) { throw 'Visual Studio toolchain discovery failed.' }
+}
+if (-not $vsRoot) { throw 'Visual Studio 2022 C++ tools were not found. Install the Desktop development with C++ workload.' }
+$vsDevShell = Join-Path $vsRoot 'Common7\Tools\Launch-VsDevShell.ps1'
 
 if (-not (Test-Path $coreRepo)) {
     throw "WordSuggestorCore repo not found at '$coreRepo'."
@@ -155,55 +112,14 @@ $sqliteHeader = Join-Path $sqliteBuildRoot "sqlite3.h"
 $sqliteLib = Join-Path $sqliteBuildRoot "sqlite3.lib"
 
 if (-not ((Test-Path $sqliteHeader) -and (Test-Path $sqliteLib))) {
-    $candidates = New-Object System.Collections.Generic.List[hashtable]
-    try {
-        $downloadPage = Invoke-WebRequest -Uri "https://www.sqlite.org/download.html"
-        $match = [regex]::Match($downloadPage.Content, '(20[0-9]{2})/sqlite-amalgamation-([0-9]{7})\.zip')
-        if ($match.Success) {
-            $latestYear = [int]$match.Groups[1].Value
-            $latestTag = $match.Groups[2].Value
-            $candidates.Add(@{
-                Label = "latest-$latestTag"
-                Tag = $latestTag
-                Years = @($latestYear, $latestYear - 1, $latestYear + 1)
-            })
-        }
-    } catch {
-        Write-Host "SQLite latest resolution failed: $($_.Exception.Message). Using fallback list."
+    $zipPath = Join-Path $sqliteRoot "sqlite-amalgamation-3460000-2024.zip"
+    if (-not (Test-Path -LiteralPath $zipPath)) {
+        Invoke-WebRequest -UseBasicParsing -Uri "https://www.sqlite.org/2024/sqlite-amalgamation-3460000.zip" -OutFile $zipPath
     }
-
-    $candidates.Add(@{ Label = "3.46.0"; Tag = "3460000"; Years = @(2024, 2025, 2026) })
-    $candidates.Add(@{ Label = "3.45.3"; Tag = "3450300"; Years = @(2024, 2025, 2026) })
-    $candidates.Add(@{ Label = "3.44.2"; Tag = "3440200"; Years = @(2023, 2024, 2025, 2026) })
-
-    $zipPath = $null
-    $selected = $null
-    $triedKeys = New-Object System.Collections.Generic.HashSet[string]
-    foreach ($candidate in $candidates) {
-        foreach ($year in $candidate.Years) {
-            $tryKey = "$year-$($candidate.Tag)"
-            if ($triedKeys.Contains($tryKey)) { continue }
-            [void]$triedKeys.Add($tryKey)
-            $url = "https://www.sqlite.org/$year/sqlite-amalgamation-$($candidate.Tag).zip"
-            $probeZip = Join-Path $sqliteRoot "sqlite-amalgamation-$($candidate.Tag)-$year.zip"
-            try {
-                Invoke-WebRequest -Uri $url -OutFile $probeZip
-                $zipPath = $probeZip
-                $selected = $candidate
-                break
-            } catch {
-                Write-Host "SQLite download miss for $url"
-            }
-        }
-        if ($selected) { break }
+    $expectedHash = "712A7D09D2A22652FB06A49AF516E051979A3984ADB067DA86760E60ED51A7F5"
+    if ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash -ne $expectedHash) {
+        throw "Pinned SQLite 3.46.0 archive checksum mismatch."
     }
-
-    if (-not $selected -or -not $zipPath) {
-        throw "Failed to download any SQLite amalgamation candidate."
-    }
-
-    Remove-Item $sqliteSrcRoot -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Force -Path $sqliteSrcRoot | Out-Null
     Expand-Archive -Path $zipPath -DestinationPath $sqliteSrcRoot -Force
 
     $sqliteSourceDir = Get-ChildItem -Path $sqliteSrcRoot -Directory | Where-Object { $_.Name -like "sqlite-amalgamation-*" } | Select-Object -First 1
@@ -236,28 +152,8 @@ $env:CPATH = $sqliteBuildRoot
 $env:C_INCLUDE_PATH = $sqliteBuildRoot
 $env:LIBRARY_PATH = $sqliteBuildRoot
 
-$swiftExe = (Get-Command swift -ErrorAction Stop).Source
-$toolchainShare = Join-Path (Split-Path $swiftExe -Parent) "..\share"
-$toolchainShare = [System.IO.Path]::GetFullPath($toolchainShare)
-$sdkShare = if ($env:SDKROOT) { Join-Path $env:SDKROOT "usr\share" } else { $null }
-$sourceRoots = @($sdkShare, $toolchainShare) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-if (-not $sourceRoots -or $sourceRoots.Count -eq 0) {
-    throw "No modulemap source roots found. SDKROOT=$env:SDKROOT toolchainShare=$toolchainShare"
-}
-
-try {
-    Ensure-Modulemap -Label "ucrt" -Destination (Join-Path $pinnedIncludeRoot "ucrt\module.modulemap") -SourceNames @("ucrt.modulemap") -Required $true -Roots $sourceRoots
-    Ensure-Modulemap -Label "winsdk_um" -Destination (Join-Path $pinnedIncludeRoot "um\module.modulemap") -SourceNames @("winsdk_um.modulemap") -Required $true -Roots $sourceRoots
-    Ensure-Modulemap -Label "winsdk_shared" -Destination (Join-Path $pinnedIncludeRoot "shared\module.modulemap") -SourceNames @("winsdk_shared.modulemap") -Required $true -Roots $sourceRoots
-    Ensure-Modulemap -Label "_guiddef" -Destination (Join-Path $pinnedIncludeRoot "shared\_guiddef.modulemap") -SourceNames @("_guiddef.modulemap", "guiddef.modulemap") -Required $false -Roots $sourceRoots
-    Ensure-Modulemap -Label "_complex" -Destination (Join-Path $pinnedIncludeRoot "ucrt\_complex.modulemap") -SourceNames @("_complex.modulemap", "complex.modulemap") -Required $false -Roots $sourceRoots
-    if ($env:VCToolsInstallDir) {
-        Ensure-Modulemap -Label "visualc" -Destination (Join-Path $env:VCToolsInstallDir "include\module.modulemap") -SourceNames @("visualc.modulemap", "vcruntime.modulemap") -Required $false -Roots $sourceRoots
-    }
-} catch {
-    Write-Warning "Modulemap bootstrap skipped: $($_.Exception.Message)"
-}
-
+# Swift's SDK owns module maps. Never patch protected Windows SDK files here.
+$null = Get-Command swift -ErrorAction Stop
 $requiredInclude = @(
     (Join-Path $pinnedIncludeRoot "ucrt"),
     (Join-Path $pinnedIncludeRoot "um"),
@@ -277,26 +173,30 @@ Merge-EnvPath -Name "EXTERNAL_INCLUDE" -Required $requiredInclude
 Merge-EnvPath -Name "LIB" -Required $requiredLib
 Merge-EnvPath -Name "EXTERNAL_LIB" -Required $requiredLib
 
+$swiftBuildArgs = @('--package-path', [string]$coreRepo, '--configuration', $Configuration)
+$overlayPath = & (Join-Path $PSScriptRoot 'swift_sdk_overlay.ps1') -PinnedIncludeRoot $pinnedIncludeRoot -OutputDirectory (Join-Path $artifactsRoot 'swift-sdk-overlay')
+$compilerArgs = @('-Xswiftc','-windows-sdk-version','-Xswiftc',$WindowsSdkVersion,
+    '-Xswiftc','-vfsoverlay','-Xswiftc',$overlayPath,'-Xcc','-ivfsoverlay','-Xcc',$overlayPath)
+foreach ($folder in @('ucrt','shared','um','winrt')) { $compilerArgs += @('-Xcc',('-I' + (Join-Path $pinnedIncludeRoot $folder))) }
+if ($ScratchPath) {
+    $resolvedScratch = [System.IO.Path]::GetFullPath($ScratchPath)
+    if (-not $resolvedScratch.StartsWith(([string]$repoRoot + [System.IO.Path]::DirectorySeparatorChar), [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'ScratchPath must stay inside the Windows repository.'
+    }
+    $swiftBuildArgs += @('--scratch-path', $resolvedScratch)
+}
 Push-Location $coreRepo
 try {
-    swift package describe --package-path $coreRepo | Out-Null
     if (-not $SkipCliBuild) {
-        swift build --package-path $coreRepo --product WordSuggestorSuggestCLI -Xswiftc -windows-sdk-version -Xswiftc $WindowsSdkVersion
+        & swift build @swiftBuildArgs --product WordSuggestorSuggestCLI @compilerArgs
+        if ($LASTEXITCODE -ne 0) { throw "Core CLI build failed ($LASTEXITCODE); stale executables are not accepted." }
     }
-}
-finally {
-    Pop-Location
-}
-
-$cliCandidates = @(
-    (Join-Path $coreRepo ".build\debug\WordSuggestorSuggestCLI.exe"),
-    (Join-Path $coreRepo ".build\debug\WordSuggestorSuggestCLI"),
-    (Join-Path $coreRepo ".build\x86_64-unknown-windows-msvc\debug\WordSuggestorSuggestCLI.exe")
-)
-$resolvedCli = $cliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if ($resolvedCli) {
-    $env:WORDSUGGESTOR_SUGGEST_CLI_PATH = $resolvedCli
-}
+    $binPath = & swift build @swiftBuildArgs --show-bin-path
+    if ($LASTEXITCODE -ne 0) { throw 'Swift output directory resolution failed.' }
+} finally { Pop-Location }
+$resolvedCli = Join-Path ($binPath | Select-Object -Last 1) 'WordSuggestorSuggestCLI.exe'
+if (-not (Test-Path -LiteralPath $resolvedCli)) { throw 'Core CLI executable was not produced.' }
+$env:WORDSUGGESTOR_SUGGEST_CLI_PATH = $resolvedCli
 
 Write-Host "Windows core CLI bootstrap complete."
 Write-Host "WS_SQLITE_INCLUDE=$env:WS_SQLITE_INCLUDE"

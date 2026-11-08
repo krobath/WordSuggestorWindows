@@ -19,5 +19,5 @@ public sealed class SelectionImportDiagnostic : EventArgs
     public string Detail { get; }
 
     public override string ToString() =>
-        $"{Timestamp:HH:mm:ss.fff} [{Stage}] {Outcome}: {Detail}";
+        $"{Timestamp:O} [{Stage}] {Outcome}"; // Detail may contain provider-controlled exception text.
 }

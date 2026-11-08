@@ -21,8 +21,6 @@ public partial class MainWindow : Window
 {
     private const double CollapsedWidth = 560;
     private const double CollapsedHeight = 68;
-    private const double ExpandedWidth = 900;
-    private const double ExpandedHeight = 640;
     private const double OverlayVerticalGap = 10;
     private const double StaticOverlayHorizontalOffset = 118;
     private const double StaticOverlayVerticalOffset = 44;
@@ -39,22 +37,21 @@ public partial class MainWindow : Window
     private const uint VirtualKeyLeft = 0x25;
     private const uint VirtualKeyRight = 0x27;
     private static readonly string SelectionImportDiagnosticLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
+        WindowsDataPaths.Root,
         "diagnostics",
         "selection-import.log");
     private static readonly string OcrFlowDiagnosticLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
+        WindowsDataPaths.Root,
         "diagnostics",
         "ocr-flow.log");
     private static readonly string TtsFlowDiagnosticLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
+        WindowsDataPaths.Root,
         "diagnostics",
         "tts-flow.log");
     private static readonly Brush SpeechHighlightBrush = BrushFromHex("#8DCCFF");
     private readonly MainWindowViewModel _viewModel;
+    private readonly InternalEditorWindow _editorWindow;
+    private RichTextBox EditorTextBox => _editorWindow.TextEditor;
     private readonly WindowsSelectionImportService _selectionImportService = new();
     private readonly WindowsGlobalSuggestionCaptureService _globalSuggestionCaptureService = new();
     private readonly WindowsExternalSuggestionCommitService _externalSuggestionCommitService = new();
@@ -68,6 +65,7 @@ public partial class MainWindow : Window
     private IntPtr _lastExternalWindowHandle;
     private bool _isInitialPositionApplied;
     private bool _isSynchronizingEditorDocument;
+    private bool _isUpdatingEditorSelection;
     private bool _isTextToSpeechHotKeyRegistered;
     private bool _areExternalSuggestionHotKeysRegistered;
     private SelectionImportResult? _lastExternalSelection;
@@ -89,10 +87,15 @@ public partial class MainWindow : Window
     private bool _isApplyingSpeechHighlightSelection;
     private bool _isResolvingExternalSelection;
     private bool _isUpdatingExternalSuggestionAnchor;
+    private string? _documentPath;
+    private string _savedDocumentText = string.Empty;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
         _viewModel = viewModel;
+        var placement = viewModel.LoadSettingsSnapshot();
+        if (placement.OverlayLeftPhysical is double x && placement.OverlayTopPhysical is double y && double.IsFinite(x) && double.IsFinite(y))
+            _manualOverlayTopLeft = new Point(x, y);
         _externalSelectionPollTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(120)
@@ -110,7 +113,12 @@ public partial class MainWindow : Window
         _globalSuggestionCaptureService.TokenChanged += GlobalSuggestionCaptureServiceOnTokenChanged;
         InitializeComponent();
         DataContext = _viewModel;
+        _editorWindow = new InternalEditorWindow(this, viewModel);
+        NonActivatingWindow.Apply(this);
+        _viewModel.CanCommitLocally = () => _editorWindow.IsActive && EditorTextBox.IsKeyboardFocusWithin;
+        _viewModel.ExternalCommitRequested = TryCommitExternalSuggestion;
         Loaded += OnLoaded;
+        Closing += (_, e) => { if (!ConfirmDocumentChanges()) e.Cancel = true; };
         Closed += OnClosed;
         LocationChanged += OnWindowLocationOrSizeChanged;
         SizeChanged += OnWindowLocationOrSizeChanged;
@@ -153,6 +161,8 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
+        _viewModel.Dispose();
+        _editorWindow.CloseForShutdown();
         LocationChanged -= OnWindowLocationOrSizeChanged;
         SizeChanged -= OnWindowLocationOrSizeChanged;
         _externalSelectionPollTimer.Stop();
@@ -379,13 +389,21 @@ public partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(MainWindowViewModel.IsEditorExpanded):
-                ApplyShellSize();
-                SyncOverlayVisibility();
                 if (_viewModel.IsEditorExpanded)
                 {
+                    _editorWindow.ShowEditor();
                     SyncEditorDocumentFromViewModel(force: true);
                     Dispatcher.BeginInvoke(RefocusEditor);
                 }
+                else
+                {
+                    _editorWindow.Hide();
+                    _viewModel.SetLocalEditorActive(false);
+                }
+                SyncOverlayVisibility();
+                break;
+            case nameof(MainWindowViewModel.CaretIndex):
+                if (!_isSynchronizingEditorDocument && !_isUpdatingEditorSelection) SetEditorCaretIndex(_viewModel.CaretIndex);
                 break;
             case nameof(MainWindowViewModel.EditorText):
                 SyncEditorDocumentFromViewModel();
@@ -416,13 +434,19 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(() =>
         {
+            if (e.WindowHandle == IntPtr.Zero)
+            {
+                _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+                SyncOverlayVisibility();
+                return;
+            }
             if (!_viewModel.IsGlobalCaptureEnabled ||
-                e.WindowHandle == IntPtr.Zero ||
-                e.WindowHandle == _windowHandle)
+                e.WindowHandle == _windowHandle || _editorWindow.IsActive)
             {
                 return;
             }
 
+            if (_lastExternalWindowHandle != e.WindowHandle) _lastExternalSuggestionAnchor = null;
             _lastExternalWindowHandle = e.WindowHandle;
             var source = DescribeExternalWindow(e.WindowHandle);
             if (e.IsBoundary)
@@ -439,43 +463,29 @@ public partial class MainWindow : Window
                 DateTimeOffset.Now,
                 "GlobalSuggestionCapture",
                 "TokenDispatched",
-                $"source={source}, boundary={e.IsBoundary}, token=\"{e.Token}\", activeExternalSession={_viewModel.IsExternalSuggestionSessionActive}"));
+                $"source={source}, boundary={e.IsBoundary}, tokenLength={e.Token.Length}, activeExternalSession={_viewModel.IsExternalSuggestionSessionActive}"));
             SyncOverlayVisibility();
         });
     }
 
-    private void TryAcceptExternalSuggestion(int visibleIndex)
+    private void TryAcceptExternalSuggestion(int visibleIndex) => _viewModel.AcceptSuggestionAtIndex(visibleIndex);
+
+    private bool TryCommitExternalSuggestion(ExternalSuggestionCommitRequest request)
     {
-        var request = _viewModel.CreateExternalSuggestionCommitRequest(visibleIndex);
-        if (request is null)
-        {
-            return;
-        }
-
-        _globalSuggestionCaptureService.SuppressSyntheticInput(TimeSpan.FromMilliseconds(550));
-        var committed = _externalSuggestionCommitService.TryCommitSuggestion(
-            _windowHandle,
-            request.Suggestion.Term,
-            request.ReplaceCharacterCount,
-            appendTrailingSpace: true,
-            out var diagnostic);
-
-        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
-            DateTimeOffset.Now,
-            "ExternalSuggestionCommit",
-            committed ? "Success" : "Failed",
-            diagnostic));
-
+        var snapshot = _globalSuggestionCaptureService.CurrentSnapshot;
+        if (snapshot is null || snapshot.Window != request.WindowHandle) return false;
+        var committed = _externalSuggestionCommitService.TryCommitSuggestion(snapshot, request.TypedToken,
+            request.Suggestion.Term, out var diagnostic);
+        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(DateTimeOffset.Now,
+            "ExternalSuggestionCommit", committed ? "Success" : "Rejected", diagnostic));
+        _globalSuggestionCaptureService.ClearTokenAfterCommittedSuggestion();
+        _lastExternalSuggestionAnchor = null;
         if (!committed)
         {
-            _viewModel.SetStatusMessage($"Ekstern indsættelse mislykkedes: {diagnostic}");
-            return;
+            _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+            _viewModel.SetStatusMessage("Indsættelse blev afbrudt. Kontrollér fokus og skriv videre.");
         }
-
-        _globalSuggestionCaptureService.ClearTokenAfterCommittedSuggestion();
-        _viewModel.CompleteExternalSuggestionCommit(request);
-        _lastExternalSuggestionAnchor = null;
-        SyncOverlayVisibility();
+        return committed;
     }
 
     private void OnWindowLocationOrSizeChanged(object? sender, EventArgs e)
@@ -492,8 +502,8 @@ public partial class MainWindow : Window
 
     private void ApplyShellSize(bool force = false)
     {
-        var nextWidth = _viewModel.IsEditorExpanded ? ExpandedWidth : CollapsedWidth;
-        var nextHeight = _viewModel.IsEditorExpanded ? ExpandedHeight : CollapsedHeight;
+        var nextWidth = CollapsedWidth;
+        var nextHeight = CollapsedHeight;
 
         if (!force &&
             Math.Abs(Width - nextWidth) < 0.5 &&
@@ -564,14 +574,32 @@ public partial class MainWindow : Window
     }
 
     private void ExpandCollapseButton_OnClick(object sender, RoutedEventArgs e)
+        => OpenEditor();
+
+    public void OpenEditor()
     {
-        _viewModel.ToggleEditorExpanded();
+        _viewModel.EnsureEditorExpanded();
+        _editorWindow.ShowEditor();
+        RefocusEditor();
     }
 
-    private async void ToolbarAction_OnClick(object sender, RoutedEventArgs e)
+    internal async void ToolbarAction_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string action })
         {
+            if (action == "wordList")
+            {
+                new UserWordsWindow(_viewModel) { Owner = this }.Show();
+                return;
+            }
+            if (action == "importClipboard")
+            {
+                var foreground = _selectionImportService.CurrentForegroundWindow;
+                var selection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(foreground, IntPtr.Zero);
+                if (selection is not null) _viewModel.ImportTextIntoEditor(selection.Text, selection.Source);
+                else _viewModel.SetStatusMessage("Clipboard-import kunne ikke gennemføres sikkert.");
+                return;
+            }
             if (action == "import")
             {
                 await ImportSelectionIntoEditorAsync();
@@ -780,7 +808,7 @@ public partial class MainWindow : Window
         {
             StopSpeechHighlight(restoreEditorSelection: true);
             _viewModel.SetTextToSpeechSpeaking(false, $"Oplæsning kunne ikke starte: {ex.Message}");
-            WriteTtsFlowDiagnostic($"UI TTS action failed to start speech: {ex.Message}");
+            WriteTtsFlowDiagnostic($"UI TTS action failed to start speech: {ex.GetType().Name}");
         }
     }
 
@@ -919,7 +947,13 @@ public partial class MainWindow : Window
         try
         {
             var foreground = _selectionImportService.CurrentForegroundWindow;
-            if (foreground != IntPtr.Zero && foreground != _windowHandle)
+            if (_viewModel.IsExternalSuggestionSessionActive && foreground != _viewModel.ExternalSuggestionWindowHandle)
+            {
+                _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+                _lastExternalSuggestionAnchor = null;
+                SyncOverlayVisibility();
+            }
+            if (foreground != IntPtr.Zero && !WindowsNativeTextAdapter.IsOwnWindow(foreground))
             {
                 _lastExternalWindowHandle = foreground;
             }
@@ -933,18 +967,8 @@ public partial class MainWindow : Window
                 UpdateExternalPollingInterval(activeExternalSession: false);
             }
 
-            // Skip UIA selection polling while global capture is active.
-            // The keyboard hook tracks what the user types for suggestions; polling
-            // UIA simultaneously blocks the UI thread and can crash via AccessViolationException
-            // from Word's COM accessibility layer, which bypasses normal catch (Exception) handling.
-            if (!_viewModel.IsGlobalCaptureEnabled)
-            {
-                var externalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(_windowHandle);
-                if (externalSelection is not null)
-                {
-                    RememberExternalSelection(externalSelection);
-                }
-            }
+            // Selection is read only on explicit TXT/TTS actions.
+
         }
         catch (Exception ex)
         {
@@ -1039,7 +1063,7 @@ public partial class MainWindow : Window
             {
                 _isUpdatingExternalSuggestionAnchor = false;
 
-                if (!_viewModel.IsExternalSuggestionSessionActive)
+                if (!_viewModel.IsExternalSuggestionSessionActive || _viewModel.ExternalSuggestionWindowHandle != targetWindow || _editorWindow.IsActive)
                 {
                     return;
                 }
@@ -1095,7 +1119,7 @@ public partial class MainWindow : Window
 
     private async Task ImportSelectionIntoEditorAsync()
     {
-        var internalSelection = GetSelectedEditorPlainText();
+        var internalSelection = _editorWindow.IsActive ? GetSelectedEditorPlainText() : string.Empty;
         if (!string.IsNullOrWhiteSpace(internalSelection))
         {
             _viewModel.ImportTextIntoEditor(internalSelection, "intern editor-markering");
@@ -1119,7 +1143,7 @@ public partial class MainWindow : Window
         _viewModel.SetStatusMessage("Ingen markeret tekst fundet. Prøv at markere tekst i editoren eller i en app der eksponerer Windows UI Automation-selection.");
     }
 
-    private void EditorCommand_OnClick(object sender, RoutedEventArgs e)
+    internal void EditorCommand_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string action })
         {
@@ -1128,6 +1152,10 @@ public partial class MainWindow : Window
 
         switch (action)
         {
+            case "openDocument":
+            case "saveDocument":
+                HandleDocumentAction(action == "saveDocument");
+                break;
             case "cut":
                 ApplicationCommands.Cut.Execute(null, EditorTextBox);
                 _viewModel.SetStatusMessage("Klip udført i editoren.");
@@ -1157,30 +1185,82 @@ public partial class MainWindow : Window
         RefocusEditor();
     }
 
-    private void EditorTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    private bool HandleDocumentAction(bool save)
+    {
+        if (!save && !ConfirmDocumentChanges()) return false;
+        try
+        {
+            if (save)
+            {
+                _viewModel.SetStatusMessage("Vælg hvor dokumentet skal gemmes.");
+                var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Gem WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt", DefaultExt = ".txt", FileName = _documentPath is null ? "Dokument.txt" : Path.GetFileName(_documentPath) };
+                if (dialog.ShowDialog(_editorWindow) != true) return false;
+                var temp = dialog.FileName + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.WriteAllText(temp, _viewModel.EditorText, new System.Text.UTF8Encoding(false));
+                    File.Move(temp, dialog.FileName, overwrite: true);
+                }
+                finally { if (File.Exists(temp)) File.Delete(temp); }
+                _documentPath = dialog.FileName;
+                _savedDocumentText = _viewModel.EditorText;
+                _viewModel.SetStatusMessage("Dokumentet er gemt.");
+            }
+            else
+            {
+                var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Åbn WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt|Alle filer (*.*)|*.*" };
+                if (dialog.ShowDialog(_editorWindow) != true) return false;
+                if (new FileInfo(dialog.FileName).Length > 2_000_000) { _viewModel.SetStatusMessage("Dokumentet er for stort til denne beta."); return false; }
+                _viewModel.ImportTextIntoEditor(File.ReadAllText(dialog.FileName), "tekstfil");
+                _documentPath = dialog.FileName;
+                _savedDocumentText = _viewModel.EditorText;
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { _viewModel.SetStatusMessage("Dokumentet kunne ikke åbnes eller gemmes. Kontrollér filadgangen."); return false; }
+    }
+
+    private bool ConfirmDocumentChanges()
+    {
+        if (_viewModel.EditorText == _savedDocumentText) return true;
+        var result = MessageBox.Show(_editorWindow.IsVisible ? _editorWindow : this,
+            "Vil du gemme ændringerne i dokumentet?", "WordSuggestor", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        return result == MessageBoxResult.No || (result == MessageBoxResult.Yes && HandleDocumentAction(true));
+    }
+
+    private void Exit_OnClick(object sender, RoutedEventArgs e) => Close();
+
+    internal void EditorTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
     {
         if (!_isSynchronizingEditorDocument)
         {
-            _viewModel.CaretIndex = GetEditorCaretIndex();
-            _viewModel.EditorText = GetEditorPlainText();
-            ApplyEditorColoring();
+            _isUpdatingEditorSelection = true;
+            try
+            {
+                _viewModel.CaretIndex = GetEditorCaretIndex();
+                _viewModel.EditorText = GetEditorPlainText();
+            }
+            finally { _isUpdatingEditorSelection = false; }
         }
 
         UpdateOverlayPosition();
     }
 
-    private void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
+    internal void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
-        if (_isApplyingSpeechHighlightSelection)
+        if (_isApplyingSpeechHighlightSelection || _isSynchronizingEditorDocument || _isUpdatingEditorSelection)
         {
             return;
         }
 
-        _viewModel.CaretIndex = GetEditorCaretIndex();
+        _isUpdatingEditorSelection = true;
+        try { _viewModel.UpdateEditorSelection(GetTextOffset(EditorTextBox.Selection.Start), GetTextOffset(EditorTextBox.Selection.End)); }
+        finally { _isUpdatingEditorSelection = false; }
         UpdateOverlayPosition();
     }
 
-    private void EditorTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    internal void EditorTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
         {
@@ -1196,8 +1276,14 @@ public partial class MainWindow : Window
         }
     }
 
-    private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    internal void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && e.Key is Key.O or Key.S)
+        {
+            HandleDocumentAction(e.Key == Key.S);
+            e.Handled = true;
+            return;
+        }
         if (e.OriginalSource == EditorTextBox)
         {
             return;
@@ -1292,7 +1378,10 @@ public partial class MainWindow : Window
 
     private void RefocusEditor()
     {
+        if (!_editorWindow.IsVisible) return;
+        _editorWindow.Activate();
         EditorTextBox.Focus();
+        _viewModel.SetLocalEditorActive(_editorWindow.IsActive && EditorTextBox.IsKeyboardFocusWithin);
         SetEditorCaretIndex(_viewModel.CaretIndex);
         UpdateOverlayPosition();
     }
@@ -1391,13 +1480,21 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<SelectionImportResult?> ResolvePreferredExternalSelectionAsync(string consumer)
+    private Task<SelectionImportResult?> ResolvePreferredExternalSelectionAsync(string consumer) => Task.FromResult(ResolvePreferredExternalSelection(consumer));
+
+    private SelectionImportResult? ResolvePreferredExternalSelection(string consumer)
     {
         _isResolvingExternalSelection = true;
         try
         {
             var foreground = _selectionImportService.CurrentForegroundWindow;
-            if (foreground != IntPtr.Zero && foreground != _windowHandle)
+            if (_viewModel.IsExternalSuggestionSessionActive && foreground != _viewModel.ExternalSuggestionWindowHandle)
+            {
+                _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+                _lastExternalSuggestionAnchor = null;
+                SyncOverlayVisibility();
+            }
+            if (foreground != IntPtr.Zero && !WindowsNativeTextAdapter.IsOwnWindow(foreground))
             {
                 var liveExternalSelection = _selectionImportService.TryReadSelectionFromForegroundWindow(
                     _windowHandle,
@@ -1441,9 +1538,8 @@ public partial class MainWindow : Window
                 return lastWindowSelection;
             }
 
-            var clipboardSelection = await _selectionImportService.TryReadSelectionWithClipboardFallbackAsync(
-                _lastExternalWindowHandle,
-                _windowHandle);
+            // Clipboard copy is an explicit user action from the import menu.
+            SelectionImportResult? clipboardSelection = null;
             if (clipboardSelection is not null)
             {
                 RememberExternalSelection(clipboardSelection);
@@ -1471,20 +1567,25 @@ public partial class MainWindow : Window
     private int GetEditorCaretIndex()
     {
         var text = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.CaretPosition).Text;
-        return NormalizeRichTextBoxText(text).Length;
+        return text.Length;
     }
 
     private int GetTextOffset(TextPointer pointer)
     {
         var text = new TextRange(EditorTextBox.Document.ContentStart, pointer).Text;
-        return NormalizeRichTextBoxText(text).Length;
+        return text.Length;
     }
 
     private void SetEditorCaretIndex(int index)
     {
         var pointer = GetTextPointerAtCharOffset(Math.Clamp(index, 0, GetEditorPlainText().Length));
-        EditorTextBox.CaretPosition = pointer;
-        EditorTextBox.Selection.Select(pointer, pointer);
+        _isUpdatingEditorSelection = true;
+        try
+        {
+            EditorTextBox.CaretPosition = pointer;
+            EditorTextBox.Selection.Select(pointer, pointer);
+        }
+        finally { _isUpdatingEditorSelection = false; }
     }
 
     private void SetEditorSelection(int start, int length)
@@ -1499,46 +1600,8 @@ public partial class MainWindow : Window
 
     private void ApplyEditorColoring()
     {
-        if (_isSynchronizingEditorDocument)
-        {
-            return;
-        }
-
-        var text = GetEditorPlainText();
-        var caretIndex = Math.Clamp(GetEditorCaretIndex(), 0, text.Length);
-
-        _isSynchronizingEditorDocument = true;
-        try
-        {
-            var fullRange = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.Document.ContentEnd);
-            fullRange.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Black);
-            fullRange.ApplyPropertyValue(Inline.TextDecorationsProperty, null);
-            fullRange.ApplyPropertyValue(TextElement.BackgroundProperty, Brushes.Transparent);
-
-            if (_viewModel.IsAnalyzerColoringEnabled)
-            {
-                foreach (Match match in WordTokenRegex().Matches(text))
-                {
-                    var kind = ClassifyEditorToken(match.Value);
-                    var foreground = EditorBrushFor(kind);
-                    var start = GetTextPointerAtCharOffset(match.Index);
-                    var end = GetTextPointerAtCharOffset(match.Index + match.Length);
-                    var tokenRange = new TextRange(start, end);
-                    tokenRange.ApplyPropertyValue(TextElement.ForegroundProperty, foreground);
-
-                    if (kind == EditorTokenKind.Spelling)
-                    {
-                        tokenRange.ApplyPropertyValue(Inline.TextDecorationsProperty, TextDecorations.Underline);
-                    }
-                }
-            }
-        }
-        finally
-        {
-            _isSynchronizingEditorDocument = false;
-        }
-
-        SetEditorCaretIndex(caretIndex);
+        // The former C# suffix classifier fabricated POS/spelling results. Preserve
+        // preferences, but render neutral text until Core exposes document analysis.
     }
 
     private void PreparePreciseSpeechHighlight(int baseOffset)
@@ -1738,26 +1801,23 @@ public partial class MainWindow : Window
 
     private TextPointer GetTextPointerAtCharOffset(int charOffset)
     {
-        var remaining = Math.Max(0, charOffset);
-        var navigator = EditorTextBox.Document.ContentStart;
-
-        while (navigator is not null && navigator.CompareTo(EditorTextBox.Document.ContentEnd) < 0)
+        var wanted = Math.Clamp(charOffset, 0, GetEditorPlainText().Length);
+        var pointer = EditorTextBox.Document.ContentStart;
+        // TextRange counts CRLF between paragraphs but not formatting symbols.
+        // Compare against that same representation for every offset, including emoji.
+        while (pointer is not null)
         {
-            if (navigator.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
+            var offset = new TextRange(EditorTextBox.Document.ContentStart, pointer).Text.Length;
+            if (offset >= wanted && pointer.IsAtInsertionPosition) return pointer;
+            if (pointer.GetPointerContext(LogicalDirection.Forward) == TextPointerContext.Text)
             {
-                var runText = navigator.GetTextInRun(LogicalDirection.Forward);
-                if (remaining <= runText.Length)
-                {
-                    return navigator.GetPositionAtOffset(remaining, LogicalDirection.Forward) ?? navigator;
-                }
-
-                remaining -= runText.Length;
+                var runLength = pointer.GetTextRunLength(LogicalDirection.Forward);
+                if (wanted >= offset && wanted <= offset + runLength)
+                    return pointer.GetPositionAtOffset(wanted - offset, LogicalDirection.Forward)!.GetInsertionPosition(LogicalDirection.Forward);
             }
-
-            navigator = navigator.GetNextContextPosition(LogicalDirection.Forward);
+            pointer = pointer.GetNextContextPosition(LogicalDirection.Forward);
         }
-
-        return EditorTextBox.Document.ContentEnd;
+        return EditorTextBox.Document.ContentEnd.GetInsertionPosition(LogicalDirection.Backward);
     }
 
     private static string NormalizeRichTextBoxText(string text)
@@ -1805,81 +1865,6 @@ public partial class MainWindow : Window
             .ToArray();
     }
 
-    private static EditorTokenKind ClassifyEditorToken(string token)
-    {
-        var lower = token.ToLowerInvariant();
-
-        if (Determiners.Contains(lower))
-        {
-            return EditorTokenKind.Determiner;
-        }
-
-        if (Pronouns.Contains(lower))
-        {
-            return EditorTokenKind.Pronoun;
-        }
-
-        if (Prepositions.Contains(lower))
-        {
-            return EditorTokenKind.Preposition;
-        }
-
-        if (Conjunctions.Contains(lower))
-        {
-            return EditorTokenKind.Conjunction;
-        }
-
-        if (Adverbs.Contains(lower) || lower.EndsWith("vis", StringComparison.Ordinal))
-        {
-            return EditorTokenKind.Adverb;
-        }
-
-        if (Verbs.Contains(lower) ||
-            lower.EndsWith("er", StringComparison.Ordinal) ||
-            lower.EndsWith("ede", StringComparison.Ordinal) ||
-            lower.EndsWith("ende", StringComparison.Ordinal))
-        {
-            return EditorTokenKind.Verb;
-        }
-
-        if (Adjectives.Contains(lower) ||
-            lower.EndsWith("lig", StringComparison.Ordinal) ||
-            lower.EndsWith("isk", StringComparison.Ordinal) ||
-            lower.EndsWith("bar", StringComparison.Ordinal) ||
-            lower.EndsWith("fuld", StringComparison.Ordinal))
-        {
-            return EditorTokenKind.Adjective;
-        }
-
-        if (char.IsUpper(token[0]) && token.Length > 1)
-        {
-            return EditorTokenKind.ProperNoun;
-        }
-
-        if (token.Length >= 16)
-        {
-            return EditorTokenKind.Spelling;
-        }
-
-        return EditorTokenKind.Noun;
-    }
-
-    private static Brush EditorBrushFor(EditorTokenKind kind) =>
-        kind switch
-        {
-            EditorTokenKind.Noun => BrushFromHex("#C26AF7"),
-            EditorTokenKind.ProperNoun => BrushFromHex("#F45A85"),
-            EditorTokenKind.Verb => BrushFromHex("#2CBCCB"),
-            EditorTokenKind.Adjective => BrushFromHex("#F5A14E"),
-            EditorTokenKind.Adverb => BrushFromHex("#758BFF"),
-            EditorTokenKind.Pronoun => BrushFromHex("#5BC878"),
-            EditorTokenKind.Determiner => BrushFromHex("#A97B58"),
-            EditorTokenKind.Preposition => BrushFromHex("#4BB6E8"),
-            EditorTokenKind.Conjunction => BrushFromHex("#48C7B3"),
-            EditorTokenKind.Spelling => BrushFromHex("#E24A4A"),
-            _ => Brushes.Black
-        };
-
     private static SolidColorBrush BrushFromHex(string hex) =>
         (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
 
@@ -1888,55 +1873,6 @@ public partial class MainWindow : Window
 
     [GeneratedRegex(@"[^.!?\r\n]+[.!?]*", RegexOptions.CultureInvariant)]
     private static partial Regex SentenceTokenRegex();
-
-    private enum EditorTokenKind
-    {
-        Noun,
-        ProperNoun,
-        Verb,
-        Adjective,
-        Adverb,
-        Pronoun,
-        Determiner,
-        Preposition,
-        Conjunction,
-        Spelling
-    }
-
-    private static readonly HashSet<string> Determiners = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "en", "et", "den", "det", "de", "din", "dit", "dine", "min", "mit", "mine", "vores", "jeres"
-    };
-
-    private static readonly HashSet<string> Pronouns = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "jeg", "du", "han", "hun", "vi", "i", "de", "mig", "dig", "ham", "hende", "os", "jer", "dem", "man"
-    };
-
-    private static readonly HashSet<string> Prepositions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "i", "på", "til", "fra", "med", "uden", "over", "under", "efter", "før", "for", "om", "af", "hos", "ved"
-    };
-
-    private static readonly HashSet<string> Conjunctions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "og", "eller", "men", "for", "så", "at", "hvis", "når", "fordi", "mens"
-    };
-
-    private static readonly HashSet<string> Adverbs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ikke", "meget", "lidt", "gerne", "altid", "aldrig", "ofte", "måske", "snart", "her", "der"
-    };
-
-    private static readonly HashSet<string> Verbs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "er", "var", "bliver", "blev", "har", "havde", "kan", "kunne", "skal", "skulle", "vil", "ville", "må", "måtte", "skrive", "læse"
-    };
-
-    private static readonly HashSet<string> Adjectives = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "god", "dårlig", "stor", "lille", "rød", "blå", "grøn", "gul", "sort", "hvid", "hurtig", "langsom", "ny", "gammel"
-    };
 
     private void SyncOverlayVisibility()
     {
@@ -1947,7 +1883,8 @@ public partial class MainWindow : Window
         }
 
         EnsureOverlayWindow();
-        RegisterExternalSuggestionHotKeys();
+        if (_viewModel.IsExternalSuggestionSessionActive && _viewModel.HasSuggestions) RegisterExternalSuggestionHotKeys();
+        else UnregisterExternalSuggestionHotKeys();
         UpdateOverlayPosition();
 
         if (_overlayWindow is not null && !_overlayWindow.IsVisible)
@@ -1996,33 +1933,19 @@ public partial class MainWindow : Window
 
     private void UpdateOverlayPosition()
     {
-        if (_overlayWindow is null || !_viewModel.ShouldShowSuggestionOverlay)
-        {
-            return;
-        }
+        if (_overlayWindow is null || !_viewModel.ShouldShowSuggestionOverlay) return;
+        var confirmed = _viewModel.IsExternalSuggestionSessionActive
+            ? _lastExternalSuggestionAnchor is { Quality: SuggestionAnchorQuality.Confirmed }
+            : TryGetCaretScreenRect(out _);
+        var follow = _viewModel.IsFollowCaretPlacementMode && confirmed;
+        var anchor = follow ? ResolveOverlayAnchor() : _manualOverlayTopLeft ?? DefaultStaticPosition();
+        ScreenPlacement.Place(_overlayWindow, anchor, follow);
+    }
 
-        EnsureOverlayWindow();
-
-        var width = _overlayWindow.Width;
-        var height = _overlayWindow.Height;
-        double left;
-        double top;
-
-        if (_viewModel.IsStaticPlacementMode)
-        {
-            var staticTopLeft = ClampOverlayTopLeft(_manualOverlayTopLeft ?? ResolveDefaultStaticOverlayTopLeft(), width, height);
-            _manualOverlayTopLeft = staticTopLeft;
-            left = staticTopLeft.X;
-            top = staticTopLeft.Y;
-        }
-        else
-        {
-            var anchor = ResolveOverlayAnchor();
-            (left, top) = ResolveFollowCaretTopLeft(anchor, width, height);
-        }
-
-        _overlayWindow.Left = left;
-        _overlayWindow.Top = top;
+    private Point DefaultStaticPosition()
+    {
+        var toolbar = ScreenPlacement.TopLeft(this);
+        return new Point(toolbar.X + 24, toolbar.Y + 88);
     }
 
     private Point ResolveOverlayAnchor()
@@ -2037,22 +1960,9 @@ public partial class MainWindow : Window
                     confirmedAnchor.ScreenRect.Bottom);
             }
 
-            // No confirmed caret position (web apps like Google Docs in Edge):
-            // use mouse cursor as the best available proxy for where the user is typing.
-            if (GetCursorPos(out var cursorPos))
-            {
-                return new Point(cursorPos.X, cursorPos.Y);
-            }
+            var fallback = _manualOverlayTopLeft ?? new Point(Left + 24, Top + 88);
+            return fallback;
 
-            // Last resort: approximate element bounds from UIA if available.
-            if (_lastExternalSuggestionAnchor is { } approximateAnchor)
-            {
-                return new Point(
-                    approximateAnchor.ScreenRect.Left + (approximateAnchor.ScreenRect.Width / 2),
-                    approximateAnchor.ScreenRect.Bottom);
-            }
-
-            return new Point(Left + 150, Top + 96);
         }
 
         if (_viewModel.IsFollowCaretPlacementMode &&
@@ -2061,84 +1971,18 @@ public partial class MainWindow : Window
             return new Point(caretRect.Left + (caretRect.Width / 2), caretRect.Bottom);
         }
 
-        var staticOrigin = EditorTextBox.PointToScreen(new Point(StaticOverlayHorizontalOffset, StaticOverlayVerticalOffset));
-        return new Point(staticOrigin.X, staticOrigin.Y);
-    }
-
-    private (double Left, double Top) ResolveFollowCaretTopLeft(Point anchor, double width, double height)
-    {
-        var workArea = SystemParameters.WorkArea;
-        var left = anchor.X - (width / 2);
-        var top = anchor.Y + OverlayVerticalGap;
-
-        if (left < workArea.Left + 8)
-        {
-            left = workArea.Left + 8;
-        }
-
-        if (left + width > workArea.Right - 8)
-        {
-            left = workArea.Right - width - 8;
-        }
-
-        if (top + height > workArea.Bottom - 8)
-        {
-            top = Math.Max(workArea.Top + 8, anchor.Y - height - 18);
-        }
-
-        return (left, top);
-    }
-
-    private Point ResolveDefaultStaticOverlayTopLeft()
-    {
-        if (_overlayWindow is null)
-        {
-            return new Point(Left + 24, Top + 88);
-        }
-
-        var anchor = ResolveOverlayAnchor();
-        var topLeft = ResolveFollowCaretTopLeft(anchor, _overlayWindow.Width, _overlayWindow.Height);
-        return new Point(topLeft.Left, topLeft.Top);
-    }
-
-    private Point ClampOverlayTopLeft(Point candidate, double width, double height)
-    {
-        var workArea = SystemParameters.WorkArea;
-        var left = candidate.X;
-        var top = candidate.Y;
-
-        if (left < workArea.Left + 8)
-        {
-            left = workArea.Left + 8;
-        }
-
-        if (left + width > workArea.Right - 8)
-        {
-            left = workArea.Right - width - 8;
-        }
-
-        if (top < workArea.Top + 8)
-        {
-            top = workArea.Top + 8;
-        }
-
-        if (top + height > workArea.Bottom - 8)
-        {
-            top = workArea.Bottom - height - 8;
-        }
-
-        return new Point(left, top);
+        return _manualOverlayTopLeft ?? new Point(Left + 24, Top + 88);
     }
 
     private void CaptureOrInitializeStaticOverlayPosition()
     {
         if (_overlayWindow is not null && _overlayWindow.IsVisible)
         {
-            _manualOverlayTopLeft = new Point(_overlayWindow.Left, _overlayWindow.Top);
+            _manualOverlayTopLeft = ScreenPlacement.TopLeft(_overlayWindow);
             return;
         }
 
-        _manualOverlayTopLeft ??= ResolveDefaultStaticOverlayTopLeft();
+        _manualOverlayTopLeft ??= DefaultStaticPosition();
     }
 
     private void OverlayWindowOnManualPlacementCommitted(object? sender, Point topLeft)
@@ -2148,9 +1992,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _manualOverlayTopLeft = ClampOverlayTopLeft(topLeft, _overlayWindow.Width, _overlayWindow.Height);
-        _overlayWindow.Left = _manualOverlayTopLeft.Value.X;
-        _overlayWindow.Top = _manualOverlayTopLeft.Value.Y;
+        _manualOverlayTopLeft = ScreenPlacement.Place(_overlayWindow, topLeft, false);
+        _viewModel.SaveOverlayPosition(_manualOverlayTopLeft.Value.X, _manualOverlayTopLeft.Value.Y);
         _viewModel.SetStatusMessage("Ordforslagsboksen blev flyttet i statisk placering.");
     }
 
@@ -2175,7 +2018,8 @@ public partial class MainWindow : Window
         }
 
         var topLeft = EditorTextBox.PointToScreen(new Point(rect.Left, rect.Top));
-        caretRect = new Rect(topLeft.X, topLeft.Y, Math.Max(1, rect.Width), Math.Max(20, rect.Height));
+        var bottomRight = EditorTextBox.PointToScreen(new Point(rect.Right, rect.Bottom));
+        caretRect = new Rect(topLeft.X, topLeft.Y, Math.Max(1, bottomRight.X - topLeft.X), Math.Max(20, bottomRight.Y - topLeft.Y));
         return true;
     }
 

@@ -6,6 +6,7 @@ namespace WordSuggestorWindows.App;
 
 public partial class App : Application
 {
+    private SingleInstance? _singleInstance;
     protected override void OnStartup(StartupEventArgs e)
     {
         if (WindowsOcrCallbackBridge.TryPersistStartupCallback(e.Args))
@@ -15,6 +16,9 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        _singleInstance = new SingleInstance();
+        if (!_singleInstance.IsPrimary) { Shutdown(0); return; }
 
         var startupText = ResolveStartupText(e.Args);
         var settingsService = new WindowsAppSettingsService();
@@ -27,6 +31,13 @@ public partial class App : Application
 
         MainWindow = window;
         window.Show();
+        _singleInstance.Listen(Dispatcher, window.OpenEditor);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstance?.Dispose();
+        base.OnExit(e);
     }
 
     private static string? ResolveStartupText(IReadOnlyList<string> args)

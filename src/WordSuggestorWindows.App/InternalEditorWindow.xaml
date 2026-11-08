@@ -1,0 +1,244 @@
+<Window x:Class="WordSuggestorWindows.App.InternalEditorWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="WordSuggestor – Editor" Width="900" Height="640" MinWidth="680" MinHeight="440"
+ Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Icon="/Assets/AppIcon.png"
+ PreviewKeyDown="EditorWindow_OnPreviewKeyDown">
+ <DockPanel>
+  <Menu DockPanel.Dock="Top">
+   <MenuItem Header="_Filer">
+    <MenuItem Header="_Åbn…" Tag="openDocument" InputGestureText="Ctrl+O" Click="EditorCommand_OnClick" />
+    <MenuItem Header="_Gem…" Tag="saveDocument" InputGestureText="Ctrl+S" Click="EditorCommand_OnClick" />
+    <Separator />
+    <MenuItem Header="_Afslut WordSuggestor" Click="Quit_OnClick" />
+   </MenuItem>
+   <MenuItem Header="_Indstillinger" Tag="settings" Click="ToolbarAction_OnClick" />
+   <MenuItem Header="_Brugerord" Tag="wordList" Click="ToolbarAction_OnClick" />
+  </Menu>
+  <TextBlock DockPanel.Dock="Bottom" Margin="12,4" Text="{Binding StatusMessage}" TextWrapping="Wrap" AutomationProperties.AutomationId="EditorStatus" AutomationProperties.LiveSetting="Polite" />
+                <Border Padding="12"
+                        Background="Transparent"
+                        VerticalAlignment="Stretch">
+                    <Grid VerticalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Border Height="1"
+                                Margin="0,0,0,10"
+                                Background="#D7DBE2" />
+
+                        <Border Grid.Row="1"
+                                Margin="0,0,0,8"
+                                Padding="8"
+                                CornerRadius="12"
+                                Background="#FBFCFD"
+                                BorderBrush="#DCE1E8"
+                                BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <Button Tag="openDocument" Style="{StaticResource CommandButtonStyle}" ToolTip="Åbn tekstfil" AutomationProperties.Name="Åbn tekstfil" Click="EditorCommand_OnClick"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8E5;" /></Button>
+                                    <Button Tag="saveDocument" Style="{StaticResource CommandButtonStyle}" ToolTip="Gem tekstfil" AutomationProperties.Name="Gem tekstfil" Click="EditorCommand_OnClick"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74E;" /></Button>
+                                    <Button Tag="cut" Style="{StaticResource CommandButtonStyle}" ToolTip="Klip" Click="EditorCommand_OnClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8C6;" />
+                                    </Button>
+                                    <Button Tag="copy" Style="{StaticResource CommandButtonStyle}" ToolTip="Kopier" Click="EditorCommand_OnClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE8C8;" />
+                                    </Button>
+                                    <Button Tag="paste" Style="{StaticResource CommandButtonStyle}" ToolTip="Indsæt" Click="EditorCommand_OnClick">
+                                        <TextBlock FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#39424E" Text="&#xE77F;" />
+                                    </Button>
+
+                                    <Border Width="1" Height="20" Margin="4,0,10,0" Background="#D7DBE2" />
+
+                                    <ToggleButton Tag="coloring" IsEnabled="False"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsAnalyzerColoringEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå farvekodning til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="20"
+                                               Height="22"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/paintbrush.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </ToggleButton>
+                                    <ToggleButton Tag="semantic" IsEnabled="False"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsSemanticDiagnosticsEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå semantik til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="19"
+                                               Height="22"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/brain_head_profile.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </ToggleButton>
+                                    <ToggleButton Tag="punctuation" IsEnabled="False"
+                                                  Width="34"
+                                                  Height="32"
+                                                  Padding="0"
+                                                  IsChecked="{Binding IsPunctuationDiagnosticsEnabled, Mode=OneWay}"
+                                                  Style="{StaticResource CommandToggleButtonStyle}"
+                                                  ToolTip="Slå tegnsætning til/fra"
+                                                  Click="EditorCommand_OnClick">
+                                        <Image Width="19"
+                                               Height="17"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/text_quote.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </ToggleButton>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Tag="refreshSuggestions" Style="{StaticResource CommandButtonStyle}" ToolTip="Opdater forslag" Click="EditorCommand_OnClick">
+                                        <Image Width="25"
+                                               Height="25"
+                                               Source="pack://application:,,,/Assets/MacOSCommandIcons/arrow_clockwise_abc.png"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2"
+                                CornerRadius="14"
+                                Background="#EEF1F6"
+                                BorderBrush="#D7DCE5"
+                                BorderThickness="1">
+                            <Grid Margin="8">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
+                                    <RichTextBox x:Name="EditorTextBox" AutomationProperties.AutomationId="InternalEditor" AutomationProperties.Name="Dokumenttekst"
+                                                 Padding="14"
+                                                 BorderThickness="0"
+                                                 Background="Transparent"
+                                                 FontSize="20"
+                                                 AcceptsTab="False"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 HorizontalScrollBarVisibility="Disabled"
+                                                 TextChanged="EditorTextBox_OnTextChanged"
+                                                 SelectionChanged="EditorTextBox_OnSelectionChanged"
+                                                 PreviewKeyDown="EditorTextBox_OnPreviewKeyDown">
+                                        <FlowDocument PagePadding="0">
+                                            <Paragraph Margin="0" />
+                                        </FlowDocument>
+                                    </RichTextBox>
+                                </Border>
+
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="3"
+                                Margin="0,6,0,6"
+                                Padding="12,4"
+                                CornerRadius="8"
+                                Background="#FAFBFC"
+                                BorderBrush="#DCE0E7"
+                                BorderThickness="1">
+                            <ItemsControl ItemsSource="{Binding StatusMetrics}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#5C6775" Text="{Binding Icon}" />
+                                            <TextBlock Margin="7,0,0,0" FontSize="11" FontWeight="SemiBold" Foreground="#3F4A57" Text="{Binding ValueText}" />
+                                            <TextBlock Margin="4,0,16,0" FontSize="11" Foreground="#6F7A87" Text="{Binding Label}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <Border Grid.Row="4" Padding="10,7" CornerRadius="10" Background="#FBFCFD" BorderBrush="#DCE0E7" BorderThickness="1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="#556070" Text="Tekstanalyse er endnu ikke tilgængelig i denne beta" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <ItemsControl Grid.Row="1" Margin="0,6,0,0" ItemsSource="{Binding AnalyzerLegendMetrics}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,12,3" Padding="0" Background="Transparent">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Grid Margin="0,0,6,0" VerticalAlignment="Center">
+                                                        <Ellipse Width="8" Height="8" Fill="{Binding MarkerBrush}">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLineMarker}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <Rectangle Width="14" Height="2" Fill="{Binding MarkerBrush}">
+                                                            <Rectangle.Style>
+                                                                <Style TargetType="Rectangle">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLineMarker}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Rectangle.Style>
+                                                        </Rectangle>
+                                                    </Grid>
+                                                    <TextBlock Foreground="#707B88">
+                                                        <Run Text="{Binding Label, Mode=OneWay}" />
+                                                        <Run Text=": " />
+                                                        <Run Text="{Binding Count, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+ </DockPanel>
+</Window>

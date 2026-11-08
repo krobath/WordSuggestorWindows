@@ -12,7 +12,7 @@ public sealed class WindowsSpeechToTextService : IDisposable
     private string? _scriptPath;
     private string? _lastErrorStatus;
 
-    private const string SpeechBridgeScript = """
+    internal const string SpeechBridgeScript = """
         param(
             [Parameter(Mandatory = $true)]
             [string] $LanguageCode,
@@ -29,7 +29,7 @@ public sealed class WindowsSpeechToTextService : IDisposable
 
         function Write-BridgeLine([string] $Kind, [string] $Culture, [double] $Confidence, [string] $Text) {
             $encodedText = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Text))
-            [Console]::Out.WriteLine(('{0}`t{1}`t{2}`t{3}' -f $Kind, $Culture, $Confidence.ToString([System.Globalization.CultureInfo]::InvariantCulture), $encodedText))
+            [Console]::Out.WriteLine(("{0}`t{1}`t{2}`t{3}" -f $Kind, $Culture, $Confidence.ToString([System.Globalization.CultureInfo]::InvariantCulture), $encodedText))
             [Console]::Out.Flush()
         }
 
@@ -207,7 +207,7 @@ public sealed class WindowsSpeechToTextService : IDisposable
         }
     }
 
-    private void HandleBridgeLine(string line)
+    internal void HandleBridgeLine(string line)
     {
         var parts = line.Split('\t', 4);
         if (parts.Length != 4)

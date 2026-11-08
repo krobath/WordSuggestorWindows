@@ -63,7 +63,7 @@
                        FontSize="28"
                        FontWeight="SemiBold"
                        Foreground="#111827" />
-            <TextBlock Text="Windows-native baseline for de samme settings-semantikker som macOS. Ikke-understøttede områder er markeret som kommende arbejde."
+            <TextBlock Text="Tilpas ordforslag, oplæsning og lokale data."
                        Style="{StaticResource MutedTextStyle}"
                        Margin="0,3,0,0" />
         </StackPanel>
@@ -192,16 +192,16 @@
                                           Style="{StaticResource SettingCheckBoxStyle}"
                                           Content="Aktiver tekstanalyse"
                                           IsEnabled="False" />
-                                <CheckBox x:Name="TextAnalyzerColoringCheckBox"
+                                <CheckBox x:Name="TextAnalyzerColoringCheckBox" IsEnabled="False"
                                           Style="{StaticResource SettingCheckBoxStyle}"
                                           Content="POS-farvemarkering" />
-                                <CheckBox x:Name="SemanticDiagnosticsCheckBox"
+                                <CheckBox x:Name="SemanticDiagnosticsCheckBox" IsEnabled="False"
                                           Style="{StaticResource SettingCheckBoxStyle}"
                                           Content="Semantiske kontekstdiagnoser (beta)" />
-                                <CheckBox x:Name="PunctuationDiagnosticsCheckBox"
+                                <CheckBox x:Name="PunctuationDiagnosticsCheckBox" IsEnabled="False"
                                           Style="{StaticResource SettingCheckBoxStyle}"
                                           Content="Tegnsætningsdiagnoser (beta)" />
-                                <TextBlock Text="Den nuværende Windows-editor har en visuel baseline for farver. Fuld lexicon-/analyzer-backed parity kommer senere."
+                                <TextBlock Text="Tekstanalyse er endnu ikke tilgængelig i denne beta. Dine indstillinger bevares."
                                            Style="{StaticResource MutedTextStyle}" />
                             </StackPanel>
                         </Border>

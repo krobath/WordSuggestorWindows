@@ -1,0 +1,10 @@
+{
+    "danishPackSha256":  "6970C398077C235355F513D9491E4193534FE88B751AEEA07EDDEF9ABC3FB82F",
+    "coreRevision":  "5d8d7a0fd578a8373ce17f79a25e78a1197692c1",
+    "dotnetSdk":  "10.0.403",
+    "swift":  "6.3.0",
+    "windowsSdk":  "10.0.22621.0",
+    "sqliteVersion":  "3.46.0",
+    "sqliteArchiveSha256":  "712A7D09D2A22652FB06A49AF516E051979A3984ADB067DA86760E60ED51A7F5",
+    "schemaVersion":  1
+}

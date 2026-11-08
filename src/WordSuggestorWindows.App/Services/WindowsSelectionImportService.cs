@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -34,7 +35,7 @@ public sealed class WindowsSelectionImportService
             return null;
         }
 
-        if (foreground == excludedWindowHandle)
+        if (foreground == excludedWindowHandle || WindowsNativeTextAdapter.IsOwnWindow(foreground))
         {
             EmitIf(emitDiagnostics, "UIA", "Skipped", "Foreground window is WordSuggestor.");
             return null;
@@ -94,6 +95,7 @@ public sealed class WindowsSelectionImportService
             var focused = root.FindFirst(
                 TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true));
+            if (focused?.Current.IsPassword == true) return null;
             var anchor = focused is not null
                 ? TryReadTextPatternAnchor(focused, "Windows UI Automation focused descendant", windowHandle)
                 : TryReadTextPatternAnchor(root, "Windows UI Automation window", windowHandle);
@@ -147,7 +149,7 @@ public sealed class WindowsSelectionImportService
             return null;
         }
 
-        if (windowHandle == excludedWindowHandle)
+        if (windowHandle == excludedWindowHandle || WindowsNativeTextAdapter.IsOwnWindow(windowHandle))
         {
             EmitIf(emitDiagnostics, "UIA", "Skipped", $"{source} window handle points to WordSuggestor.");
             return null;
@@ -179,109 +181,72 @@ public sealed class WindowsSelectionImportService
     }
 
     public async Task<SelectionImportResult?> TryReadSelectionWithClipboardFallbackAsync(
-        IntPtr targetWindowHandle,
-        IntPtr returnWindowHandle)
+        IntPtr targetWindowHandle, IntPtr returnWindowHandle)
     {
-        if (targetWindowHandle == IntPtr.Zero || targetWindowHandle == returnWindowHandle)
+        var adapter = new WindowsNativeTextAdapter();
+        var expected = adapter.ReadFocused();
+        if (expected is null || expected.Window != targetWindowHandle || expected.Start == expected.End)
         {
-            Emit("ClipboardFallback", "Skipped", "No external target window was available.");
+            Emit("ClipboardFallback", "UnqualifiedTarget", "Explicit copy requires a verified Notepad selection.");
             return null;
         }
-
-        var originalClipboard = TryGetClipboardDataObject();
-        var sentinel = $"__WordSuggestorClipboardProbe_{Guid.NewGuid():N}__";
-        var attemptTimer = Stopwatch.StartNew();
-
-        if (IsWordWindow(targetWindowHandle))
-        {
-            Emit(
-                "ClipboardFallback",
-                "SkippedForWord",
-                $"Clipboard fallback was skipped for Microsoft Word to avoid Office instability. {DescribeWindowHandle(targetWindowHandle)}");
-            return null;
-        }
-
+        // Materialize the clipboard before replacing it. Deferred COM data objects
+        // cannot be trusted to remain usable after the clipboard owner changes.
+        var original = SnapshotClipboard();
+        if (original is null) return null;
+        var sentinel = "WordSuggestor.Copy." + Guid.NewGuid().ToString("N");
+        if (adapter.ReadFocused() != expected || !TrySetClipboardSentinel(sentinel)) return null;
+        var ownedSequence = GetClipboardSequenceNumber();
         try
         {
-            if (!TrySetClipboardSentinel(sentinel))
-            {
-                Emit("ClipboardFallback", "Failed", "Could not place clipboard sentinel before Ctrl+C probe.");
-                return null;
-            }
-
-            var foregroundChanged = SetForegroundWindow(targetWindowHandle);
-            Emit(
-                "ClipboardFallback",
-                foregroundChanged ? "TargetActivated" : "TargetActivationUnconfirmed",
-                $"Target window was prepared for Ctrl+C. {DescribeWindowHandle(targetWindowHandle)}");
-            await Task.Delay(ForegroundActivationDelayMs);
-
-            if (GetForegroundWindow() != targetWindowHandle)
-            {
-                foregroundChanged = SetForegroundWindow(targetWindowHandle);
-                Emit(
-                    "ClipboardFallback",
-                    foregroundChanged ? "TargetReactivated" : "TargetReactivationUnconfirmed",
-                    $"Foreground verification failed; retried target window. target={DescribeWindowHandle(targetWindowHandle)} currentForeground={DescribeWindowHandle(GetForegroundWindow())}");
-                await Task.Delay(ForegroundActivationDelayMs);
-            }
-
-            var sentInputCount = SendCopyShortcut();
-            if (sentInputCount == 0)
-            {
-                await Task.Delay(ForegroundActivationDelayMs);
-                _ = SetForegroundWindow(targetWindowHandle);
-                await Task.Delay(ForegroundActivationDelayMs);
-                sentInputCount = SendCopyShortcut();
-            }
-
-            var lastError = sentInputCount == 0 ? Marshal.GetLastWin32Error() : 0;
-            Emit(
-                "ClipboardFallback",
-                sentInputCount == 0 ? "CopyShortcutFailed" : "CopyShortcutSent",
-                sentInputCount == 0
-                    ? $"SendInput reported 0 keyboard input events; GetLastWin32Error={lastError}. target={DescribeWindowHandle(targetWindowHandle)}"
-                    : $"SendInput reported {sentInputCount} keyboard input events. target={DescribeWindowHandle(targetWindowHandle)}");
+            if (adapter.ReadFocused() != expected || SendCopyShortcut() != 4) return null;
             await Task.Delay(ClipboardCopyDelayMs);
-
-            var copiedText = TryGetClipboardText();
-            if (string.IsNullOrWhiteSpace(copiedText) ||
-                string.Equals(copiedText, sentinel, StringComparison.Ordinal))
+            var sequence = GetClipboardSequenceNumber();
+            GetWindowThreadProcessId(GetClipboardOwner(), out var ownerPid);
+            if (sequence != ownedSequence)
             {
-                Emit("ClipboardFallback", "NoSelection", "Clipboard still contained sentinel or empty text after Ctrl+C.");
-                return null;
+                if (ownerPid != expected.ProcessId) return null; // another copy wins
+                ownedSequence = sequence;
             }
-
-            Emit(
-                "ClipboardFallback",
-                "Success",
-                $"Copied {copiedText.Trim().Length} characters from external target after {attemptTimer.ElapsedMilliseconds} ms. target={DescribeWindowHandle(targetWindowHandle)}");
-            return new SelectionImportResult(
-                copiedText.Trim(),
-                "ekstern app via clipboard fallback",
-                DateTimeOffset.Now,
-                targetWindowHandle);
+            if (adapter.ReadFocused() != expected) return null;
+            var copied = TryGetClipboardText();
+            if (copied != expected.Text[expected.Start..expected.End]) return null;
+            Emit("ClipboardFallback", "Success", "Verified explicit copy; no text recorded.");
+            return new SelectionImportResult(copied, "Notepad clipboard-import", DateTimeOffset.Now, expected.Window);
         }
         finally
         {
-            var restoreTimer = Stopwatch.StartNew();
-            var clipboardRestored = RestoreClipboard(originalClipboard);
-            Emit(
-                "ClipboardFallback",
-                clipboardRestored ? "ClipboardRestored" : "ClipboardRestoreFailed",
-                (originalClipboard is null
-                    ? "Original clipboard was empty or unavailable."
-                    : "Original clipboard data object was restored.") +
-                $" restoreMs={restoreTimer.ElapsedMilliseconds} target={DescribeWindowHandle(targetWindowHandle)} currentForeground={DescribeWindowHandle(GetForegroundWindow())}");
-            if (returnWindowHandle != IntPtr.Zero)
-            {
-                _ = SetForegroundWindow(returnWindowHandle);
-                Emit(
-                    "ClipboardFallback",
-                    "ReturnWindowRequested",
-                    $"Requested foreground return to WordSuggestor. returnWindow={DescribeWindowHandle(returnWindowHandle)} currentForeground={DescribeWindowHandle(GetForegroundWindow())}");
-            }
+            if (GetClipboardSequenceNumber() == ownedSequence)
+                Emit("ClipboardFallback", RestoreClipboard(original) ? "ClipboardRestored" : "ClipboardRestoreFailed", "Explicit copy cleanup.");
         }
+    }
+
+    private static IDataObject? SnapshotClipboard()
+    {
+        try
+        {
+            var source = Clipboard.GetDataObject();
+            var copy = new DataObject();
+            if (source is null) return copy;
+            var formats = source.GetFormats(false);
+            if (formats.Length > 32) return null;
+            foreach (var format in formats)
+            {
+                var value = source.GetData(format, false);
+                object? cloned = value switch
+                {
+                    string text => text,
+                    byte[] bytes => bytes.ToArray(),
+                    MemoryStream stream => new MemoryStream(stream.ToArray()),
+                    System.Windows.Media.Imaging.BitmapSource bitmap => bitmap.Clone(),
+                    _ => null
+                };
+                if (cloned is null) return null;
+                copy.SetData(format, cloned);
+            }
+            return copy;
+        }
+        catch (ExternalException) { return null; }
     }
 
     private void Emit(string stage, string outcome, string detail) =>
@@ -310,6 +275,7 @@ public sealed class WindowsSelectionImportService
             var focused = root.FindFirst(
                 TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true));
+            if (focused?.Current.IsPassword == true) return null;
 
             return focused is not null
                 ? TryReadTextPatternSelection(focused, "Windows UI Automation focused descendant", windowHandle)
@@ -676,12 +642,6 @@ public sealed class WindowsSelectionImportService
                 }
             }
 
-            var title = GetWindowTextSafe(windowHandle);
-            if (!string.IsNullOrWhiteSpace(title))
-            {
-                builder.Append($", title=\"{title}\"");
-            }
-
             var className = GetClassNameSafe(windowHandle);
             if (!string.IsNullOrWhiteSpace(className))
             {
@@ -769,6 +729,9 @@ public sealed class WindowsSelectionImportService
                 }
             }
         };
+
+    [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();
+    [DllImport("user32.dll")] private static extern IntPtr GetClipboardOwner();
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();

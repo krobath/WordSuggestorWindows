@@ -10,6 +10,9 @@ public sealed class AppSettingsSnapshot
 
     public string SuggestionPlacementMode { get; set; } = "followCaret";
 
+    public double? OverlayLeftPhysical { get; set; }
+    public double? OverlayTopPhysical { get; set; }
+
     public bool IsTextAnalyzerEnabled { get; set; } = true;
 
     public bool IsTextAnalyzerColoringEnabled { get; set; } = true;
@@ -55,6 +58,8 @@ public sealed class AppSettingsSnapshot
             IsGlobalCaptureEnabled = IsGlobalCaptureEnabled,
             SelectedLanguageCode = SelectedLanguageCode,
             SuggestionPlacementMode = SuggestionPlacementMode,
+            OverlayLeftPhysical = OverlayLeftPhysical,
+            OverlayTopPhysical = OverlayTopPhysical,
             IsTextAnalyzerEnabled = IsTextAnalyzerEnabled,
             IsTextAnalyzerColoringEnabled = IsTextAnalyzerColoringEnabled,
             IsSemanticDiagnosticsEnabled = IsSemanticDiagnosticsEnabled,

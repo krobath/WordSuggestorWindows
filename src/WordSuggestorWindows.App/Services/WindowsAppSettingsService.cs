@@ -17,8 +17,7 @@ public sealed class WindowsAppSettingsService
     public WindowsAppSettingsService()
     {
         _settingsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WordSuggestor",
+            WindowsDataPaths.Root,
             "settings",
             "settings-v1.json");
     }
@@ -37,7 +36,11 @@ public sealed class WindowsAppSettingsService
             try
             {
                 var json = File.ReadAllText(_settingsPath);
-                return JsonSerializer.Deserialize<AppSettingsSnapshot>(json, JsonOptions) ?? new AppSettingsSnapshot();
+                var settings = JsonSerializer.Deserialize<AppSettingsSnapshot>(json, JsonOptions) ?? new AppSettingsSnapshot();
+                if (settings.SchemaVersion != 1) return new AppSettingsSnapshot();
+                settings.SystemVoiceIdOverrideByLanguage ??= [];
+                settings.ReadingSpeedDelta = Math.Clamp(settings.ReadingSpeedDelta, -1, 1);
+                return settings;
             }
             catch (JsonException)
             {
@@ -59,16 +62,26 @@ public sealed class WindowsAppSettingsService
         lock (_gate)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-            var tempPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
-            File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, JsonOptions));
-
             if (File.Exists(_settingsPath))
             {
-                File.Replace(tempPath, _settingsPath, null);
+                try
+                {
+                    using var existing = JsonDocument.Parse(File.ReadAllText(_settingsPath));
+                    if (existing.RootElement.TryGetProperty("schemaVersion", out var version) && version.GetInt32() > 1)
+                        throw new InvalidOperationException("Settings created by a newer version are preserved.");
+                }
+                catch (JsonException) { /* keep the previous file as a recovery backup */ }
             }
-            else
+            var tempPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
+            try
             {
-                File.Move(tempPath, _settingsPath);
+                File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, JsonOptions));
+                if (File.Exists(_settingsPath)) File.Replace(tempPath, _settingsPath, _settingsPath + ".bak");
+                else File.Move(tempPath, _settingsPath);
+            }
+            finally
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
             }
         }
     }

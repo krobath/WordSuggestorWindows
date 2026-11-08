@@ -60,8 +60,7 @@ public sealed class WindowsOcrService
     private static readonly TimeSpan CallbackPollInterval = TimeSpan.FromMilliseconds(250);
     private const string OcrUserAgent = "WordSuggestor";
     private static readonly string OcrFlowDiagnosticLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "WordSuggestor",
+        WindowsDataPaths.Root,
         "diagnostics",
         "ocr-flow.log");
     private enum LegacyScreenClipAttemptStatus
@@ -159,6 +158,9 @@ public sealed class WindowsOcrService
         [Console]::Out.Write($copy.Path)
         """;
 
+    public async Task<string?> RecognizeImageAsync(string imagePath, CancellationToken cancellationToken = default) =>
+        await RecognizeTextFromImageAsync(Path.GetFullPath(imagePath), Guid.NewGuid().ToString("D"), cancellationToken);
+
     public async Task<OcrImportResult?> CaptureScreenAndRecognizeAsync(CancellationToken cancellationToken = default)
     {
         var correlationId = Guid.NewGuid().ToString("D");
@@ -200,7 +202,7 @@ public sealed class WindowsOcrService
                     correlationId,
                     callback is null
                         ? "Capture stopped: no callback before timeout."
-                        : $"Capture stopped: callback code={callback.Code}, reason={callback.Reason ?? "n/a"}, tokenPresent={callback.Token is not null}.");
+                        : $"Capture stopped: callback code={callback.Code}, tokenPresent={callback.Token is not null}.");
                 return null;
             }
 
@@ -256,7 +258,7 @@ public sealed class WindowsOcrService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            EmitDiagnostic(correlationId, $"Capture failed with exception: {ex.GetType().Name}: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Capture failed with exception: {ex.GetType().Name}: {ex.GetType().Name}");
             return null;
         }
         finally
@@ -339,7 +341,7 @@ public sealed class WindowsOcrService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            EmitDiagnostic(correlationId, $"Legacy screenclip failed with exception: {ex.GetType().Name}: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Legacy screenclip failed with exception: {ex.GetType().Name}: {ex.GetType().Name}");
             var restoredAfterException = RestoreClipboard(originalClipboard);
             EmitDiagnostic(correlationId, restoredAfterException
                 ? "Legacy screenclip exception restored clipboard snapshot."
@@ -380,7 +382,7 @@ public sealed class WindowsOcrService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            EmitDiagnostic(correlationId, $"Win+Shift+S send failed: {ex.GetType().Name}: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Win+Shift+S send failed: {ex.GetType().Name}: {ex.GetType().Name}");
             return false;
         }
     }
@@ -634,17 +636,17 @@ public sealed class WindowsOcrService
         }
         catch (COMException ex)
         {
-            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe COMException: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe COMException: {ex.GetType().Name}");
             return false;
         }
         catch (ExternalException ex)
         {
-            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe ExternalException: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard probe ExternalException: {ex.GetType().Name}");
             return false;
         }
         catch (IOException ex)
         {
-            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard image save failed: {ex.Message}");
+            EmitDiagnostic(correlationId, $"Legacy screenclip clipboard image save failed: {ex.GetType().Name}");
             return false;
         }
     }
@@ -868,18 +870,6 @@ public sealed class WindowsOcrService
         }
     }
 
-    private static string SanitizeForLog(string value, string? secret)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return "<empty>";
-        }
-
-        var sanitized = string.IsNullOrWhiteSpace(secret)
-            ? value
-            : value.Replace(secret, "<redacted-token>", StringComparison.Ordinal);
-        sanitized = sanitized.Replace("\r", "\\r", StringComparison.Ordinal).Replace("\n", "\\n", StringComparison.Ordinal);
-        return sanitized.Length <= 600 ? sanitized : sanitized[..600] + "...";
-    }
-
+    private static string SanitizeForLog(string value, string? secret) =>
+        string.IsNullOrWhiteSpace(value) ? "<empty>" : "<process diagnostics omitted>";
 }

@@ -13,13 +13,13 @@ public sealed class WindowsErrorInsightsStore
     public WindowsErrorInsightsStore()
     {
         _storePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WordSuggestor",
+            WindowsDataPaths.Root,
             "insights",
             "error-insights.jsonl");
     }
 
     public string StorePath => _storePath;
+    public bool StoreTextExamples { get; set; }
 
     public void RecordAcceptedSuggestion(
         string typedText,
@@ -31,8 +31,8 @@ public sealed class WindowsErrorInsightsStore
             DateTimeOffset.Now,
             "accepted-suggestion",
             languageCode,
-            string.IsNullOrWhiteSpace(typedText) ? null : typedText,
-            suggestion.Term,
+            !StoreTextExamples || string.IsNullOrWhiteSpace(typedText) ? null : typedText,
+            StoreTextExamples ? suggestion.Term : null,
             suggestion.Kind,
             suggestion.PartOfSpeech,
             rank,
@@ -93,8 +93,13 @@ public sealed class WindowsErrorInsightsStore
     {
         lock (_gate)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
-            File.AppendAllText(_storePath, JsonSerializer.Serialize(insightEvent, JsonOptions) + Environment.NewLine);
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
+                File.AppendAllText(_storePath, JsonSerializer.Serialize(insightEvent, JsonOptions) + Environment.NewLine);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 

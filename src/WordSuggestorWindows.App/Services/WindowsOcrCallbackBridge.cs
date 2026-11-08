@@ -11,8 +11,7 @@ public static class WindowsOcrCallbackBridge
     private static readonly string[] CallbackDirectories =
     [
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WordSuggestor",
+            WindowsDataPaths.Root,
             "ocr-callbacks"),
         Path.Combine(
             Path.GetTempPath(),
@@ -130,11 +129,11 @@ public static class WindowsOcrCallbackBridge
             }
             catch (IOException ex)
             {
-                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.Message}");
+                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.GetType().Name}");
             }
             catch (UnauthorizedAccessException ex)
             {
-                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.Message}");
+                EmitDiagnostic($"Startup callback write failed in {directory}: {ex.GetType().Name}: {ex.GetType().Name}");
             }
         }
 
@@ -189,7 +188,7 @@ public static class WindowsOcrCallbackBridge
             query.GetValueOrDefault("x-request-correlation-id"),
             query.GetValueOrDefault("request-correlation-id"));
 
-        if (string.IsNullOrWhiteSpace(correlationId))
+        if (!Guid.TryParse(correlationId, out _))
         {
             return null;
         }
@@ -207,7 +206,7 @@ public static class WindowsOcrCallbackBridge
             query.GetValueOrDefault("shared-storage-token"));
 
         EmitDiagnostic(
-            $"Parsed callback query: keys={string.Join(",", query.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))} tokenPresent={!string.IsNullOrWhiteSpace(token)} tokenLength={token?.Length ?? 0}");
+            $"Parsed callback query: keyCount={query.Count} tokenPresent={!string.IsNullOrWhiteSpace(token)} tokenLength={token?.Length ?? 0}");
 
         return new OcrScreenClipCallback(
             correlationId,
@@ -253,8 +252,7 @@ public static class WindowsOcrCallbackBridge
         try
         {
             var diagnosticsDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "WordSuggestor",
+                WindowsDataPaths.Root,
                 "diagnostics");
             Directory.CreateDirectory(diagnosticsDirectory);
             File.AppendAllText(

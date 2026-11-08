@@ -1,3 +1,16 @@
+# Current selection-import scope — 2026-11-08
+
+The historical matrix below tracks TXT/TTS selection import, not candidate commit.
+Notepad candidate commit has now been end-to-end verified by desktop smoke; do
+not infer from that that every selection-import route has passed. UIA and Word COM
+are retained on explicit actions. Passive full-selection polling and automatic
+clipboard fallback are removed. Explicit clipboard import is qualified only for
+a verified native Notepad selection with restorable clipboard formats. Word,
+Outlook, browsers and Google Docs need fresh, target-specific import qualification.
+Selection diagnostics now omit provider-controlled Detail and window titles.
+
+---
+
 # Windows Selection Import Compatibility Matrix
 
 Last updated: `2026-04-14`

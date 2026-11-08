@@ -5,11 +5,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "dotnet_env.ps1")
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $bootstrapScript = Join-Path $repoRoot "scripts\bootstrap_core_cli.ps1"
 $buildScript = Join-Path $repoRoot "scripts\build_app.ps1"
-$appExe = Join-Path $repoRoot "src\WordSuggestorWindows.App\bin\Debug\net9.0-windows\WordSuggestorWindows.App.exe"
+$appExe = Join-Path $repoRoot "src\WordSuggestorWindows.App\bin\Debug\net10.0-windows\WordSuggestorWindows.App.exe"
 
 if (-not $SkipBootstrap) {
     & $bootstrapScript
@@ -28,4 +29,4 @@ $env:WORDSUGGESTOR_WINDOWS_STARTUP_TEXT = $SampleText
 Write-Host "Launching WordSuggestorWindows.App with startup text:"
 Write-Host $SampleText
 
-Start-Process -FilePath $appExe
+Start-Process -FilePath $appExe -WindowStyle Hidden

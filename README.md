@@ -1,26 +1,89 @@
 # WordSuggestorWindows
 
-Windows-native host application for WordSuggestor.
+Native Windows WPF host for WordSuggestorCore. Current delivery: functioning beta
+implementation and signing-ready x64 MSIX payload; public release qualification is
+still open. See [release evidence](docs/changes/2026-11-08_wsa_rt_016_windows_beta_hardening.md).
 
-This repository is the delivery track for the Windows port of the macOS WordSuggestor app. The shared suggestion engine remains in `WordSuggestorCore`; this repository owns the Windows app shell, platform adapters, packaging, and Windows-specific validation.
+## Prerequisites
 
-## Initial scope
+- Windows 10 2004+ / Windows 11, x64, ordinary desktop user session.
+- .NET SDK 10.0.403 (pinned in `global.json`). A local SDK under
+  `.artifacts/dotnet` is automatically discovered; otherwise install the matching SDK.
+- Swift 6.3.0 Windows toolchain/runtime, Visual Studio 2022 C++ tools and Windows
+  SDK 10.0.22621.0. Windows SDK MakeAppx/SignTool are needed for packaging.
+- Adjacent `WordSuggestorCore` checkout, including the tracked Danish
+  `Ressources/da_lexicon.sqlite`. See `dependencies.lock.json` for qualified inputs.
+  Other sibling repos are references, not runtime requirements. No production secrets.
 
-- Native Windows app shell
-- Internal editor with local suggestion flow
-- Bridge to `WordSuggestorCore`
-- Windows-specific input/caret/panel/commit adapters
-- Windows packaging and smoke validation
+.NET 10 LTS replaces .NET 9, whose support ends on 2026-11-10 according to
+[Microsoft's support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).
 
-## Documents
+## Build, test, run
 
-- `docs/Plan.md` - active Windows delivery plan
-- `docs/Architecture.md` - target architecture and adapter model
-- `docs/ParityMatrix.md` - macOS-to-Windows feature parity tracking
-- `docs/UiParityPlan.md` - approved Windows UI parity contract and sprint breakdown
-- `docs/ManualSmoke.md` - reproducible manual smoke checklist for the current Windows baseline
-- `docs/changes/` - per-sprint implementation notes
-- `scripts/build_app.ps1` - reproducible local WPF build on this Windows workspace
-- `scripts/bootstrap_core_cli.ps1` - local Windows bootstrap for SQLite + Swift CLI build
-- `scripts/test_core_cli.ps1` - local bridge diagnostic for `WordSuggestorCore` using the bootstrapped CLI path
-- `scripts/run_app.ps1` - bootstraps, builds, and launches the Windows app with smoke-ready startup text
+From the workspace parent (containing both repos):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_core_cli.ps1
+powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_app.ps1
+powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild
+```
+
+Bootstrap downloads checksum-pinned SQLite 3.46.0 when absent, compiles it locally,
+and builds Core. Swift 6.3 SDK-module discovery is corrected using local virtual
+module maps; no Program Files files are patched. All native exit codes are checked.
+Network access is needed for first dependency restore/download, not for suggestions.
+
+The app starts as a non-activating toolbar. Open the separate editor using its
+right-hand button. Type an unfinished Danish word. Accept with Ctrl+1…Ctrl+0, Tab
+or a candidate click; Ctrl+Left/Right pages candidates. Use Ctrl+O/Ctrl+S for UTF-8
+text files. Closing the editor preserves the buffer while the toolbar remains.
+Use Filer > Afslut or the toolbar context menu to exit; unsaved changes are guarded.
+Reopening the app signals the existing instance instead of creating another toolbar.
+
+From the Windows repo, in an unlocked desktop session:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_gui.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_media.ps1
+powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_package.ps1 -AppDirectory <artifact-app-directory>
+powershell -ExecutionPolicy Bypass -File scripts\test_clean_checkout.ps1
+```
+
+GUI smoke uses its own synthetic Notepad document and isolated settings. It moves
+focus/mouse during the test. Close other WordSuggestor instances first. Tests use
+`WORDSUGGESTOR_DATA_ROOT` for isolation; normal use keeps existing LocalAppData.
+Clean-checkout smoke exports committed Windows/Core revisions without build output.
+
+For a built Core, `test_core_cli.ps1 -SkipBootstrap` and
+`run_app.ps1 -SkipBuild -SkipBootstrap` avoid rebuilding. `WORDSUGGESTOR_SUGGEST_CLI_PATH`
+is an explicit developer override. Installed payloads resolve bundled `Core`/`Packs`
+without source repos or SDKs. Missing Core/packs produce a calm status, not startup failure.
+
+## Current limits and release
+
+External editing is qualified for Notepad native text controls, up to 60,000 UTF-16
+units. Word/Outlook/browser commits are disabled pending target-specific qualification;
+UIA/Word-COM selection import remains separate. Clipboard copy is an explicit import
+menu action with verification, not an automatic commit fallback. Unknown caret geometry
+uses static placement. Real mixed-DPI/multi-monitor and human screen-reader tests remain open.
+
+Core-backed document analysis, correction popovers, domain lists and account/backend
+sync are not yet implemented. Local C# word-class guesses were removed; corresponding
+preferences are retained and controls disabled. Existing TTS, STT, OCR, settings and
+insights adapters remain; see the smoke matrix for the scope actually exercised.
+
+MSIX packaging bundles .NET, Swift, Core and Danish data. Unsigned artifacts are clearly
+marked; no update metadata is generated until trusted signing succeeds. No signing
+certificate/feed is currently configured. [Release.md](docs/Release.md) covers signing,
+HTTPS beta updates, data retention, rollback and remaining installation gates.
+
+## Documentation
+
+- [Repo audit and architecture decision](docs/ReleaseAudit.md)
+- [Architecture and data/focus/commit ownership](docs/Architecture.md)
+- [Core JSON and language-pack contract](docs/BridgeContract.md)
+- [Plan](docs/Plan.md), [parity matrix](docs/ParityMatrix.md), [UI parity](docs/UiParityPlan.md)
+- [Desktop/manual smoke](docs/ManualSmoke.md), [selection compatibility](docs/SelectionImportCompatibilityMatrix.md)
+- [Changes](docs/changes/)

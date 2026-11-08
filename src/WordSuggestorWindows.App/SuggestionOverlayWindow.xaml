@@ -16,6 +16,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
         <Style x:Key="OverlayHeaderButtonStyle" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
             <Setter Property="Padding" Value="4,1" />
             <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="Background" Value="#E7EDF5" />
@@ -48,6 +49,7 @@
         </Style>
 
         <Style x:Key="OverlayActionButtonStyle" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
             <Setter Property="Width" Value="18" />
             <Setter Property="Height" Value="18" />
             <Setter Property="Margin" Value="4,0,0,0" />
@@ -207,7 +209,12 @@
                                                Foreground="#697585"
                                                Text="{Binding ShortcutLabel}" />
 
-                                    <StackPanel Grid.Column="1">
+                                    <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0"
+                                            HorizontalContentAlignment="Stretch" Focusable="False"
+                                            AutomationProperties.AutomationId="AcceptCandidate"
+                                            AutomationProperties.Name="{Binding Suggestion.Term}"
+                                            Click="AcceptButton_OnClick">
+                                    <StackPanel>
                                         <TextBlock FontSize="12.5"
                                                    FontWeight="SemiBold"
                                                    Foreground="#272B31"
@@ -225,6 +232,7 @@
                                                    TextTrimming="CharacterEllipsis"
                                                    Visibility="{Binding HasMetadataSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
                                     </StackPanel>
+                                    </Button>
 
                                     <StackPanel Grid.Column="2"
                                                 Orientation="Horizontal"
