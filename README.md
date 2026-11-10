@@ -81,6 +81,11 @@ HTTPS beta updates, data retention, rollback and remaining installation gates.
 
 ## Documentation
 
+- [Windows documentation index](docs/README.md)
+- [Windows Settings sprint WSA-UX-029 (planned)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
+- [Settings slice 0 qualification and actual platform limits](docs/qualification/WSA-UX-029_slice0.md)
+- [Settings reference/function analysis](docs/analysis/2026-11-09_settings_parity_analysis.md)
+- [Documentation ownership across platforms](docs/DocumentationOrganization.md)
 - [Repo audit and architecture decision](docs/ReleaseAudit.md)
 - [Architecture and data/focus/commit ownership](docs/Architecture.md)
 - [Core JSON and language-pack contract](docs/BridgeContract.md)

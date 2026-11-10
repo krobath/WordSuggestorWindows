@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "qualification_scope": "working_tree_baseline_and_negative_host_boundaries",
+  "platform": "windows",
+  "client_date": "2026-11-10",
+  "baseline": {
+    "schema_version": 1,
+    "sprint": "WSA-UX-029",
+    "slice": 0,
+    "started_at": "2026-11-10T00:16:19.3500336+00:00",
+    "windows_base_commit": "71c342edd7b0b2aa89ced5ffc6b9f36e1332dbfd",
+    "working_tree_dirty": true,
+    "app_source_sha256": "130f92d2e81114af4440f26a1895ffb481bf3ae324dc85aa7d6799775369ef55",
+    "tests_source_sha256": "9b20f5ee54a38b4caaa3effdb7b3ad9e70c3ae43f9bdee7a123ed0cf655a7142",
+    "mac_reference": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
+    "core_commit": "5d8d7a0fd578a8373ce17f79a25e78a1197692c1",
+    "danish_pack_sha256": "6970c398077c235355f513d9491e4193534fe88b751aeea07eddef9abc3fb82f",
+    "dotnet_sdk": "10.0.403",
+    "gates": {
+      "qualification-contract": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.71
+      },
+      "build": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 12.81
+      },
+      "core": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.64
+      },
+      "app": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 6
+      },
+      "run-scripts": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 1.62
+      },
+      "release-scripts": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 3.61
+      },
+      "platform": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.66
+      },
+      "desktop": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 16.61
+      },
+      "media": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 3.47
+      },
+      "clean-source": {
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 100.88
+      }
+    },
+    "completed": true,
+    "finished_at": "2026-11-10T00:18:46.7326612+00:00"
+  },
+  "platform_probe": {
+    "schema_version": 1,
+    "os_version": "10.0.26300.0",
+    "process_bits": 64,
+    "elevated": false,
+    "probe_context": "unpackaged_windows_powershell",
+    "hello": {
+      "availability": "DeviceNotPresent",
+      "probe_error_category": null,
+      "key_credential_supported": false,
+      "key_probe_error_category": null,
+      "protected_secret_roundtrip": "not_run",
+      "user_verification_roundtrip": "not_run",
+      "product_enabled": false
+    },
+    "updater": {
+      "app_installer_manager_api_present": true,
+      "get_cmdlet_present": true,
+      "set_cmdlet_present": true,
+      "package_roundtrip": {
+        "cmdlet": {
+          "status": "blocked",
+          "error_category": "Exception",
+          "hresult": "0x800706F7",
+          "unchanged": true
+        },
+        "native": {
+          "status": "blocked",
+          "error_category": "Exception",
+          "hresult": "0x800706F7",
+          "unchanged": true
+        }
+      },
+      "packaged_app_authority": "not_qualified",
+      "product_toggle_enabled": false
+    }
+  },
+  "isolated_fixture_cleanup": {
+    "package_removed": true,
+    "trust_removed": true,
+    "private_key_removed": true
+  },
+  "counts": {
+    "settings_contract": 35,
+    "app": 92,
+    "core_fixtures": 6,
+    "desktop": 42,
+    "media": 3,
+    "run_scripts": 9,
+    "release_scripts": 43
+  },
+  "qualified_source_files": [
+    {
+      "path": "docs/qualification/settings-controls.v1.json",
+      "sha256": "53c9fa0c9514afb6315eabbcb781fe84e92f4e4567e6688e2bbfe71435a55cd3"
+    },
+    {
+      "path": "scripts/settings_qualification.ps1",
+      "sha256": "60ff9fb86f4beeb047daec749c3a80ea178ed9e79ab3e49eaeff35c0d0c32ae3"
+    },
+    {
+      "path": "scripts/test_settings_platform.ps1",
+      "sha256": "f58b53daae5915f7fd727a556661efda85c54b37bf8886d3b39a3a744a51f973"
+    },
+    {
+      "path": "scripts/test_settings_qualification.ps1",
+      "sha256": "59ceb4ecd12c9739fd5546808a73ad700be8f68673ce8fdd017447424c455d93"
+    },
+    {
+      "path": "scripts/test_settings_slice0.ps1",
+      "sha256": "5950d8e39b11774bbe55d2b4ca97f8c099ed907887e7c0b9de8570bebda712f4"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/app.manifest",
+      "sha256": "4d694006a64938992c4da72b62ef29477d57799351d9170a9f3b0f7b6f22edab"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/App.xaml",
+      "sha256": "c44af4025c4596670aa743bd8ce646e5e3010b426123fdba2bba5ed0476488cb"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/App.xaml.cs",
+      "sha256": "04b4f654074c2a5cfe091c6b64dc6bea5608673843c84a70c20438e5b335a373"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/AssemblyInfo.cs",
+      "sha256": "290806f5f428b5b711ebdaabd4dffdedcad2702537296213c1f93022be6db457"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Assets/AppIcon.png",
+      "sha256": "825f18461814efb6f8f3988f7b98c0f6b3c6e96866063fb2f4e633dfbbe45492"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Assets/MacOSCommandIcons/arrow_clockwise_abc.png",
+      "sha256": "1d0ccb5553161a764dc12331fb5f102a16f4c051dfaf1b371e867f243ee2aac6"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Assets/MacOSCommandIcons/brain_head_profile.png",
+      "sha256": "d30eae9ca94799d7b5b8e83125aac2f2a88c527af37e0149a10439ce27d240a9"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Assets/MacOSCommandIcons/paintbrush.png",
+      "sha256": "b617c50a1557fbcfc3018640e1afaf0d9b992e72f9861521aadd3d33d6f2ee34"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Assets/MacOSCommandIcons/text_quote.png",
+      "sha256": "7667bcc822088b950f61d023c40396e91575129f73c23f41aeccb41ecac689b5"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/InsightsWindow.xaml",
+      "sha256": "74c2c7bfb3241776e825d8b4d4039aa1ae7d942639d4b6dd79c43a71b941149f"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/InsightsWindow.xaml.cs",
+      "sha256": "51d75e55a2530905e1d68e2131a56f4a50e731ecf16a797259a39fd2f57f4353"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/InternalEditorWindow.xaml",
+      "sha256": "1e006217d38a57d04f5aed3f133b1ba4190f51ab9686a616a620ce8b712a95c3"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/InternalEditorWindow.xaml.cs",
+      "sha256": "0f275e1c7e7fef55e4c573d6b17158b2c9ecf8184ea8e78cc7e5e77080110a11"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/MainWindow.xaml",
+      "sha256": "58ceb0f787b0e4b133842f36db80e47d8a03800e5e410435981b33dd9a9225f2"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/MainWindow.xaml.cs",
+      "sha256": "a3b5dd3a271d600b1c9466cf254a08abb85fc6fd287aa3957fec24183010b82c"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/AppSettingsSnapshot.cs",
+      "sha256": "f44f69b5e906761436709603e66e77c3a2c21dd0ed9dfbd564f9ecd13eaba13a"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/EditorDocumentTab.cs",
+      "sha256": "ab0fc7ce6d8c4e61798d934bfcb464f07fd46d1a8e29bd8bebc8a72883688aff"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ErrorInsightCorrectionRow.cs",
+      "sha256": "e62791366b3b2a903fa23e596f5dcd3f68fd969b9eec37823371040a39f6c574"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ErrorInsightEvent.cs",
+      "sha256": "6b6511a0f4912bc30f6e14167ae4962e7bd21e77f11871abf63de0127a069162"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ErrorInsightsSnapshot.cs",
+      "sha256": "93eca50863162550de896f0cac55e309dfb0be1c53d1a3b7ce7bc7ca0e5d1f28"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ErrorInsightSummaryRow.cs",
+      "sha256": "793bdb3493bc81e1f836be570ec6cc18ec69219bc1da9b4ae9397cec22b44815"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ExternalSuggestionAnchorSnapshot.cs",
+      "sha256": "c7d058749279f265365f6dfc5f640c81cb40b94f7524881571c190f7eaf8e927"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ExternalSuggestionCommitRequest.cs",
+      "sha256": "7f8792400b7011746917607b34bf1ac555a9dbe90f72ba7748cad2781c9b9c8e"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/ExternalSuggestionTokenChangedEventArgs.cs",
+      "sha256": "d9e260851b04cd4df5b0275823cbafb7e85adfc739c646e71145c083fd541ca4"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/LanguageOption.cs",
+      "sha256": "651d0138367400c1a0f1fac87f5ebeff6f216e2108c609586591185379992d36"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/OcrImportResult.cs",
+      "sha256": "8bf055dfd38e891942adf31621e0eb89bb7378448fd0898d0088a6101734292a"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/OcrScreenClipCallback.cs",
+      "sha256": "4ff791a4d3c3f014cb58cf2137b79ed88c13e6dcddbfe49c6619f154b0cfee83"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/SelectionImportDiagnostic.cs",
+      "sha256": "20f310bd137ac65f0698160683518cbf80cf80ec60de4b67f39e379e4205fb86"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/SelectionImportResult.cs",
+      "sha256": "6ec9af2d460da425cee9da23461e15dde84b4d876f0b196bd987c63dc22a7068"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/SpeechToTextTranscript.cs",
+      "sha256": "eb7ec93a742d775ce2264bcd1dfef103df50e1ea401e4a867c994ea7205f718b"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/SuggestionItem.cs",
+      "sha256": "ca24e50dc9f1ca97071527f7495609dd078f78b3ad5fa8783aa66e1d6a3240bb"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/SuggestionPresentation.cs",
+      "sha256": "189284f26c7736b806675d09520abe6c4073dc4cea8559d56641fe1f83c9ce42"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/TtsSpeechOptions.cs",
+      "sha256": "48be0eaaac49e7df1c312e77773a5518381eeab9306b50af839a807627c81c4e"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Models/TtsVoiceOption.cs",
+      "sha256": "7c38084c1d7da95dea9d6ce4a8373e52092d2d6ce307179b9e4617096241f98a"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/EditorCommit.cs",
+      "sha256": "3e4496cbaae533628522bdb0b077f904ff474d94d1550e763b66101f30ca4bd7"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/EditorWorkspace.cs",
+      "sha256": "364667f22bbaf2aac35678cf09554933fac63ddfec430032b82804c5d1d1f20b"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/EditorWorkspaceStore.cs",
+      "sha256": "96d9dc28f5fbfc4212d129882aa7532703b087b7c0ccbc4d8601ea08f477dd8f"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/ISuggestionProvider.cs",
+      "sha256": "e65dfd198a52c9b4cd9d484db798c7e147fc103155446177949ea5dda163f112"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/LanguagePackValidator.cs",
+      "sha256": "645266bf32d759a3a24eaec486dcd42700b5f733d45769657f60ada778762524"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/NonActivatingWindow.cs",
+      "sha256": "7de73db0ec629657778c80debd214112b6ded249317482802bc7a81b9b100bea"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/OverlaySpeechService.cs",
+      "sha256": "0ab79f753b91902fc37c51e2e4657d5837ce2aa42bee4865dac9885fb0ed645a"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/ReleaseQualificationProbe.cs",
+      "sha256": "dcd00f28ad378d80f5faba673fb9e4c9c6d708db5953c801a7b5511c2b776599"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/ScreenPlacement.cs",
+      "sha256": "cd7d787425b1bf10b0c37a93fb5552eb0f5899a929b8529c2dcbe109ed1940c0"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/SingleInstance.cs",
+      "sha256": "914496483c2b3d2571acda4f75ab5c10f75473fc925981e013a8416b7c9b97ed"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsAppSettingsService.cs",
+      "sha256": "60229c6571f4e683cf28a084119d2ec5051cc8e825df83d0352e0bd98bbfc038"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsDataPaths.cs",
+      "sha256": "8fe03786bb681ec4c4cbc9ce3806b1f22a7b0ce657929d6f5c5412bded396034"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsErrorInsightsStore.cs",
+      "sha256": "abded086a59e9a5baf3ccfd35f1d52272a8a7739187466d90d20f10aadf5fdae"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsExternalSuggestionCommitService.cs",
+      "sha256": "a23f45bb237c4cad00261ebf9902c33187d8bb7395b87ef97518ea05cfb79e41"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsGlobalSuggestionCaptureService.cs",
+      "sha256": "de6eac315cc3c37cebdcf0d8d07601435585e7a6fa9b24819545e8311a94b0a7"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsNativeTextAdapter.cs",
+      "sha256": "1b1252c88f2b105adf6a0735caeabe8203a0346a14c11b51f904137bf194f17d"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsOcrCallbackBridge.cs",
+      "sha256": "5a4536bca6ed3f88543ba78ba078b89fe4a560d6d3a2e02504911ad494a7e69c"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsOcrService.cs",
+      "sha256": "3de8bc4d89ecb9b9eba9653ac36e78fc7d9ff7bc6c53b15ac1bdbac628302fc9"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsSelectionImportService.cs",
+      "sha256": "4b657ae382a6c04506a2f6b863570885ccf1bb3dd51a88b73a91a3b813407ec5"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsSpeechToTextService.cs",
+      "sha256": "8e4ae1809c570c178dadd25b648125211522a6129938442d10d74f040642597c"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsTextToSpeechService.cs",
+      "sha256": "52d5f87d73ed3f11b3b358cdd5cff9ebee91dae28d60de5a91cd625e84378dbf"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsUpdateService.cs",
+      "sha256": "c80db7647acc4fb615d30f75299173e80db03a4c7e1afed9bc35cd37c9e86015"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WindowsVoiceCatalogService.cs",
+      "sha256": "1ec508290250d463fd072b3683ba9821dd0d6b96cfc1e6883fd4ab794a0c52b0"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/Services/WordSuggestorCoreCliSuggestionProvider.cs",
+      "sha256": "528598ba537507883d0cac3cedb4cfb3413dd1832bbe697c3aff6e24ac7e0d21"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/SettingsWindow.xaml",
+      "sha256": "f951bdd1cc8e1507aa021868f574c630b2ba4144a28c8b71275c144cd6e16115"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/SettingsWindow.xaml.cs",
+      "sha256": "2ce0accf778941c3459bf73131e83eea2cf9cfe60bc94769c32d178bb46358ca"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/SharedStyles.xaml",
+      "sha256": "bad8eda0e28f68877b299ab6c2b6a7b87550bc02fb38bc5a5fdb7a304520973d"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/SuggestionOverlayWindow.xaml",
+      "sha256": "48fb2eac5a7867cdc53a4d65ed36bb5d64e2ac5a14c26985885d1bc767682625"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/SuggestionOverlayWindow.xaml.cs",
+      "sha256": "58eb4ec1ce3b72f6a66582bd8008927e17a96f4437df4bf894a674f48a9b737e"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/UserWordsWindow.cs",
+      "sha256": "8622d4cc4b2b2f1e2aeda4d5abee3da91ef7d7763c8d59b4a7423c4ebf555480"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/AnalyzerLegendMetric.cs",
+      "sha256": "b248c33c996fdb77efbdc2ffedccb8b2a430fc5763b9c2c22ae3af717405881c"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/EditorStatusMetric.cs",
+      "sha256": "1a5ff718e76ce10a40e6a136c1e9c3728b3c7284400fe29a45b41c495b8f4e52"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/MainWindowViewModel.cs",
+      "sha256": "b2747b932fe0225372de3c8b51ac7e27c5b562cf682d22d00d8bb0b41cae933a"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/RelayCommand.cs",
+      "sha256": "3024abfbba2b36dd4925ba1e90f604b78e965835e76128898c45bfd7334d6611"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/SuggestionOverlayEntry.cs",
+      "sha256": "1eaf5320ef886cfa38b3c414e2b6a2a8ef4b009dc9ae6f3b1a17b4f9cc812ca6"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/ViewModels/SuggestionPlacementMode.cs",
+      "sha256": "c48ceea1c81c60aef35eb13ba4db9079f4e54bed9927fb20a791167fe5f274dd"
+    },
+    {
+      "path": "src/WordSuggestorWindows.App/WordSuggestorWindows.App.csproj",
+      "sha256": "2a73090a3f438d5787ae8d714c3a86f7e5a737a045c6f8298fca77be09d49440"
+    },
+    {
+      "path": "tests/verify_backend_manifest.py",
+      "sha256": "9394ac332923aba92824387e9b740c988a48c59154b328d79c142faab45fdbc8"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/EditorTabsSmoke.cs",
+      "sha256": "0f3e9a8ff58005659f6f3ba81cb6f1ed4ddabd829695394d967e7ff65d9a51f5"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/GuiSmoke.cs",
+      "sha256": "81425b26f19813ca7924ae980c9d40d4b1bc9ac9469839fd762059494ddb73ed"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/MediaSmoke.cs",
+      "sha256": "2e484ce470b40c0ccd7220f328399a08c504997b6d6a81e261a363b60dea6f1d"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/PackageActivation.cs",
+      "sha256": "9c36a57c423ecc35723278984dad3d8e6e380610ba48e43298b89ba718c8db73"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/PackFixture.cs",
+      "sha256": "f154b114bb4a4dc7494b410ea4e4ec3fe4f1d7a9c5f2673356ead5b603a1b902"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/Program.cs",
+      "sha256": "36d75ecf40a075b0426fac3e59b84379aa5e5cea1b9fea5602a43a3aea902ecd"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/UpdateSmoke.cs",
+      "sha256": "f731011d45834c2e7c88218cec2aab97c813881cc749b48e67f804b2f1449254"
+    },
+    {
+      "path": "tests/WordSuggestorWindows.Smoke/WordSuggestorWindows.Smoke.csproj",
+      "sha256": "c50a8de6a291c22c41d11d9bf86d30b340731e8bf51715ac445c2c59a6d6198f"
+    }
+  ],
+  "positive_platform_qualification": {
+    "hello_protected_secret": "not_run_device_not_present",
+    "updater_mutation": "blocked_0x800706F7",
+    "packaged_application_authority": "not_qualified",
+    "windows10": "not_run",
+    "production_features_enabled": false
+  },
+  "commit_scope": "slice0_tooling_and_windows_settings_documentation_only_preexisting_editor_release_code_excluded"
+}

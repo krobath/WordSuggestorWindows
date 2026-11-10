@@ -1,0 +1,604 @@
+{
+  "schema_version": 1,
+  "platform": "windows",
+  "sprint": "WSA-UX-029",
+  "reference_commit": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
+  "categories": [
+    "profile",
+    "general",
+    "speech",
+    "suggestions",
+    "textAnalysis",
+    "learning",
+    "errorTracking",
+    "advanced"
+  ],
+  "approved_windows_policy": {
+    "hello_pin_allowed": true,
+    "hello_biometrics_allowed": true,
+    "lane_defaults": [
+      "ctrl_digits",
+      "ctrl_shift_digits",
+      "alt_digits"
+    ],
+    "legacy": "existing_windows_settings"
+  },
+  "controls": [
+    {
+      "id": "P01",
+      "category": "profile",
+      "title_da": "Profilkort og identitet",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P02",
+      "category": "profile",
+      "title_da": "Konto-adgang: Log ind / Opret konto",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P03",
+      "category": "profile",
+      "title_da": "E-mail og adgangskode",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P04",
+      "category": "profile",
+      "title_da": "Bekræft adgangskode ved oprettelse",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P05",
+      "category": "profile",
+      "title_da": "Login-/registreringsknap og status",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P06",
+      "category": "profile",
+      "title_da": "Verifikation og gensendelse",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P07",
+      "category": "profile",
+      "title_da": "Brug Touch ID",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P08",
+      "category": "profile",
+      "title_da": "Profilnavn",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P09",
+      "category": "profile",
+      "title_da": "Aldersgruppe",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P10",
+      "category": "profile",
+      "title_da": "Profession",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P11",
+      "category": "profile",
+      "title_da": "Branche",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P12",
+      "category": "profile",
+      "title_da": "Tillad fremtidig profiltilpasning",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P13",
+      "category": "profile",
+      "title_da": "Gem profiloplysninger",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P14",
+      "category": "profile",
+      "title_da": "E-mail og E-mail bekræftet",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P15",
+      "category": "profile",
+      "title_da": "E-mailændring, hvis tilgængelig",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P16",
+      "category": "profile",
+      "title_da": "Nuværende, ny og bekræft ny adgangskode",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P17",
+      "category": "profile",
+      "title_da": "Skift adgangskode",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P18",
+      "category": "profile",
+      "title_da": "Abonnement",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P19",
+      "category": "profile",
+      "title_da": "Log ud på denne enhed",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P20",
+      "category": "profile",
+      "title_da": "Log ud på alle enheder",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "P21",
+      "category": "profile",
+      "title_da": "Forbindelses-/fejltilstande",
+      "primary_slice": 7,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G01",
+      "category": "general",
+      "title_da": "Interface-sprog",
+      "primary_slice": 2,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G02",
+      "category": "general",
+      "title_da": "Skrive-sprog",
+      "primary_slice": 2,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G03",
+      "category": "general",
+      "title_da": "Tillad Følg markør ...",
+      "primary_slice": 2,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G04",
+      "category": "general",
+      "title_da": "Installeret version",
+      "primary_slice": 8,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G05",
+      "category": "general",
+      "title_da": "Søg automatisk efter opdateringer",
+      "primary_slice": 8,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "G06",
+      "category": "general",
+      "title_da": "Søg nu ...",
+      "primary_slice": 8,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "O01",
+      "category": "speech",
+      "title_da": "Stemme",
+      "primary_slice": 4,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "O02",
+      "category": "speech",
+      "title_da": "Åbn systemindstillinger for oplæsning",
+      "primary_slice": 4,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "O03",
+      "category": "speech",
+      "title_da": "Oplæsningshastighed",
+      "primary_slice": 4,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "O04",
+      "category": "speech",
+      "title_da": "Oplæsningsstrategi",
+      "primary_slice": 4,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "O05",
+      "category": "speech",
+      "title_da": "Markering under oplæsning",
+      "primary_slice": 4,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F01",
+      "category": "suggestions",
+      "title_da": "Aktiver ordforslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F02",
+      "category": "suggestions",
+      "title_da": "Detaljer i ordforslagsrækker",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F03",
+      "category": "suggestions",
+      "title_da": "Mellemrum efter valgt ord",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F04",
+      "category": "suggestions",
+      "title_da": "Responsivitet ved hurtig skrivning",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F05",
+      "category": "suggestions",
+      "title_da": "Genvej: ordforslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F06",
+      "category": "suggestions",
+      "title_da": "Genvej: fagordsliste 1",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F07",
+      "category": "suggestions",
+      "title_da": "Genvej: fagordsliste 2",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F08",
+      "category": "suggestions",
+      "title_da": "Oplæs ved mouse-over",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F09",
+      "category": "suggestions",
+      "title_da": "Ordformer og ordklasser (eksperimentel)",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F10",
+      "category": "suggestions",
+      "title_da": "Live punktum-assist (beta)",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F11",
+      "category": "suggestions",
+      "title_da": "Fade ud efter inaktivitet",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F12",
+      "category": "suggestions",
+      "title_da": "Kontekst-baserede forslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F13",
+      "category": "suggestions",
+      "title_da": "Forvekslingsforslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F14",
+      "category": "suggestions",
+      "title_da": "Fonetiske forslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F15",
+      "category": "suggestions",
+      "title_da": "Stavefejlsforslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F16",
+      "category": "suggestions",
+      "title_da": "Synonymforslag",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F17",
+      "category": "suggestions",
+      "title_da": "Fagordslister",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F18",
+      "category": "suggestions",
+      "title_da": "Primær fagordsliste",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F19",
+      "category": "suggestions",
+      "title_da": "Sekundær fagordsliste",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "F20",
+      "category": "suggestions",
+      "title_da": "Ombryd linjer i intern editor",
+      "primary_slice": 5,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T01",
+      "category": "textAnalysis",
+      "title_da": "Aktiver tekstanalyse",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T02",
+      "category": "textAnalysis",
+      "title_da": "POS-farvemarkering",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T03",
+      "category": "textAnalysis",
+      "title_da": "Semantiske kontekstdiagnoser",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T04",
+      "category": "textAnalysis",
+      "title_da": "Tegnsætningsdiagnoser",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T05",
+      "category": "textAnalysis",
+      "title_da": "Kommastil",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "T06",
+      "category": "textAnalysis",
+      "title_da": "Kontekstuelle kommaforslag",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "L01",
+      "category": "learning",
+      "title_da": "Gem ordvalg på denne enhed",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "L02",
+      "category": "learning",
+      "title_da": "Tillad deling af ordvalg",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "L03",
+      "category": "learning",
+      "title_da": "Gemte ordvalg: antal og detalje",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "L04",
+      "category": "learning",
+      "title_da": "Nulstil læring",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "E01",
+      "category": "errorTracking",
+      "title_da": "Aktiver fejlsporing",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "E02",
+      "category": "errorTracking",
+      "title_da": "Gem sætningseksempler lokalt",
+      "primary_slice": 6,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A01",
+      "category": "advanced",
+      "title_da": "Performance-instrumentering",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A02",
+      "category": "advanced",
+      "title_da": "Debug logs: App",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A03",
+      "category": "advanced",
+      "title_da": "Debug logs: Panel/AX",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A04",
+      "category": "advanced",
+      "title_da": "Debug logs: Panel parity",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A05",
+      "category": "advanced",
+      "title_da": "Debug logs: WordSuggestorCore",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A06",
+      "category": "advanced",
+      "title_da": "Ukendt ord-opslag (lokal læring)",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A07",
+      "category": "advanced",
+      "title_da": "Del ukendt ord-læring (samtykke)",
+      "primary_slice": 9,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    },
+    {
+      "id": "A08",
+      "category": "advanced",
+      "title_da": "Åbn legacy-indstillinger ...",
+      "primary_slice": 1,
+      "runtime_qualification": "not_run_in_sprint",
+      "reference": "macos-ba18b45"
+    }
+  ]
+}

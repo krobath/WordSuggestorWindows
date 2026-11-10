@@ -31,6 +31,17 @@ Windows/Core source and builds/tests without copied repository build output.
 
 ## Evidence matrix
 
+For the new Settings track, [WSA-UX-029 slice 0](qualification/WSA-UX-029_slice0.md)
+records a fresh working-tree baseline: 35 qualification checks, 92 app checks,
+six Core fixtures, 42 actual desktop checks, three media checks, nine launch-script
+and 43 release-script checks, plus clean source-export app/Core build and tests.
+Run `scripts\test_settings_slice0.ps1 -Desktop -CleanSource` to reproduce.
+This does not qualify new Settings features: Hello returns DeviceNotPresent;
+cmdlet/native update mutation on the isolated local MSIX returns 0x800706F7 with
+unchanged settings. Positive Hello-secret, packaged-process update authority,
+Windows 10, physical multi-monitor and human screen-reader testing remain open.
+Test package, private test key and temporary leaf trust were removed and checked.
+
 | Scenario | Evidence/status |
 |---|---|
 | App/core compilation | PASS; WPF build zero warnings/errors; clean optimized Core build PASS after SDK-map correction (existing Core Sendable warning remains) |

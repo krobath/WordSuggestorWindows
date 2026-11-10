@@ -4,6 +4,17 @@ Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
+## Settings qualification boundary — WSA-UX-029 slice 0
+
+The new qualification scripts/register are test tooling, not production Settings
+adapters. They fingerprint the actual working-tree inputs and wrap existing gates.
+Native host checks distinguish API presence, ordinary-user test access and real
+package/Hello-secret authority. Only isolated LocalTest packages can be mutated;
+settings restoration is checked even after partial failure. Current Hello is
+DeviceNotPresent and both OS update setters return 0x800706F7; neither enables a
+product toggle. See [actual evidence and remaining gates](qualification/WSA-UX-029_slice0.md).
+The app architecture/framework and shared Core contract are unchanged by slice 0.
+
 ## Three boundaries
 
 1. Shared engine/pack boundary: `ISuggestionProvider`, `WordSuggestorCoreCliSuggestionProvider`,

@@ -1,0 +1,242 @@
+# Slice-0 probes. These functions never enable product features or open an
+# enrollment dialog. Mutating update tests are restricted to isolated test MSIXes.
+$ErrorActionPreference = 'Stop'
+
+function Test-SettingsProcessElevated {
+    $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Invoke-SettingsGateProcess([string]$ScriptFile,[string[]]$Arguments,[string]$LogPath) {
+    # Windows PowerShell turns redirected native stderr into ErrorRecords.
+    # Capture it as evidence, then use the child exit status as the gate result.
+    $previousPreference=$ErrorActionPreference
+    try {
+        $ErrorActionPreference='Continue'
+        & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass `
+            -File $ScriptFile @Arguments 2>&1 | Tee-Object -FilePath $LogPath | Write-Host
+        $code=$LASTEXITCODE
+    } finally { $ErrorActionPreference=$previousPreference }
+    if ($null -eq $code) { throw 'Test process did not produce an exit code.' }
+    return [int]$code
+}
+
+function Wait-SettingsWinRt($Operation, [type]$ResultType, [int]$TimeoutSeconds = 10) {
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    $method = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+        $_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetGenericArguments().Count -eq 1 -and
+        $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+    } | Select-Object -First 1
+    $task = $method.MakeGenericMethod($ResultType).Invoke($null,@($Operation))
+    if (-not $task.Wait($TimeoutSeconds * 1000)) {
+        try { $Operation.Cancel() } catch { }
+        throw [TimeoutException]::new('Platform capability probe timed out.')
+    }
+    return $task.GetAwaiter().GetResult()
+}
+
+function Get-SettingsHostCapabilities {
+    $isAdmin = Test-SettingsProcessElevated
+    $hello = 'ProbeFailed'; $helloError = $null
+    try {
+        $null = [Windows.Security.Credentials.UI.UserConsentVerifier,Windows.Security.Credentials.UI,ContentType=WindowsRuntime]
+        $hello = (Wait-SettingsWinRt ([Windows.Security.Credentials.UI.UserConsentVerifier]::CheckAvailabilityAsync()) `
+            ([Windows.Security.Credentials.UI.UserConsentVerifierAvailability])).ToString()
+    } catch { $helloError = $_.Exception.GetType().Name }
+    $keySupported = $false; $keyProbeError = $null
+    try {
+        $null = [Windows.Security.Credentials.KeyCredentialManager,Windows.Security.Credentials,ContentType=WindowsRuntime]
+        $keySupported = [bool](Wait-SettingsWinRt ([Windows.Security.Credentials.KeyCredentialManager]::IsSupportedAsync()) ([bool]))
+    } catch { $keyProbeError = $_.Exception.GetType().Name }
+    $managerAvailable = $false
+    try {
+        $null = [Windows.Foundation.Metadata.ApiInformation,Windows.Foundation,ContentType=WindowsRuntime]
+        $managerAvailable = [Windows.Foundation.Metadata.ApiInformation]::IsTypePresent('Windows.Management.Deployment.AppInstallerManager')
+    } catch { }
+    return [pscustomobject][ordered]@{
+        schema_version = 1
+        os_version = [Environment]::OSVersion.Version.ToString()
+        process_bits = [IntPtr]::Size * 8
+        elevated = $isAdmin
+        probe_context = 'unpackaged_windows_powershell'
+        hello = [ordered]@{
+            availability = $hello; probe_error_category = $helloError
+            key_credential_supported = $keySupported; key_probe_error_category = $keyProbeError
+            protected_secret_roundtrip = 'not_run'; user_verification_roundtrip = 'not_run'
+            product_enabled = $false
+        }
+        updater = [ordered]@{
+            app_installer_manager_api_present = $managerAvailable
+            get_cmdlet_present = [bool](Get-Command Get-AppxPackageAutoUpdateSettings -ErrorAction SilentlyContinue)
+            set_cmdlet_present = [bool](Get-Command Set-AppxPackageAutoUpdateSettings -ErrorAction SilentlyContinue)
+            package_roundtrip = 'not_run'; packaged_app_authority = 'not_qualified'
+            product_toggle_enabled = $false
+        }
+    }
+}
+
+function Assert-SettingsQualificationPackage([string]$FamilyName, $Package) {
+    if ($FamilyName -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.([a-f0-9]{8,32})_[a-z0-9]{13}$') {
+        throw 'Only an isolated WordSuggestor LocalTest package can be changed.'
+    }
+    $nonce = $Matches[1]
+    if (-not $Package -or $Package.Name -cne ('WordSuggestor.Windows.LocalTest.' + $nonce) -or
+        $Package.PackageFamilyName -cne $FamilyName -or $Package.Publisher -cne ('CN=WordSuggestor Local Test ' + $nonce)) {
+        throw 'Installed test package identity/publisher mismatch.'
+    }
+}
+
+function Get-SettingsUpdateSnapshot([string]$FamilyName) {
+    $value = Get-AppxPackageAutoUpdateSettings -PackageFamilyName $FamilyName -ErrorAction Stop
+    if (-not $value) { throw 'The test package has no App Installer association.' }
+    return $value
+}
+
+function ConvertTo-SettingsUpdateFingerprint($Snapshot) {
+    # Compare all OS-returned properties except the two deliberately exercised
+    # booleans. No URI/identity values are written to diagnostic output.
+    $properties = [ordered]@{}
+    foreach ($property in ($Snapshot.PSObject.Properties | Sort-Object Name)) {
+        if ($property.Name -notin @('EnableAutomaticBackgroundTask','CheckOnLaunch','AutomaticBackgroundTask','OnLaunch','AutomaticBackgroundTaskUpdatesEnabled','CheckForUpdatesOnLaunch','LastCheckedForUpdates')) {
+            $properties[$property.Name] = $property.Value
+        }
+    }
+    return ($properties | ConvertTo-Json -Depth 12 -Compress)
+}
+
+function Get-SettingsUpdateFlag($Snapshot, [string[]]$Names) {
+    foreach ($name in $Names) {
+        if ($null -ne $Snapshot.PSObject.Properties[$name]) {
+            if ($Snapshot.$name -isnot [bool]) { throw 'OS update flag must be a boolean.' }
+            return $Snapshot.$name
+        }
+    }
+    throw 'Unknown OS auto-update settings shape; no change is allowed.'
+}
+
+function Get-SettingsUpdateArguments([string]$FamilyName, $Snapshot, [bool]$Background, [bool]$OnLaunch) {
+    if ($Snapshot.PSObject.Properties['PausedUntil'] -and $null -ne $Snapshot.PausedUntil) {
+        throw 'A paused test package cannot be exercised without changing its pause policy.'
+    }
+    $arguments=@{PackageFamilyName=$FamilyName; EnableAutomaticBackgroundTask=$Background; CheckOnLaunch=$OnLaunch}
+    $mapping=@{
+        AppInstallerUri='AppInstallerUri'; Version='Version'; UpdateUris='UpdateUris'; RepairUris='RepairUris'
+        OptionalPackageUris='OptionalPackages'; DependencyPackageUris='DependencyPackages'
+        ShowPromptOnLaunchWhenUpdateIsAvailable='ShowPrompt'; UpdateBlocksActivation='UpdateBlocksActivation'
+        ForceUpdateFromAnyVersion='ForceUpdateFromAnyVersion'; HoursBetweenUpdateChecks='HoursBetweenUpdateChecks'
+    }
+    foreach ($name in $mapping.Keys) {
+        if ($Snapshot.PSObject.Properties[$name] -and $null -ne $Snapshot.$name) {
+            if ($Snapshot.$name -is [Array] -and $Snapshot.$name.Count -eq 0) { continue }
+            $arguments[$mapping[$name]]=$Snapshot.$name
+        }
+    }
+    if ($Snapshot.PSObject.Properties['IsAutoRepairEnabled']) { $arguments.DisableAutoRepairs=-not $Snapshot.IsAutoRepairEnabled }
+    return $arguments
+}
+
+function Set-SettingsNativeUpdateFlags([string]$FamilyName, $Snapshot, [bool]$Background, [bool]$OnLaunch) {
+    $null=[Windows.Management.Deployment.AppInstallerManager,Windows.Management.Deployment,ContentType=WindowsRuntime]
+    $null=[Windows.Management.Deployment.AutoUpdateSettingsOptions,Windows.Management.Deployment,ContentType=WindowsRuntime]
+    $options=[Windows.Management.Deployment.AutoUpdateSettingsOptions]::new()
+    $options.AppInstallerUri=[uri]$Snapshot.AppInstallerUri
+    $options.AutomaticBackgroundTask=$Background; $options.OnLaunch=$OnLaunch
+    $options.ShowPrompt=$Snapshot.ShowPromptOnLaunchWhenUpdateIsAvailable
+    $options.UpdateBlocksActivation=$Snapshot.UpdateBlocksActivation
+    $options.ForceUpdateFromAnyVersion=$Snapshot.ForceUpdateFromAnyVersion
+    $options.IsAutoRepairEnabled=$Snapshot.IsAutoRepairEnabled
+    $options.HoursBetweenUpdateChecks=$Snapshot.HoursBetweenUpdateChecks
+    $version=[version]$Snapshot.Version; $nativeVersion=$options.Version
+    $nativeVersion.Major=$version.Major; $nativeVersion.Minor=$version.Minor
+    $nativeVersion.Build=$version.Build; $nativeVersion.Revision=$version.Revision
+    $options.Version=$nativeVersion
+    foreach ($name in @('UpdateUris','RepairUris','OptionalPackageUris','DependencyPackageUris')) {
+        foreach ($uri in $Snapshot.$name) { $options.$name.Add([uri]$uri) }
+    }
+    [Windows.Management.Deployment.AppInstallerManager]::GetDefault().SetAutoUpdateSettings($FamilyName,$options)
+}
+
+function Invoke-SettingsUpdateRoundtrip([string]$FamilyName, [ValidateSet('cmdlet','native')][string]$Method='cmdlet') {
+    $package = Get-AppxPackage | Where-Object PackageFamilyName -CEQ $FamilyName | Select-Object -First 1
+    Assert-SettingsQualificationPackage $FamilyName $package
+    if (Test-SettingsProcessElevated) {
+        throw 'Run the OS preference test as an ordinary user.'
+    }
+    $before = Get-SettingsUpdateSnapshot $FamilyName
+    $background = Get-SettingsUpdateFlag $before @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')
+    $onLaunch = Get-SettingsUpdateFlag $before @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')
+    $fingerprint = ConvertTo-SettingsUpdateFingerprint $before
+    $restoreArguments = Get-SettingsUpdateArguments $FamilyName $before $background $onLaunch
+    $changeArguments = Get-SettingsUpdateArguments $FamilyName $before (-not $background) (-not $onLaunch)
+    $changed = $false; $restored = $false
+    try {
+        # The finally restoration also runs after a partially failing Set call.
+        $changed = $true
+        if ($Method -eq 'native') { Set-SettingsNativeUpdateFlags $FamilyName $before (-not $background) (-not $onLaunch) }
+        else { Set-AppxPackageAutoUpdateSettings @changeArguments -ErrorAction Stop | Out-Null }
+        $after = Get-SettingsUpdateSnapshot $FamilyName
+        if ((Get-SettingsUpdateFlag $after @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -eq $background -or
+            (Get-SettingsUpdateFlag $after @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')) -eq $onLaunch -or
+            (ConvertTo-SettingsUpdateFingerprint $after) -cne $fingerprint) {
+            throw 'OS update settings did not change exactly as requested.'
+        }
+    } finally {
+        if ($changed) {
+            # A rejected Set often leaves the fixture unchanged. Avoid masking
+            # the original error with an unnecessary failing restoration call.
+            $now=Get-SettingsUpdateSnapshot $FamilyName
+            $needsRestore=(Get-SettingsUpdateFlag $now @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -ne $background -or
+                (Get-SettingsUpdateFlag $now @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')) -ne $onLaunch -or
+                (ConvertTo-SettingsUpdateFingerprint $now) -cne $fingerprint
+            if ($needsRestore) {
+                if ($Method -eq 'native') { Set-SettingsNativeUpdateFlags $FamilyName $before $background $onLaunch }
+                else { Set-AppxPackageAutoUpdateSettings @restoreArguments -ErrorAction Stop | Out-Null }
+            }
+            $final = Get-SettingsUpdateSnapshot $FamilyName
+            $restored = (Get-SettingsUpdateFlag $final @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -eq $background -and
+                (Get-SettingsUpdateFlag $final @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')) -eq $onLaunch -and
+                (ConvertTo-SettingsUpdateFingerprint $final) -ceq $fingerprint
+            if (-not $restored) { throw 'Test package OS settings restoration failed; inspect the isolated fixture.' }
+        }
+    }
+    return [pscustomobject]@{ status='passed'; restored=$restored; ordinary_user=$true; source_identity_and_other_settings_preserved=$true }
+}
+
+function Get-SettingsUpdateQualification([string]$FamilyName) {
+    $package=Get-AppxPackage | Where-Object PackageFamilyName -CEQ $FamilyName | Select-Object -First 1
+    Assert-SettingsQualificationPackage $FamilyName $package
+    $results=[ordered]@{}
+    foreach ($method in @('cmdlet','native')) {
+        $before=Get-SettingsUpdateSnapshot $FamilyName
+        try { $results[$method]=Invoke-SettingsUpdateRoundtrip $FamilyName $method }
+        catch {
+            $failure=$_.Exception
+            while ($failure.InnerException) { $failure=$failure.InnerException }
+            $after=Get-SettingsUpdateSnapshot $FamilyName
+            $unchanged=(ConvertTo-SettingsUpdateFingerprint $after) -ceq (ConvertTo-SettingsUpdateFingerprint $before) -and
+                (Get-SettingsUpdateFlag $after @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -eq
+                    (Get-SettingsUpdateFlag $before @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -and
+                (Get-SettingsUpdateFlag $after @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')) -eq
+                    (Get-SettingsUpdateFlag $before @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch'))
+            if (-not $unchanged) { throw 'Isolated OS settings were not restored; qualification failed.' }
+            $results[$method]=[ordered]@{status='blocked'; error_category=$failure.GetType().Name; hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL)); unchanged=$true}
+        }
+    }
+    return $results
+}
+
+function Get-SettingsSourceSnapshot([string]$Repository) {
+    $head = & git -C $Repository rev-parse HEAD
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read source revision.' }
+    $status = @(& git -C $Repository status --porcelain=v1)
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot read source status.' }
+    $names = ((& git -C $Repository -c core.quotepath=false ls-files -z --cached --others --exclude-standard) -join "`n").Split([char]0)
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate source snapshot.' }
+    $files = @(foreach ($name in ($names | Where-Object { $_ } | Sort-Object -Unique)) {
+        $path = Join-Path $Repository $name
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            [ordered]@{ path=$name.Replace('\','/'); sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+        } else { [ordered]@{path=$name.Replace('\','/'); deleted=$true} }
+    })
+    return [ordered]@{ head=([string]$head).Trim(); working_tree_dirty=($status.Count -gt 0); status=$status; files=$files }
+}

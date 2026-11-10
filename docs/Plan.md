@@ -1,4 +1,4 @@
-# Current Windows beta track — 2026-11-08
+# Current Windows beta track — 2026-11-10
 
 This section supersedes the historical plan below. Evidence and release gates are
 in `ManualSmoke.md`, `ReleaseAudit.md` and the 2026-11-08 delivery note. No signed
@@ -7,6 +7,7 @@ public RC is claimed while signing/install/update qualification remains open.
 | Sprint | Delivery | Status |
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
+| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 tools/baseline delivered; positive Hello/update qualification open; Settings UI not implemented; next independent slice 1 |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
 | WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |
@@ -17,6 +18,19 @@ rewrite would discard working speech/OCR/selection/settings code without resolvi
 the focus/commit defects. Details: `ReleaseAudit.md` and `Architecture.md`.
 
 ## Next qualification work
+
+Settings work requested 2026-11-09 has a completed
+[reference/function analysis](analysis/2026-11-09_settings_parity_analysis.md) and
+[Windows sprint WSA-UX-029](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md).
+The user closed all three product choices on 2026-11-10: Windows Hello PIN/biometrics,
+Ctrl/Ctrl+Shift/Alt lane defaults, and the existing Windows legacy settings surface.
+The canonical Mac reference is ba18b45. [Slice 0 qualification](qualification/WSA-UX-029_slice0.md)
+now provides the frozen working-tree baseline (ten gates PASS), the control register
+and actual host limitations. Hello is DeviceNotPresent; native/cmdlet update writes
+return 0x800706F7 without changing the fixture. Positive qualification stays open;
+it must not enable product controls. Next independent work: slice 1 sidebar/legacy.
+No Settings feature PASS is implied; existing sprint history is preserved.
+Documentation ownership is defined in [DocumentationOrganization.md](DocumentationOrganization.md).
 
 1. Keep the passing clean-export/isolated-payload checks in release qualification
    and complete human/hardware smoke without relabeling partial coverage.
