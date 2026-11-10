@@ -9,7 +9,10 @@ aflæses som status for andre platforme.
 
 - [WSA-UX-029: Settings-sprint](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md):
   oprettet 2026-11-10 efter alle produktvalg; ti slices og komplet kontrol-/testmapping.
-  **Slice 0-værktøjer/baseline leveret; Settings-UI ikke implementeret.**
+  **Slice 0-baseline og slice 1-Settings-shell leveret; fuld funktionsparitet åben.**
+- [Slice 1: sidebar, hjælp og Windows-legacy](qualification/WSA-UX-029_slice1.md):
+  faktisk testomfang, manuelle restgates og kildeafgrænsning.
+  [Ændringsnote](changes/2026-11-10_wsa_ux_029_slice1_settings_sidebar.md).
 - [Slice 0: faktisk kvalifikation og begrænsninger](qualification/WSA-UX-029_slice0.md):
   ti baseline-gates PASS; Hello DeviceNotPresent og OS-update 0x800706F7 er åbne
   positive integrationsgates. [Maskinlæsbar evidens](qualification/WSA-UX-029_slice0_evidence.json)

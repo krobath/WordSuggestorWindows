@@ -7,7 +7,7 @@ public RC is claimed while signing/install/update qualification remains open.
 | Sprint | Delivery | Status |
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
-| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 tools/baseline delivered; positive Hello/update qualification open; Settings UI not implemented; next independent slice 1 |
+| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slice 1 sidebar/help/legacy delivered; full functional parity and positive Hello/update qualification open; next slice 2 |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
 | WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |
@@ -28,8 +28,11 @@ The canonical Mac reference is ba18b45. [Slice 0 qualification](qualification/WS
 now provides the frozen working-tree baseline (ten gates PASS), the control register
 and actual host limitations. Hello is DeviceNotPresent; native/cmdlet update writes
 return 0x800706F7 without changing the fixture. Positive qualification stays open;
-it must not enable product controls. Next independent work: slice 1 sidebar/legacy.
-No Settings feature PASS is implied; existing sprint history is preserved.
+it must not enable product controls. [Slice 1 evidence](qualification/WSA-UX-029_slice1.md)
+now covers the implemented sidebar, help, legacy and safe concurrent saves.
+Next: let ordinary preferences apply immediately and separate interface language
+from writing language (slice 2). Account/Hello and OS update authority stay gated.
+Existing sprint history is preserved; full functional parity is still open.
 Documentation ownership is defined in [DocumentationOrganization.md](DocumentationOrganization.md).
 
 1. Keep the passing clean-export/isolated-payload checks in release qualification

@@ -3,6 +3,31 @@
 Updated 2026-11-08. Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
+## Settings slice 1 — 2026-11-10
+
+The native sidebar, grouped rows, single info popup and Windows legacy window are
+implemented. [Settings evidence](qualification/WSA-UX-029_slice1.md) records 20
+state and 37 interactive checks, plus the preserved working-tree app/Core/Notepad
+regression. These do not close the full 72-control functional parity target.
+
+Run `powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1`
+from this repo (`-Mode State` skips desktop input). UI mode requires an unlocked
+desktop and uses isolated synthetic settings. It moves mouse/keyboard.
+
+For human sign-off: open toolbar Settings; verify Profile first and the seven
+categories below it. Navigate with arrows/Tab/Shift+Tab; open help using keyboard
+and mouse, repeat the same info action, Escape, click outside and change category.
+Check one popup and sensible focus/reading order. Resize to 760×480 and scroll only
+the right area. In Advanced, open legacy twice and verify one separate activating
+window. Change different settings in both views, save legacy then primary, restart
+and verify both values. Cancel another draft. Verify error status on a test-only
+unwritable/corrupt settings file without overwriting it. Never corrupt real data.
+
+Walk through with Narrator/NVDA and high contrast, then 125/150/200% scaling and
+multiple monitors. **These human/hardware checks have not been run.** Konto/Hello,
+live save, OS update preference and later functional controls remain open. Keep
+slice 0 platform failures and the existing signed install/update gates visible.
+
 ## Commands
 
 Run from the Windows repository, in this order:

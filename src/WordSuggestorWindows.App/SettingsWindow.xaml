@@ -1,264 +1,238 @@
-<Window x:Class="WordSuggestorWindows.App.SettingsWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="WordSuggestor Indstillinger"
-        Width="760"
-        Height="620"
-        MinWidth="680"
-        MinHeight="520"
-        WindowStartupLocation="CenterOwner"
-        Background="#F6F7FA">
+<?xml version="1.0" ?>
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:WordSuggestorWindows.App.Controls" x:Class="WordSuggestorWindows.App.SettingsWindow" Title="WordSuggestor Indstillinger" Width="1000" Height="700" MinWidth="760" MinHeight="480" WindowStartupLocation="CenterOwner" Icon="/WordSuggestorWindows.App;component/Assets/AppIcon.png" PreviewKeyDown="Settings_OnPreviewKeyDown" Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}" Foreground="{DynamicResource {x:Static SystemColors.WindowTextBrushKey}}">
     <Window.Resources>
-        <Style x:Key="SectionStyle" TargetType="Border">
-            <Setter Property="Background" Value="White" />
-            <Setter Property="BorderBrush" Value="#DDE2EA" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="14" />
-            <Setter Property="Padding" Value="16" />
-            <Setter Property="Margin" Value="0,0,0,12" />
-        </Style>
-        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#1F2937" />
-            <Setter Property="Margin" Value="0,0,0,10" />
-        </Style>
-        <Style x:Key="MutedTextStyle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6B7280" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style x:Key="SettingCheckBoxStyle" TargetType="CheckBox">
-            <Setter Property="Margin" Value="0,0,0,10" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SettingsStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
-
-    <DockPanel Margin="18">
-        <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock VerticalAlignment="Center"
-                       Style="{StaticResource MutedTextStyle}"
-                       Text="Indstillinger gemmes lokalt i Windows-brugerprofilen." />
-            <Button Grid.Column="1"
-                    Width="96"
-                    Margin="0,0,8,0"
-                    Padding="12,7"
-                    Content="Annuller"
-                    Click="CancelButton_OnClick" />
-            <Button Grid.Column="2"
-                    Width="112"
-                    Padding="12,7"
-                    Content="Gem"
-                    IsDefault="True"
-                    Click="SaveButton_OnClick" />
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" Padding="10,18">
+            <ListBox x:Name="CategoryNavigation" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" SelectionChanged="Category_OnSelectionChanged" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Indstillingskategorier" AutomationProperties.AutomationId="SettingsCategories">
+                <ListBox.Resources>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="10,9"/>
+                        <Setter Property="Margin" Value="0,2"/>
+                    </Style>
+                </ListBox.Resources>
+                <ListBoxItem Tag="profile" AutomationProperties.Name="Profil" AutomationProperties.AutomationId="SettingsCategory_profile">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,10,0"/>
+                            <TextBlock Text="Profil" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <TextBlock Text="WordSuggestor-konto" Margin="24,5,0,10" FontSize="12"/>
+                        <Separator/>
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="general" AutomationProperties.Name="Generelt" AutomationProperties.AutomationId="SettingsCategory_general">
+                    <TextBlock Text="Generelt"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="speech" AutomationProperties.Name="Oplæsning" AutomationProperties.AutomationId="SettingsCategory_speech">
+                    <TextBlock Text="Oplæsning"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="suggestions" AutomationProperties.Name="Ordforslag" AutomationProperties.AutomationId="SettingsCategory_suggestions">
+                    <TextBlock Text="Ordforslag"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="textAnalysis" AutomationProperties.Name="Tekstanalyse" AutomationProperties.AutomationId="SettingsCategory_textAnalysis">
+                    <TextBlock Text="Tekstanalyse"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="learning" AutomationProperties.Name="Læring" AutomationProperties.AutomationId="SettingsCategory_learning">
+                    <TextBlock Text="Læring"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="errorTracking" AutomationProperties.Name="Fejlsporing" AutomationProperties.AutomationId="SettingsCategory_errorTracking">
+                    <TextBlock Text="Fejlsporing"/>
+                </ListBoxItem>
+                <ListBoxItem Tag="advanced" AutomationProperties.Name="Avanceret" AutomationProperties.AutomationId="SettingsCategory_advanced">
+                    <TextBlock Text="Avanceret"/>
+                </ListBoxItem>
+            </ListBox>
+        </Border>
+        <Grid Grid.Column="1" Margin="24,18,24,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="CategoryTitle" Text="Profil" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16" AutomationProperties.AutomationId="SettingsCategoryTitle"/>
+            <ScrollViewer x:Name="DetailScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid Margin="0,0,12,0">
+                    <StackPanel x:Name="ProfilePage" Visibility="Collapsed">
+                        <GroupBox Header="Profil" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Konto-adgang" ControlId="P02" Description="Login, registrering og profiloplysninger er endnu ikke tilgængelige i Windows. Lokal skrivehjælp kan bruges uden login.">
+                                    <TextBlock Text="Endnu ikke tilgængelig" TextWrapping="Wrap"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Brug Windows Hello" ControlId="P07" Description="Lokal oplåsning med PIN eller biometri bliver tilgængelig, når sikker sessionsbeskyttelse er klar. Loginoplysninger gemmes ikke her.">
+                                    <CheckBox IsEnabled="False" Content="Ikke tilgængelig"/>
+                                </ui:SettingsRow>
+                                <TextBlock Style="{StaticResource SettingsNote}" Text="Konto, profil og lokal oplåsning er endnu ikke tilgængelige i Windows-betaen. Dine lokale dokumenter og forslag kræver ikke login."/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="GeneralPage" Visibility="Collapsed">
+                        <GroupBox Header="Sprog" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Interface-sprog" ControlId="G01" Description="Menusproget er adskilt fra skrivesproget. Windows-betaens brugerflade er foreløbig dansk.">
+                                    <TextBlock Text="Dansk"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Skrive-sprog" ControlId="G02" Description="Vælger samme aktive sprog som værktøjslinjen. Forslag kræver en installeret, kompatibel sprogpakke.">
+                                    <ComboBox x:Name="LanguageComboBox" DisplayMemberPath="DisplayLabel" SelectedValuePath="LanguageCode"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Placering" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Ordforslagspanelets placering" ControlId="G03" Description="Statisk holder panelet på samme sted. Følg markør bruger bekræftet caret-position og falder tilbage til statisk, når positionen er usikker.">
+                                    <ComboBox x:Name="PlacementModeComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Opdateringer" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Installeret version" ControlId="G04" Description="Versionen af den kørende Windows-app. Installerede MSIX-udgaver viser også pakkenummer.">
+                                    <TextBlock x:Name="VersionText" TextWrapping="Wrap" AutomationProperties.AutomationId="AppVersion"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Søg automatisk efter opdateringer" ControlId="G05" Description="Windows App Installer styrer automatisk opdatering. Appen kan endnu ikke ændre denne OS-indstilling sikkert.">
+                                    <TextBlock Text="Styres af Windows" TextWrapping="Wrap"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Søg nu…" ControlId="G06" Description="Kontrollerer Windows-betaens opdateringsoplysninger. En installeret officiel beta kræves for at åbne opdateringen i Windows.">
+                                    <Button x:Name="CheckUpdatesButton" Content="Søg efter opdateringer" Click="CheckUpdates_OnClick" AutomationProperties.Name="Søg efter opdateringer" Padding="8,5"/>
+                                </ui:SettingsRow>
+                                <TextBlock x:Name="UpdateStatusText" Style="{StaticResource SettingsNote}" AutomationProperties.AutomationId="UpdateStatus" AutomationProperties.LiveSetting="Polite"/>
+                                <Button x:Name="OpenUpdateButton" Content="Åbn opdatering i Windows" HorizontalAlignment="Right" Padding="8,5" Click="OpenUpdate_OnClick" Visibility="Collapsed"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="SpeechPage" Visibility="Collapsed">
+                        <GroupBox Header="Oplæsning" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Oplæsningssprog" ControlId="SpeechLanguage" Description="Automatisk sprogvalg bruger foreløbig også skrivesproget i Windows.">
+                                    <ComboBox x:Name="SpeechLanguageModeComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Brug systemets oplæsningsindstillinger" ControlId="SystemSpeech" Description="Bevarer Windows-betaens systemvalg. Slå fra for selv at vælge stemme og hastighed.">
+                                    <CheckBox x:Name="UseSystemSpeechSettingsCheckBox"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Stemme" ControlId="O01" Description="Vælger en installeret Windows-stemme for skrivesproget. Valget gemmes særskilt for hvert sprog.">
+                                    <ComboBox x:Name="SystemVoiceComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <TextBlock x:Name="VoiceStatusTextBlock" Style="{StaticResource SettingsNote}"/>
+                                <ui:SettingsRow Header="Systemindstillinger for oplæsning" ControlId="O02" Description="Åbner Windows taleindstillinger. Flere stemmer administreres i Windows sprogindstillinger.">
+                                    <StackPanel>
+                                        <Button Content="Åbn taleindstillinger" Click="OpenSpeechSettingsButton_OnClick" Padding="6,4"/>
+                                        <Button Content="Åbn sprogindstillinger" Click="OpenLanguageSettingsButton_OnClick" Margin="0,6,0,0" Padding="6,4"/>
+                                    </StackPanel>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Oplæsningshastighed" ControlId="O03" Description="Bevarer den hidtidige Windows-indstilling for taletempo. Stemme og hastighed følger systemet, når systemvalget er slået til.">
+                                    <StackPanel>
+                                        <TextBlock x:Name="ReadingSpeedValueText" HorizontalAlignment="Right"/>
+                                        <Slider x:Name="ReadingSpeedSlider" Minimum="-2" Maximum="2" TickFrequency="0.25" IsSnapToTickEnabled="True"/>
+                                    </StackPanel>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Oplæsningsstrategi" ControlId="O04" Description="Det gemte valg bevares, men automatisk oplæsning under skrivning er endnu ikke implementeret i Windows. Manuel oplæsning virker uafhængigt.">
+                                    <ComboBox x:Name="ReadingStrategyComboBox" DisplayMemberPath="Label" SelectedValuePath="Value" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Markering under oplæsning" ControlId="O05" Description="Vælger ingen markering, ord eller sætning under manuel oplæsning.">
+                                    <ComboBox x:Name="ReadingHighlightModeComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="SuggestionsPage" Visibility="Collapsed">
+                        <GroupBox Header="Ordforslag" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Aktiver ordforslag" ControlId="F01" Description="Slår Windows-betaens globale forslag til eller fra. Den separate editor bevarer sine egne dokumenter.">
+                                    <CheckBox x:Name="GlobalSuggestionsCheckBox"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Fagordslister" ControlId="F17" Description="Specialiserede forslagslister er endnu ikke tilgængelige i Windows. Den gemte præference bevares.">
+                                    <CheckBox x:Name="DomainListsCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <TextBlock Style="{StaticResource SettingsNote}" Text="Flere indstillinger for forslag, genveje og fagordslister tilføjes sammen med deres funktioner. De eksisterende genveje er uændrede."/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="AnalysisPage" Visibility="Collapsed">
+                        <GroupBox Header="Tekstanalyse" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Aktiver tekstanalyse" ControlId="T01" Description="Funktionen er endnu ikke tilgængelig i Windows. Dine gemte indstillinger bevares.">
+                                    <CheckBox x:Name="TextAnalyzerEnabledCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="POS-farvemarkering" ControlId="T02" Description="Funktionen er endnu ikke tilgængelig i Windows. Dine gemte indstillinger bevares.">
+                                    <CheckBox x:Name="TextAnalyzerColoringCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Semantiske kontekstdiagnoser (beta)" ControlId="T03" Description="Funktionen er endnu ikke tilgængelig i Windows. Dine gemte indstillinger bevares.">
+                                    <CheckBox x:Name="SemanticDiagnosticsCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Tegnsætningsdiagnoser (beta)" ControlId="T04" Description="Funktionen er endnu ikke tilgængelig i Windows. Dine gemte indstillinger bevares.">
+                                    <CheckBox x:Name="PunctuationDiagnosticsCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <TextBlock Style="{StaticResource SettingsNote}" Text="Tekstanalyse er endnu ikke tilgængelig. Dine hidtidige indstillinger bevares."/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="LearningPage" Visibility="Collapsed">
+                        <GroupBox Header="Læring" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Gemte ordvalg" ControlId="L03" Description="Gemte fortolkningsvalg er en anden funktion end brugerord. De ændrer ikke automatisk forslagene og betyder ikke, at valg deles.">
+                                    <TextBlock Text="Endnu ikke tilgængelig" TextWrapping="Wrap"/>
+                                </ui:SettingsRow>
+                                <TextBlock Style="{StaticResource SettingsNote}" Text="Lokal lagring og visning af fortolkningsvalg er endnu ikke tilgængelig i Windows. Der oprettes ikke delingssamtykke her. Brugerord administreres fortsat fra værktøjslinjen."/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="ErrorsPage" Visibility="Collapsed">
+                        <GroupBox Header="Fejlsporing" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Aktiver fejlsporing" ControlId="E01" Description="Registrerer lokale typer og antal til fejlindsigter. Dette er ikke tilladelse til at dele tekst eller tænde alle debuglogs.">
+                                    <CheckBox x:Name="ErrorTrackingEnabledCheckBox"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Gem sætningseksempler lokalt" ControlId="E02" Description="Teksteksempler kræver et særskilt udtrykkeligt valg. Kontrollen er endnu ikke tilgængelig; den gemte præference ændres ikke.">
+                                    <CheckBox x:Name="StoreSentenceExamplesCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                    <StackPanel x:Name="AdvancedPage" Visibility="Collapsed">
+                        <GroupBox Header="Debug og performance" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Performance-instrumentering" ControlId="A01" Description="Udvidet diagnostik er endnu ikke tilgængelig som brugerindstilling. Rå tekst og loginoplysninger må ikke gemmes i almindelige logs.">
+                                    <CheckBox x:Name="PerformanceInstrumentationCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Debug logs: App" ControlId="A02" Description="Udvidet diagnostik er endnu ikke tilgængelig som brugerindstilling. Rå tekst og loginoplysninger må ikke gemmes i almindelige logs.">
+                                    <CheckBox x:Name="AppDebugLoggingCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Debug logs: Panel/UI Automation" ControlId="A03" Description="Udvidet diagnostik er endnu ikke tilgængelig som brugerindstilling. Rå tekst og loginoplysninger må ikke gemmes i almindelige logs.">
+                                    <CheckBox x:Name="PlacementDebugLoggingCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="Debug logs: WordSuggestorCore" ControlId="A05" Description="Udvidet diagnostik er endnu ikke tilgængelig som brugerindstilling. Rå tekst og loginoplysninger må ikke gemmes i almindelige logs.">
+                                    <CheckBox x:Name="CoreDebugLoggingCheckBox" IsEnabled="False"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="Fortsat under migrering" Style="{StaticResource SettingsGroup}">
+                            <StackPanel>
+                                <ui:SettingsRow Header="Legacy-indstillinger" ControlId="A08" Description="Åbner de hidtidige Windows-indstillinger. Kun ændrede felter gemmes, og samtidige ændringer beskyttes.">
+                                    <Button Content="Åbn legacy-indstillinger…" Click="OpenLegacy_OnClick" Padding="8,5" AutomationProperties.AutomationId="SettingsLegacyOpen"/>
+                                </ui:SettingsRow>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+            <TextBlock x:Name="SettingsSaveStatus" Grid.Row="2" TextWrapping="Wrap" Margin="0,8,0,4" AutomationProperties.AutomationId="SettingsSaveStatus" AutomationProperties.LiveSetting="Polite"/>
+            <DockPanel Grid.Row="3" Margin="0,10,0,0">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Annuller" Padding="16,6" Margin="0,0,8,0" Click="CancelButton_OnClick" AutomationProperties.AutomationId="SettingsCancel"/>
+                    <Button Content="Gem" Padding="20,6" IsDefault="True" Click="SaveButton_OnClick" AutomationProperties.AutomationId="SettingsSave"/>
+                </StackPanel>
+                <TextBlock Text="Ændringer gemmes lokalt med Gem." VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+            </DockPanel>
         </Grid>
-
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Indstillinger"
-                       FontSize="28"
-                       FontWeight="SemiBold"
-                       Foreground="#111827" />
-            <TextBlock Text="Tilpas ordforslag, oplæsning og lokale data."
-                       Style="{StaticResource MutedTextStyle}"
-                       Margin="0,3,0,0" />
-        </StackPanel>
-
-        <TabControl>
-            <TabItem Header="Generelt">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="14">
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Sprog og placering" Style="{StaticResource SectionTitleStyle}" />
-                                <TextBlock Text="Aktivt sprog"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="LanguageComboBox"
-                                          Margin="0,4,0,12"
-                                          DisplayMemberPath="DisplayLabel"
-                                          SelectedValuePath="LanguageCode" />
-                                <TextBlock Text="Ordforslagsboksens placering"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="PlacementModeComboBox"
-                                          Margin="0,4,0,0"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Oplæsning" Style="{StaticResource SectionTitleStyle}" />
-                                <TextBlock Text="Oplæsningssprog"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="SpeechLanguageModeComboBox"
-                                          Margin="0,4,0,12"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value" />
-                                <CheckBox x:Name="UseSystemSpeechSettingsCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Brug systemets oplæsningsindstillinger"
-                                          Checked="SpeechSettings_OnChanged"
-                                          Unchecked="SpeechSettings_OnChanged" />
-                                <TextBlock Text="Systemstemme for aktivt sprog"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="SystemVoiceComboBox"
-                                          Margin="0,4,0,6"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value" />
-                                <TextBlock x:Name="VoiceStatusTextBlock"
-                                           Style="{StaticResource MutedTextStyle}"
-                                           Margin="0,0,0,12" />
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="80" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Oplæsningshastighed"
-                                               Style="{StaticResource MutedTextStyle}" />
-                                    <TextBlock x:Name="ReadingSpeedValueText"
-                                               Grid.Column="1"
-                                               HorizontalAlignment="Right"
-                                               Style="{StaticResource MutedTextStyle}" />
-                                </Grid>
-                                <Slider x:Name="ReadingSpeedSlider"
-                                        Minimum="-2"
-                                        Maximum="2"
-                                        TickFrequency="0.25"
-                                        IsSnapToTickEnabled="True"
-                                        Margin="0,0,0,12"
-                                        ValueChanged="ReadingSpeedSlider_OnValueChanged" />
-                                <TextBlock Text="Oplæsningsstrategi"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="ReadingStrategyComboBox"
-                                          Margin="0,4,0,12"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value" />
-                                <TextBlock Text="Markering under oplæsning"
-                                           Style="{StaticResource MutedTextStyle}" />
-                                <ComboBox x:Name="ReadingHighlightModeComboBox"
-                                          Margin="0,4,0,12"
-                                          DisplayMemberPath="Label"
-                                          SelectedValuePath="Value" />
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                    <Button Padding="10,6"
-                                            Margin="0,0,8,0"
-                                            Content="Åbn taleindstillinger"
-                                            Click="OpenSpeechSettingsButton_OnClick" />
-                                    <Button Padding="10,6"
-                                            Content="Åbn sprogindstillinger"
-                                            Click="OpenLanguageSettingsButton_OnClick" />
-                                </StackPanel>
-                                <TextBlock Text="Neural TTS-import er fortsat en macOS/neural voice-pack funktion og kræver et separat Windows audio/runtime-sprint."
-                                           Style="{StaticResource MutedTextStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Ordforslag">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="14">
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Ordforslag" Style="{StaticResource SectionTitleStyle}" />
-                                <CheckBox x:Name="GlobalSuggestionsCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Aktiver ordforslag" />
-                                <CheckBox x:Name="DomainListsCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Aktiver fagordslister"
-                                          IsEnabled="False" />
-                                <TextBlock Text="Fagordslister er fortsat placeholder-parity, fordi macOS-knappen også peger mod senere administration."
-                                           Style="{StaticResource MutedTextStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Tekstanalyse">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="14">
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Tekstanalyse" Style="{StaticResource SectionTitleStyle}" />
-                                <CheckBox x:Name="TextAnalyzerEnabledCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Aktiver tekstanalyse"
-                                          IsEnabled="False" />
-                                <CheckBox x:Name="TextAnalyzerColoringCheckBox" IsEnabled="False"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="POS-farvemarkering" />
-                                <CheckBox x:Name="SemanticDiagnosticsCheckBox" IsEnabled="False"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Semantiske kontekstdiagnoser (beta)" />
-                                <CheckBox x:Name="PunctuationDiagnosticsCheckBox" IsEnabled="False"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Tegnsætningsdiagnoser (beta)" />
-                                <TextBlock Text="Tekstanalyse er endnu ikke tilgængelig i denne beta. Dine indstillinger bevares."
-                                           Style="{StaticResource MutedTextStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Fejlsporing">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="14">
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Fejlsporing" Style="{StaticResource SectionTitleStyle}" />
-                                <CheckBox x:Name="ErrorTrackingEnabledCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Aktiver fejlsporing" />
-                                <CheckBox x:Name="StoreSentenceExamplesCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Gem sætningseksempler lokalt"
-                                          IsEnabled="False" />
-                                <TextBlock Text="Windows baseline gemmer kun lokale insight-events og typed/accepteret rettelsespar. Fulde sætningseksempler gemmes ikke endnu."
-                                           Style="{StaticResource MutedTextStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Avanceret">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="14">
-                        <Border Style="{StaticResource SectionStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Debug og performance" Style="{StaticResource SectionTitleStyle}" />
-                                <CheckBox x:Name="PerformanceInstrumentationCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Performance-instrumentering"
-                                          IsEnabled="False" />
-                                <CheckBox x:Name="AppDebugLoggingCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Debug logs: App"
-                                          IsEnabled="False" />
-                                <CheckBox x:Name="PlacementDebugLoggingCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Debug logs: Panel/caret"
-                                          IsEnabled="False" />
-                                <CheckBox x:Name="CoreDebugLoggingCheckBox"
-                                          Style="{StaticResource SettingCheckBoxStyle}"
-                                          Content="Debug logs: WordSuggestorCore"
-                                          IsEnabled="False" />
-                                <TextBlock Text="Debug toggles er vist for macOS-semantisk parity, men kobles først til konkrete Windows log-flags i et senere diagnostics-sprint."
-                                           Style="{StaticResource MutedTextStyle}" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-        </TabControl>
-    </DockPanel>
+    </Grid>
 </Window>

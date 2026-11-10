@@ -79,10 +79,29 @@ marked; no update metadata is generated until trusted signing succeeds. No signi
 certificate/feed is currently configured. [Release.md](docs/Release.md) covers signing,
 HTTPS beta updates, data retention, rollback and remaining installation gates.
 
+## Settings development
+
+Open **Indstillinger** on the floating toolbar. The Windows-native sidebar now
+contains Profile and seven categories; **Avanceret → Åbn legacy-indstillinger**
+opens the previous Windows settings. Use **Gem** to apply changes or **Annuller**
+to discard them. Full functional parity and live saving are later sprint slices;
+unavailable account/Hello/analysis/learning functions are identified explicitly.
+
+From this repository, run the new state and interactive-window tests:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1
+```
+
+Use `-Mode State` for noninteractive storage tests; `-Mode Ui` requires an unlocked
+desktop and moves the mouse/keyboard with synthetic test data. Do not interact
+while it runs. `-SkipBuild -RunnerPath <smoke-exe>` tests isolated build output.
+See [slice 1 results and remaining manual gates](docs/qualification/WSA-UX-029_slice1.md).
+
 ## Documentation
 
 - [Windows documentation index](docs/README.md)
-- [Windows Settings sprint WSA-UX-029 (planned)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
+- [Windows Settings sprint WSA-UX-029 (slice 1 shell delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 - [Settings slice 0 qualification and actual platform limits](docs/qualification/WSA-UX-029_slice0.md)
 - [Settings reference/function analysis](docs/analysis/2026-11-09_settings_parity_analysis.md)
 - [Documentation ownership across platforms](docs/DocumentationOrganization.md)

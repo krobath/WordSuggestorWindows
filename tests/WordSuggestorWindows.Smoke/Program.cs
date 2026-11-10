@@ -19,7 +19,15 @@ internal static class Program
         var code = 1;
         app.Dispatcher.InvokeAsync(async () =>
         {
-            try { if (args.Contains("--gui")) await GuiSmoke.Run(FindRepo()); else if (args.Contains("--media")) await MediaSmoke.Run(FindRepo()); else await RunTests(); code = 0; }
+            try
+            {
+                if (args.Contains("--settings-state")) SettingsStateSmoke.Run(Path.Combine(FindRepo(), ".artifacts", "tests", "settings-state-" + Guid.NewGuid().ToString("N")));
+                else if (args.Contains("--settings-ui")) await SettingsUiSmoke.Run(FindRepo());
+                else if (args.Contains("--gui")) await GuiSmoke.Run(FindRepo());
+                else if (args.Contains("--media")) await MediaSmoke.Run(FindRepo());
+                else await RunTests();
+                code = 0;
+            }
             catch (Exception ex) { Console.Error.WriteLine($"FAIL {ex}"); }
             finally { app.Shutdown(); }
         });
@@ -45,6 +53,7 @@ internal static class Program
 
     private static async Task RunTests()
     {
+        _passed += await UpdateSmoke.Run();
         var repo = FindRepo();
         _testRoot = Path.Combine(repo, ".artifacts", "tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);

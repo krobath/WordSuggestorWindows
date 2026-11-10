@@ -1,6 +1,6 @@
 # Windows evidence-based parity matrix
 
-Updated 2026-11-08. Source: baseline audit at Windows `4d67106`, current source,
+Updated 2026-11-10 (Settings slice 1 shell qualified; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
 real Core contract tests and real-desktop smoke. Historical "Done" labels mean code
 was delivered, not all target programs or accessibility modes were verified.
 
@@ -18,7 +18,7 @@ was delivered, not all target programs or accessibility modes were verified.
 | Word/Outlook/browser commits | Generic route present without E2E qualification | Unsafe route removed; those targets fail closed for suggestion commits | Isolated qualified adapter per host; no generic injection |
 | Selection import | UIA, Word COM, automatic clipboard fallback | UIA/Word COM retained on explicit actions; no passive full-selection poll; explicit snapshot-qualified clipboard import | App-specific import matrix remains mostly untested |
 | Settings/data | Local JSON; no backup/future-schema protection | Same data location/schema, atomic replace/backup, future schema protection; restart tests pass | Signed upgrade/uninstall tests |
-| Settings UI/content against macOS beta.9 | Horizontal categories; no Profile/Learning categories, speech mixed into General; many controls missing or inactive | Analysis/product choices and 72-control mapping completed; [slice 0 tools and baseline](qualification/WSA-UX-029_slice0.md), ten baseline gates PASS | Settings UI not implemented; Hello DeviceNotPresent and OS-update writes 0x800706F7: positive qualification remains open |
+| Settings UI/content against macOS beta.9 | Horizontal categories; no Profile/Learning categories, speech mixed into General; many controls missing or inactive | [Slice 1](qualification/WSA-UX-029_slice1.md): eight vertical categories, grouped rows/help and non-recursive Windows legacy; 20 state and 37 interactive checks | Full 72-control functional parity, live save/localization and human accessibility/DPI review open; Hello DeviceNotPresent and OS-update writes 0x800706F7 remain positive qualification gates |
 | User words | No Windows persistence/management | Explicit user-word UI, Core overlay format/normalization; restart/future-schema tests pass | Shared learning/profile UI parity |
 | Diagnostics/insights | Raw typed words/window titles; examples always recorded | Typed key capture replaced; stage/outcome diagnostics; stderr omitted; examples off by default; canary checks pass | Retention/rotation and opt-in usage statistics design |
 | TTS | Substantive OneCore/SAPI and highlight implementation | Preserved; sanitized diagnostics; see media/manual smoke evidence | Human hearing/highlight timing across voices |

@@ -1,8 +1,14 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace WordSuggestorWindows.App.Models;
 
 public sealed class AppSettingsSnapshot
 {
     public int SchemaVersion { get; set; } = 1;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement> AdditionalProperties { get; set; } = [];
 
     public bool IsGlobalCaptureEnabled { get; set; } = true;
 
@@ -55,6 +61,7 @@ public sealed class AppSettingsSnapshot
         new()
         {
             SchemaVersion = SchemaVersion,
+            AdditionalProperties = AdditionalProperties.ToDictionary(p => p.Key, p => p.Value.Clone()),
             IsGlobalCaptureEnabled = IsGlobalCaptureEnabled,
             SelectedLanguageCode = SelectedLanguageCode,
             SuggestionPlacementMode = SuggestionPlacementMode,

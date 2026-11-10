@@ -14,15 +14,31 @@ public sealed class WindowsAppSettingsService
     private readonly object _gate = new();
     private readonly string _settingsPath;
 
-    public WindowsAppSettingsService()
+    public WindowsAppSettingsService(string? settingsPath = null)
     {
-        _settingsPath = Path.Combine(
+        _settingsPath = settingsPath ?? Path.Combine(
             WindowsDataPaths.Root,
             "settings",
             "settings-v1.json");
     }
 
     public string SettingsPath => _settingsPath;
+
+    public AppSettingsSnapshot SaveChanges(AppSettingsSnapshot original, AppSettingsSnapshot edited)
+    {
+        lock (_gate)
+        {
+            // Read the raw current document rather than Load's recovery defaults.
+            // A corrupt/newer file must not be replaced by a stale dialog.
+            var latest = File.Exists(_settingsPath)
+                ? JsonSerializer.Deserialize<AppSettingsSnapshot>(File.ReadAllText(_settingsPath), JsonOptions)
+                    ?? throw new InvalidOperationException("Settings unavailable.")
+                : new AppSettingsSnapshot();
+            var merged = SettingsPatch.Merge(original, edited, latest);
+            Save(merged);
+            return merged;
+        }
+    }
 
     public AppSettingsSnapshot Load()
     {

@@ -4,6 +4,28 @@ Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
+## Settings UI — WSA-UX-029 slice 1
+
+`SettingsWindow` uses native WPF ListBox navigation for eight categories and a
+separate right-hand ScrollViewer. `SettingsRow`/`SettingsStyles` align grouped
+labels, one accessible info action and a value column with system color resources.
+`SettingsHelpCoordinator` manages one popup, keyboard dismissal and focus return.
+Read-only status/version values retain their actual UI Automation text.
+
+`LegacySettingsWindow` preserves the previous Windows layout and controls. Both
+views use `SettingsFormController`, the same view model and settings service.
+`SettingsPatch` applies only changed fields against the latest snapshot; unrelated
+fields, unknown v1 properties and other-language voice overrides survive. Same-
+field conflicts and invalid/future files keep the dialog open without overwriting
+data. Atomic replacement/backup stays unchanged. This protects dialogs in the one
+app process; it does not introduce a cross-process lock or a new settings schema.
+
+Slice 1 retains explicit Save/Cancel. Live persistence, localization and the
+separate UI/writing-language authorities are slice 2 work. Full account, Hello,
+analysis and learning controls remain unavailable. Existing bounded metadata/manual
+update behavior is preserved; App Installer still owns signed installation and
+automatic scheduling. [Slice 1 evidence](qualification/WSA-UX-029_slice1.md).
+
 ## Settings qualification boundary — WSA-UX-029 slice 0
 
 The new qualification scripts/register are test tooling, not production Settings

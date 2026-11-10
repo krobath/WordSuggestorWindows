@@ -1,8 +1,8 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
 Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
-og baseline leveret; positiv Hello-/updaterkvalifikation åben**. Settings-UI er
-endnu ikke implementeret. Næste uafhængige implementation: slice 1.
+og baseline leveret; slice 1 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
+Næste implementation: slice 2, løbende gemning og adskilt interface-/skrivesprog.
 
 ## Resultat sprintet skal levere
 
@@ -112,8 +112,15 @@ native prober er implementeret. Ti baseline-gates passerer på den registrerede
 arbejdsmappe. Hello returnerer DeviceNotPresent; OS-opdateringsændring fejler med
 0x800706F7 både via cmdlet og native API, med verificeret uændret testtilstand.
 [Slice-0-evidens](../qualification/WSA-UX-029_slice0.md) angiver præcis bevisgrænse.
-Positiv platformgodkendelse er ikke lukket; slice 7/8 er fortsat gated. Slice 1–9
-er ikke implementeret. Slice 1 kan starte uden at aktivere disse kontroller.
+Positiv platformgodkendelse er ikke lukket; slice 7/8 er fortsat gated.
+**Slice 1 er nu implementeret** med otte kategorier, grupperede rækker, infohjælp
+og separat Windows-legacyvisning. Settings gemmes stadig eksplicit med Gem;
+løbende gemning og separate sprogautoriteter tilhører slice 2. Eksisterende valg
+bevares med feltafgrænset fletning og konfliktafvisning. De resterende 72-posters
+funktionskrav og menneskelig accessibility/DPI-signoff er ikke lukket.
+Se [slice 1-evidens](../qualification/WSA-UX-029_slice1.md) og
+[ændringsnote](../changes/2026-11-10_wsa_ux_029_slice1_settings_sidebar.md).
+Slice 2–9 er fortsat ikke implementeret. Ingen konto-/Hello-/OS-toggle aktiveres.
 
 ### Slice 0 — konkret risikokvalifikation
 

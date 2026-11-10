@@ -1,4 +1,4 @@
-# Current native Windows UX contract — 2026-11-08
+# Current native Windows UX contract — 2026-11-10
 
 The April 17 WSA-UX-012 handoff and the supplied November macOS recordings supersede
 the expanded-toolbar descriptions retained below for history. The implementation
@@ -31,14 +31,18 @@ parity gaps, not invented Windows implementations. Reference media stays untrack
 
 See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
 
-Settings UI target (not implemented; slice 0 tooling is separate):
+Settings UI target (slice 1 shell implemented; full functional parity remains open):
 [WSA-UX-029](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 uses canonical macOS ba18b45 and the 11 supplied screenshots. It specifies the
 Profile account card and General/Speech/Suggestions/Analysis/Learning/Error Tracking/
 Advanced sidebar categories, grouped rows and accessible information actions.
 The user chose Windows Hello with PIN or biometrics, configurable Ctrl/Ctrl+Shift/Alt
 defaults for the three lanes, and the current Windows settings as the migration
-legacy view. Ordinary settings become live; account/profile mutations retain
+legacy view. Slice 1 provides native sidebar navigation, grouped rows, contextual
+help and the non-recursive Windows legacy window, with shared field-scoped saves.
+It retains explicit Gem/Annuller until slice 2. [Qualification](qualification/WSA-UX-029_slice1.md)
+separates automated desktop evidence from open human accessibility/DPI gates.
+Ordinary settings become live in slice 2; account/profile mutations retain
 explicit actions. Existing editor Ctrl+Tab navigation is preserved. The new layout
 and each runtime effect require the sprint's own evidence before being called parity.
 The [slice 0 report](qualification/WSA-UX-029_slice0.md) records the passing baseline

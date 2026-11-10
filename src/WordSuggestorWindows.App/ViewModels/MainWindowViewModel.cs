@@ -626,6 +626,32 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!TrySaveSettings(settings)) return;
 
+        ApplySavedSettings(settings);
+    }
+
+    public bool TryApplySettingsChanges(AppSettingsSnapshot original, AppSettingsSnapshot edited)
+    {
+        try
+        {
+            var merged = _settingsService.SaveChanges(original, edited);
+            ApplySavedSettings(merged);
+            return true;
+        }
+        catch (SettingsConflictException)
+        {
+            StatusMessage = "Indstillingerne er ændret i et andet vindue. Luk og åbn indstillingerne igen for at hente de nyeste værdier.";
+            return false;
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            StatusMessage = "Indstillingerne kunne ikke gemmes. Eksisterende data er bevaret.";
+            return false;
+        }
+    }
+
+    private void ApplySavedSettings(AppSettingsSnapshot settings)
+    {
+
         var selectedLanguage = LanguageOptions.FirstOrDefault(option =>
             string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase));
         if (selectedLanguage is not null)
