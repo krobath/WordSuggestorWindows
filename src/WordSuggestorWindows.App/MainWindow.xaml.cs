@@ -84,7 +84,6 @@ public partial class MainWindow : Window
     private Point? _manualOverlayTopLeft;
     private SuggestionOverlayWindow? _overlayWindow;
     private SettingsWindow? _settingsWindow;
-    private bool _isApplyingSpeechHighlightSelection;
     private bool _isResolvingExternalSelection;
     private bool _isUpdatingExternalSuggestionAnchor;
     private long _caretMeasurementGeneration;
@@ -131,6 +130,7 @@ public partial class MainWindow : Window
         _textToSpeechService.SpeechStopped += TextToSpeechServiceOnSpeechStopped;
         _textToSpeechService.PrecisePlaybackStarted += TextToSpeechServiceOnPrecisePlaybackStarted;
         _textToSpeechService.BoundaryCueReceived += TextToSpeechServiceOnBoundaryCueReceived;
+        InitializeSpeechLifecycle();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -161,6 +161,7 @@ public partial class MainWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        DisposeSpeechLifecycle();
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
         _viewModel.Dispose();
         _editorWindow.CloseForShutdown();
@@ -440,8 +441,10 @@ public partial class MainWindow : Window
 
     private void GlobalSuggestionCaptureServiceOnTokenChanged(object? sender, ExternalSuggestionTokenChangedEventArgs e)
     {
+        var speechSnapshot = _globalSuggestionCaptureService.CurrentSnapshot;
         Dispatcher.BeginInvoke(() =>
         {
+            HandleExternalTypingSpeech(speechSnapshot);
             if (e.WindowHandle == IntPtr.Zero)
             {
                 _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
@@ -749,7 +752,7 @@ public partial class MainWindow : Window
         if (internalSelection is not null)
         {
             _speechSelectionRangeToRestore = CaptureCurrentEditorSelectionRange();
-            SetEditorSelection(internalSelection.Start, 0);
+            // Speech highlighting does not move the user selection or caret.
             WriteTtsFlowDiagnostic($"UI TTS action using internal editor selection: chars={internalSelection.Length}.");
             SpeakText(internalSelection.Text, "intern editor-markering", internalSelection.Start);
             return;
@@ -788,6 +791,7 @@ public partial class MainWindow : Window
 
     private void SpeakText(string text, string source, int highlightBaseOffset)
     {
+        CancelDocumentSpeech(false);
         try
         {
             if (_speechSelectionRangeToRestore is null && _viewModel.IsEditorExpanded)
@@ -797,6 +801,7 @@ public partial class MainWindow : Window
 
             var options = _viewModel.CreateTextToSpeechOptions(text);
             var invocation = _textToSpeechService.Speak(text, options);
+            AttachSpeechPresentation();
             if (invocation.SupportsPreciseBoundaryMetadata)
             {
                 PreparePreciseSpeechHighlight(highlightBaseOffset);
@@ -822,19 +827,19 @@ public partial class MainWindow : Window
 
     private void TextToSpeechServiceOnStatusChanged(object? sender, string status)
     {
-        Dispatcher.BeginInvoke(() => _viewModel.SetStatusMessage(status));
+        Dispatcher.BeginInvoke(() => { if (_textToSpeechService.IsCurrent(sender)) _viewModel.SetStatusMessage(status); });
     }
 
     private void TextToSpeechServiceOnPrecisePlaybackStarted(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(StartPreciseSpeechHighlightPlayback);
+        Dispatcher.BeginInvoke(() => { if (_textToSpeechService.IsCurrent(sender) && SpeechPresentationIsCurrent()) StartPreciseSpeechHighlightPlayback(); });
     }
 
     private void TextToSpeechServiceOnBoundaryCueReceived(object? sender, TextToSpeechBoundaryCue cue)
     {
         Dispatcher.BeginInvoke(() =>
         {
-            if (!_usePreciseSpeechHighlight)
+            if (!_textToSpeechService.IsCurrent(sender) || !SpeechPresentationIsCurrent() || !_usePreciseSpeechHighlight)
             {
                 return;
             }
@@ -856,6 +861,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(() =>
         {
+            if (!_textToSpeechService.IsCurrent(sender)) return;
             StopSpeechHighlight(restoreEditorSelection: true);
             _viewModel.SetTextToSpeechSpeaking(false, status);
         });
@@ -1254,16 +1260,18 @@ public partial class MainWindow : Window
             finally { _isUpdatingEditorSelection = false; }
         }
 
+        OnEditorSpeechTextChanged();
         UpdateOverlayPosition();
     }
 
     internal void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
-        if (_isApplyingSpeechHighlightSelection || _isSynchronizingEditorDocument || _isUpdatingEditorSelection)
+        if (_isSynchronizingEditorDocument || _isUpdatingEditorSelection)
         {
             return;
         }
 
+        OnSpeechSelectionChanged();
         _isUpdatingEditorSelection = true;
         try { _viewModel.UpdateEditorSelection(GetTextOffset(EditorTextBox.Selection.Start), GetTextOffset(EditorTextBox.Selection.End)); }
         finally { _isUpdatingEditorSelection = false; }
@@ -1658,6 +1666,14 @@ public partial class MainWindow : Window
 
     private void StopSpeechHighlight(bool restoreEditorSelection)
     {
+        restoreEditorSelection &= SpeechPresentationIsCurrent();
+        _speechEditorGeneration++;
+        _externalAutomaticSpeech = false;
+        _automaticEditorSpeech = false;
+        _speechCommittedPrefix = _externalSpeechCommittedPrefix = "";
+        _externalSpeechTarget = null;
+        ClearSpeechPresentation();
+        _viewModel.SetTextToSpeechSpeaking(false, _viewModel.StatusMessage);
         _speechHighlightTimer.Stop();
         _preciseSpeechHighlightTimer.Stop();
         ClearCurrentSpeechHighlight();
@@ -1672,6 +1688,8 @@ public partial class MainWindow : Window
         {
             RestoreSpeechEditorSelection();
         }
+        _speechSelectionRangeToRestore = null;
+        _speechEditor = null;
     }
 
     private void StartPreciseSpeechHighlightPlayback()
@@ -1739,6 +1757,7 @@ public partial class MainWindow : Window
 
     private void ApplySpeechHighlight(TextSpan span)
     {
+        if (!SpeechPresentationIsCurrent() || !WindowsTextToSpeechService.ValidRange(GetEditorPlainText(), span.Start, span.Length)) return;
         if (_currentSpeechHighlightSpan is not null &&
             _currentSpeechHighlightSpan.Start == span.Start &&
             _currentSpeechHighlightSpan.Length == span.Length)
@@ -1761,40 +1780,18 @@ public partial class MainWindow : Window
         }
 
         _currentSpeechHighlightSpan = null;
+        _speechAdorner?.SetRange(null, null);
     }
 
     private void SelectSpeechHighlightRange(TextPointer start, TextPointer end)
     {
-        _isApplyingSpeechHighlightSelection = true;
-        try
-        {
-            EditorTextBox.Focus();
-            EditorTextBox.Selection.Select(start, end);
-        }
-        finally
-        {
-            _isApplyingSpeechHighlightSelection = false;
-        }
+        _speechAdorner?.SetRange(start, end);
     }
 
     private void RestoreSpeechEditorSelection()
     {
-        if (_speechSelectionRangeToRestore is null)
-        {
-            return;
-        }
-
-        var range = _speechSelectionRangeToRestore;
+        // The adorner never moved selection/caret; retain the exact user state.
         _speechSelectionRangeToRestore = null;
-        _isApplyingSpeechHighlightSelection = true;
-        try
-        {
-            SetEditorSelection(range.Start, range.Length);
-        }
-        finally
-        {
-            _isApplyingSpeechHighlightSelection = false;
-        }
     }
 
     private static TimeSpan EstimateSpeechDuration(string text, int wordCount, TtsSpeechOptions options)
@@ -1802,7 +1799,7 @@ public partial class MainWindow : Window
         const double baseWordsPerMinute = 125.0;
         var speedMultiplier = options.UseSystemSpeechSettings
             ? 1.0
-            : Math.Pow(1.35, options.ReadingSpeedDelta);
+            : SpeechSpeedPolicy.Multiplier(options.ReadingSpeedDelta);
         var wordsDurationMs = wordCount / (baseWordsPerMinute * speedMultiplier) * 60_000.0;
         var punctuationPauseMs = text.Count(character => character is '.' or ',' or ';' or ':' or '!' or '?') * 120.0;
         var bridgeWarmupMs = wordCount <= 4 ? 1_000.0 : 550.0;
@@ -1920,6 +1917,7 @@ public partial class MainWindow : Window
             Topmost = true
         };
         _overlayWindow.ManualPlacementCommitted += OverlayWindowOnManualPlacementCommitted;
+        _overlayWindow.SpeechRequested += OverlaySpeechRequested;
         WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
             DateTimeOffset.Now,
             "SuggestionOverlay",

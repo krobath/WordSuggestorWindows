@@ -3,6 +3,25 @@
 Updated 2026-11-08. Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
+## Settings slice 4 — 2026-11-10
+
+[Exact-source qualification and manual matrix](qualification/WSA-UX-029_slice4.md)
+cover actual native speech, physical editor/Notepad input and lifecycle safety.
+Use `scripts\test_settings_app.ps1 -Mode Speech` for policy/migration/process/native
+playback, and `-Mode SpeechUi` for keyboard/focus/marker/control tests. The default
+All mode includes both. These gates play synthetic audio and require an unlocked
+desktop; do not interact during GUI tests. Human listening/Narrator/mixed-DPI and
+signed-update checks remain explicitly open. Recovery is in [Speech.md](Speech.md).
+
+Human smoke: choose a voice, adjust 50/100/150%, use each typing strategy, then
+change highlight mode. Continue typing the next word during audio; move the caret,
+change window/tab, stop and restart. Check normal selection, text and undo. Repeat
+in supported Notepad with the internal editor open. Inspect retained system mode
+in legacy, then change primary tempo and verify the explicit override persists.
+Verify the OS settings links on each supported Windows version. Full listening,
+hardware accessibility and release-installation approval is not inferred from
+automated desktop observation.
+
 ## Settings slice 3 — 2026-11-10
 
 [Qualification and exact-source results](qualification/WSA-UX-029_slice3.md) cover

@@ -24,11 +24,11 @@
   "O02.Title": "System read-aloud settings",
   "O02.Help": "Opens Windows speech settings. Additional voices are managed in Windows language settings.",
   "O03.Title": "Reading speed",
-  "O03.Help": "Retains the previous Windows speech-rate setting. Voice and speed follow the system when the system option is enabled.",
+  "O03.Help": "Choose 50–150% in 5% steps. 100% is the voice default speed. Changing it selects app tempo instead of the previous Windows system preference.",
   "O04.Title": "Reading strategy",
-  "O04.Help": "The saved choice is retained, but automatic reading while typing is not implemented on Windows yet. Manual reading works independently.",
+  "O04.Help": "Read words at a word boundary, sentences at a full stop followed by a space, or paragraphs at a full stop followed by a newline. Pasted text blocks are not read automatically.",
   "O05.Title": "Highlight while reading",
-  "O05.Help": "Selects no highlighting, words or sentences during manual reading.",
+  "O05.Help": "Choose no highlight, words or sentences during editor speech. Highlights follow native voice timing. Editing, focus changes and Stop cancel safely.",
   "F01.Title": "Enable suggestions",
   "F01.Help": "Turns global Windows beta suggestions on or off. The separate editor retains its own documents.",
   "F17.Title": "Domain word lists",
@@ -153,5 +153,7 @@
   "Update.available": "Version {0} is ready. Save your work and exit WordSuggestor before installing the update.",
   "Update.current": "You have the latest published Windows beta.",
   "VersionDevelopment": "WordSuggestor {0} · local development edition",
-  "VersionInstalled": "WordSuggestor {0} · package {1} · x64"
+  "VersionInstalled": "WordSuggestor {0} · package {1} · x64",
+  "SystemSpeechOverrideNotice": "The previous system preference is active. Changing voice or speed selects app settings; system control remains available in legacy settings.",
+  "SystemTempoValue": "System tempo (saved app tempo: {0}%)"
 }

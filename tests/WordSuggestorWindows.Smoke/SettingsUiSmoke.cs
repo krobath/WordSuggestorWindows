@@ -96,7 +96,7 @@ internal static class SettingsUiSmoke
             Check("same help icon toggles closed", !HelpOpen());
             await Click(helpA); await Click((FrameworkElement)nav.Items[2]);
             Check("category change closes help and focuses navigation", !HelpOpen() && nav.IsKeyboardFocusWithin);
-            Check("unimplemented reading strategy disabled", !Find<ComboBox>("ReadingStrategyComboBox").IsEnabled);
+            Check("implemented reading strategies enabled", Find<ComboBox>("ReadingStrategyComboBox").IsEnabled && Find<ComboBox>("ReadingStrategyComboBox").Items.Count == 4);
             Check("existing speech choices retained", Find<ComboBox>("ReadingHighlightModeComboBox").Items.Count == 3 && Find<ComboBox>("SystemVoiceComboBox").Items.Count > 0);
             window.Width = 760; window.Height = 480; await Pause();
             var scroll = Find<ScrollViewer>("DetailScroll");

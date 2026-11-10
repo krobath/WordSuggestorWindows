@@ -90,8 +90,8 @@ language. The Settings and legacy surfaces are translated; older app surfaces
 still contain Danish copy. Disabling Follow caret permission forces static
 placement; enabling permission does not itself choose Follow caret.
 
-Schema 2 keeps the historical `settings/settings-v1.json` location. Migration
-preserves an exact `.v1.bak` once and uses the rolling `.bak`. Future/corrupt data
+Schema 3 keeps the historical `settings/settings-v1.json` location. Migration
+preserves exact once-only `.v1.bak`/`.v2.bak` originals and the rolling `.bak`. Future/corrupt data
 is retained and blocks writes; failed changes are not applied. See
 [data recovery and qualification](docs/qualification/WSA-UX-029_slice2.md).
 Full functional parity and account/Hello/analysis/learning remain later work.
@@ -122,10 +122,32 @@ The default Settings test now also runs the Core adapter gate. `-Mode Core` need
 the real Core CLI/DA pack, but no account or production secret. The portable gate
 requires Python 3.10+ (standard library only). No new UI controls are enabled here.
 
+Slice 4 connects **Speech**: 50–150% tempo in 5% steps, automatic word/sentence/
+paragraph reading and native-timed highlighting that leaves the selection/caret
+alone. Automatic reading uses confirmed editor/qualified Notepad snapshots; pasted
+blocks do not trigger. Native SAPI and OneCore remain offline. Candidate audio now
+uses the same owned, cancellable service and selected voice/tempo.
+
+Changing primary voice/tempo explicitly selects app control; the previous system
+tempo setting and speech-language option remain in legacy settings. Schema 3
+migrates the old effective OneCore tempo once, to the nearest 5% step, and maps
+legacy page/all strategies to paragraph. See [speech/data recovery](docs/Speech.md).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode Speech
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode SpeechUi
+```
+
+The default Settings gate includes these tests. Speech plays synthetic audio;
+SpeechUi also moves keyboard/focus and opens its own Notepad document. Use an
+unlocked desktop and do not interact during the gate. Human listening and physical
+accessibility/DPI sign-off are separate. [Slice 4 qualification](docs/qualification/WSA-UX-029_slice4.md)
+records exact source scope and all remaining gates.
+
 ## Documentation
 
 - [Windows documentation index](docs/README.md)
-- [Windows Settings sprint WSA-UX-029 (slices 1–3 delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
+- [Windows Settings sprint WSA-UX-029 (slices 1–4 delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 - [Settings slice 0 qualification and actual platform limits](docs/qualification/WSA-UX-029_slice0.md)
 - [Settings reference/function analysis](docs/analysis/2026-11-09_settings_parity_analysis.md)
 - [Documentation ownership across platforms](docs/DocumentationOrganization.md)

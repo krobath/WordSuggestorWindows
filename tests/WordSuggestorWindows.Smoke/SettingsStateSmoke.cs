@@ -73,7 +73,7 @@ internal static class SettingsStateSmoke
         var v1Bytes = File.ReadAllBytes(migrationPath);
         var migrationStore = new WindowsAppSettingsService(migrationPath);
         var migrated = migrationStore.LoadResult();
-        Check("v1 upgraded in memory with explicit state", migrated is { State: SettingsLoadState.Migrated, CanWrite: true } && migrated.Settings.SchemaVersion == 2);
+        Check("v1 upgraded in memory with explicit state", migrated is { State: SettingsLoadState.Migrated, CanWrite: true } && migrated.Settings.SchemaVersion == SettingsSchema.CurrentVersion);
         Check("reading does not modify old settings", File.ReadAllText(migrationPath) == v1);
         Check("migration separates interface from English writing language", migrated.Settings.InterfaceLocalePreference == "system_default" && migrated.Settings.SelectedLanguageCode == "en-US");
         Check("migration retains explicit false choices and static placement", !migrated.Settings.IsGlobalCaptureEnabled && !migrated.Settings.StoreSentenceExamples && migrated.Settings.SuggestionPlacementMode == "static");
@@ -92,7 +92,7 @@ internal static class SettingsStateSmoke
         Check("missing file is a writable new profile", new WindowsAppSettingsService(Path.Combine(root, "absent.json")).LoadResult() is { State: SettingsLoadState.Missing, CanWrite: true });
         File.WriteAllText(path, "{\"schemaVersion\":99}");
         Check("unavailable profile disables external capture and content collection", store.Load() is { IsGlobalCaptureEnabled: false, IsErrorTrackingEnabled: false, StoreSentenceExamples: false, FollowCaretOptionEnabled: false });
-        foreach (var invalid in new[] { "{\"schemaVersion\":3}", "{\"schemaVersion\":0}", "{\"schemaVersion\":\"2\"}", "{\"schemaVersion\":999999999999999999999}", "[]", "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"unknown\"}", "{\"schemaVersion\":2,\"systemVoiceIdOverrideByLanguage\":null}" })
+        foreach (var invalid in new[] { "{\"schemaVersion\":4}", "{\"schemaVersion\":0}", "{\"schemaVersion\":\"2\"}", "{\"schemaVersion\":999999999999999999999}", "[]", "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"unknown\"}", "{\"schemaVersion\":2,\"systemVoiceIdOverrideByLanguage\":null}" })
         {
             File.WriteAllText(path, invalid);
             Check("unsupported/invalid document stays unavailable", !store.LoadResult().CanWrite && File.ReadAllText(path) == invalid);

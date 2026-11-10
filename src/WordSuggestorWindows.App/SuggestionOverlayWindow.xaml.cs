@@ -12,7 +12,7 @@ namespace WordSuggestorWindows.App;
 public partial class SuggestionOverlayWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
-    private readonly OverlaySpeechService _speechService = new();
+    public event EventHandler<string>? SpeechRequested;
 
     public event EventHandler<Point>? ManualPlacementCommitted;
 
@@ -123,8 +123,7 @@ public partial class SuggestionOverlayWindow : Window
     {
         if (sender is Button { DataContext: SuggestionOverlayEntry entry })
         {
-            _speechService.Speak(entry.Suggestion.Term);
-            _viewModel.SetStatusMessage($"Læser '{entry.Suggestion.Term}' op via Windows TTS.");
+            SpeechRequested?.Invoke(this, entry.Suggestion.Term);
         }
     }
 
@@ -179,7 +178,6 @@ public partial class SuggestionOverlayWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         Closed -= OnClosed;
-        _speechService.Dispose();
     }
 
     private static bool IsInteractiveElement(DependencyObject? origin)

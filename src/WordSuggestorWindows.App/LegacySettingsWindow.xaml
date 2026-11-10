@@ -77,7 +77,7 @@
                                     <TextBlock Text="{DynamicResource WS.Settings.O03.Title}" Style="{StaticResource MutedTextStyle}"/>
                                     <TextBlock x:Name="ReadingSpeedValueText" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource MutedTextStyle}"/>
                                 </Grid>
-                                <Slider x:Name="ReadingSpeedSlider" Minimum="-1" Maximum="1" TickFrequency="0.25" IsSnapToTickEnabled="True" Margin="0,0,0,12" ValueChanged="ReadingSpeedSlider_OnValueChanged"/>
+                                <Slider x:Name="ReadingSpeedSlider" Minimum="50" Maximum="150" TickFrequency="5" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" Margin="0,0,0,12" ValueChanged="ReadingSpeedSlider_OnValueChanged"/>
                                 <TextBlock Text="{DynamicResource WS.Settings.O04.Title}" Style="{StaticResource MutedTextStyle}"/>
                                 <ComboBox x:Name="ReadingStrategyComboBox" Margin="0,4,0,12" DisplayMemberPath="Label" SelectedValuePath="Value"/>
                                 <TextBlock Text="{DynamicResource WS.Settings.O05.Title}" Style="{StaticResource MutedTextStyle}"/>

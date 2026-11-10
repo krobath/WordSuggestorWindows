@@ -119,10 +119,10 @@
                     <StackPanel x:Name="SpeechPage" Visibility="Collapsed">
                         <GroupBox Header="{DynamicResource WS.Settings.Category.speech}" Style="{StaticResource SettingsGroup}">
                             <StackPanel>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.SpeechLanguage.Title}" ControlId="SpeechLanguage" Description="{DynamicResource WS.Settings.SpeechLanguage.Help}">
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.SpeechLanguage.Title}" Visibility="Collapsed" ControlId="SpeechLanguage" Description="{DynamicResource WS.Settings.SpeechLanguage.Help}">
                                     <ComboBox x:Name="SpeechLanguageModeComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
                                 </ui:SettingsRow>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.SystemSpeech.Title}" ControlId="SystemSpeech" Description="{DynamicResource WS.Settings.SystemSpeech.Help}">
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.SystemSpeech.Title}" Visibility="Collapsed" ControlId="SystemSpeech" Description="{DynamicResource WS.Settings.SystemSpeech.Help}">
                                     <CheckBox x:Name="UseSystemSpeechSettingsCheckBox"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.O01.Title}" ControlId="O01" Description="{DynamicResource WS.Settings.O01.Help}">
@@ -137,12 +137,12 @@
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.O03.Title}" ControlId="O03" Description="{DynamicResource WS.Settings.O03.Help}">
                                     <StackPanel>
-                                        <TextBlock x:Name="ReadingSpeedValueText" HorizontalAlignment="Right"/>
-                                        <Slider x:Name="ReadingSpeedSlider" Minimum="-1" Maximum="1" TickFrequency="0.25" IsSnapToTickEnabled="True"/>
+                                        <TextBlock x:Name="ReadingSpeedValueText" HorizontalAlignment="Right" TextWrapping="Wrap" TextAlignment="Right"/>
+                                        <Slider x:Name="ReadingSpeedSlider" Minimum="50" Maximum="150" TickFrequency="5" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True"/>
                                     </StackPanel>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.O04.Title}" ControlId="O04" Description="{DynamicResource WS.Settings.O04.Help}">
-                                    <ComboBox x:Name="ReadingStrategyComboBox" DisplayMemberPath="Label" SelectedValuePath="Value" IsEnabled="False"/>
+                                    <ComboBox x:Name="ReadingStrategyComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.O05.Title}" ControlId="O05" Description="{DynamicResource WS.Settings.O05.Help}">
                                     <ComboBox x:Name="ReadingHighlightModeComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/>

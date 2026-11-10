@@ -1,606 +1,195 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Globalization;
 using System.Text.Json;
 using WordSuggestorWindows.App.Models;
 
 namespace WordSuggestorWindows.App.Services;
 
+// Event sender is an opaque utterance identity. Dispatcher clients recheck it
+// after posting; old process events can never describe the replacement process.
 public sealed class WindowsTextToSpeechService : IDisposable
 {
-    private static readonly string DiagnosticLogPath = Path.Combine(
-        WindowsDataPaths.Root,
-        "diagnostics",
-        "tts-flow.log");
-    private static readonly Lazy<OneCoreRuntimeStatus> OneCoreRuntimeStatusCache =
-        new(ProbeOneCoreRuntime, LazyThreadSafetyMode.ExecutionAndPublication);
-
-    private Process? _process;
-    private readonly StringBuilder _stdoutBuffer = new();
-    private readonly StringBuilder _stderrBuffer = new();
-    private readonly List<string> _temporaryArtifactPaths = [];
-
+    private readonly object _gate = new();
+    private readonly Func<ProcessStartInfo>? _bridgeFactory;
+    private readonly TimeSpan _timeout;
+    private Session? _current;
+    private static readonly Lazy<OneCoreRuntimeStatus> OneCoreStatus = new(ProbeOneCore);
+    public WindowsTextToSpeechService(Func<ProcessStartInfo>? bridgeFactory = null, TimeSpan? timeout = null)
+    { _bridgeFactory = bridgeFactory; _timeout = timeout ?? TimeSpan.FromMinutes(20); }
     public event EventHandler<string>? StatusChanged;
-
     public event EventHandler<string>? SpeechStopped;
-
     public event EventHandler? PrecisePlaybackStarted;
-
     public event EventHandler<TextToSpeechBoundaryCue>? BoundaryCueReceived;
-
-    public bool IsSpeaking => _process is { HasExited: false };
-
-    public static OneCoreRuntimeStatus GetOneCoreRuntimeStatus() => OneCoreRuntimeStatusCache.Value;
+    public bool IsSpeaking { get { lock (_gate) return _current is { Active: true }; } }
+    public bool IsCurrent(object? sender) { lock (_gate) return sender is not null && ReferenceEquals(sender, _current); }
+    public int? CurrentProcessId { get { lock (_gate) return _current is { Active: true } s ? s.Process.Id : null; } }
+    public TimeSpan? LastAudioDuration { get { lock (_gate) return _current?.AudioDuration; } }
+    public static OneCoreRuntimeStatus GetOneCoreRuntimeStatus() => OneCoreStatus.Value;
 
     public TextToSpeechInvocationResult Speak(string text, TtsSpeechOptions options)
     {
-        if (string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 16000) throw new InvalidOperationException("Ingen eller for meget tekst til oplæsning.");
+        lock (_gate)
         {
-            WriteDiagnostic("Speak skipped: empty text.");
-            return new TextToSpeechInvocationResult(
-                WindowsVoiceCatalogService.SapiDesktopSource,
-                "Windows standardstemme",
-                WindowsVoiceCatalogService.SapiDesktopSource,
-                "Ingen tekst fundet til oplæsning.");
+            Stop();
+            var backend = options.VoiceSource == WindowsVoiceCatalogService.OneCoreSource ? WindowsVoiceCatalogService.OneCoreSource : WindowsVoiceCatalogService.SapiDesktopSource;
+            if (_bridgeFactory is null && backend == WindowsVoiceCatalogService.OneCoreSource && !GetOneCoreRuntimeStatus().IsAvailable)
+            {
+                var fallback = WindowsVoiceCatalogService.ResolveVoiceBySource(options.LanguageCode, null, WindowsVoiceCatalogService.SapiDesktopSource);
+                if (fallback.Voice is null) throw new InvalidOperationException("Ingen tilgængelig Windows-talestemme.");
+                options = options with { VoiceId = fallback.Voice.Id, VoiceDisplayName = fallback.Voice.DisplayName, VoiceSource = fallback.Voice.Source,
+                    FallbackReason = "OneCore er utilgængelig; Windows SAPI bruges." };
+                backend = WindowsVoiceCatalogService.SapiDesktopSource;
+            }
+            var directory = Path.Combine(Path.GetTempPath(), "wordsuggestor-speech-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var session = new Session(directory, text, options.ReadingHighlightMode, backend);
+            try
+            {
+                var scriptPath = Path.Combine(directory, "worker.ps1");
+                using (var resource = typeof(WindowsTextToSpeechService).Assembly.GetManifestResourceStream("WordSuggestorWindows.SpeechWorker")!)
+                using (var script = File.Create(scriptPath)) resource.CopyTo(script);
+                var info = _bridgeFactory?.Invoke() ?? new ProcessStartInfo(PowerShellPath);
+                if (_bridgeFactory is null)
+                    foreach (var arg in new[] { "-Sta", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", scriptPath }) info.ArgumentList.Add(arg);
+                info.UseShellExecute = false; info.CreateNoWindow = true;
+                info.RedirectStandardInput = info.RedirectStandardOutput = info.RedirectStandardError = true;
+                info.StandardInputEncoding = new UTF8Encoding(false); info.StandardOutputEncoding = info.StandardErrorEncoding = Encoding.UTF8;
+                session.Process = Process.Start(info) ?? throw new InvalidOperationException();
+                _current = session;
+                var payload = JsonSerializer.Serialize(new { version = 1, text, backend, voiceId = options.VoiceId, voiceName = options.VoiceDisplayName,
+                    useSystem = options.UseSystemSpeechSettings, multiplier = SpeechSpeedPolicy.Multiplier(options.ReadingSpeedDelta), highlight = options.ReadingHighlightMode,
+                    wavePath = Path.Combine(directory, "speech.wav") });
+                _ = ObserveAsync(session, payload);
+                StatusChanged?.Invoke(session, "Oplæsning forberedes.");
+                return new(backend, options.VoiceDisplayName ?? "Windows standardstemme", backend, options.FallbackReason, options.ReadingHighlightMode != "none");
+            }
+            catch
+            {
+                _current = null; KillAndReap(session); Cleanup(session);
+                throw new InvalidOperationException("Windows-oplæsning kunne ikke starte.");
+            }
         }
-
-        Stop();
-        WriteDiagnostic(
-            $"Speak requested: chars={text.Trim().Length}, lang={options.LanguageCode}, voice={options.VoiceDisplayName ?? "default"}, source={options.VoiceSource ?? "unknown"}, voiceIdPresent={!string.IsNullOrWhiteSpace(options.VoiceId)}, useSystemSettings={options.UseSystemSpeechSettings}, speedDelta={options.ReadingSpeedDelta}, fallback={options.FallbackReason ?? "none"}.");
-
-        var invocation = ResolveInvocation(text, options);
-        WriteDiagnostic(
-            $"Speak dispatch: backend={invocation.Backend}, voice={invocation.VoiceDisplayName}, source={invocation.VoiceSource}, fallback={invocation.FallbackReason ?? "none"}.");
-
-        _stdoutBuffer.Clear();
-        _stderrBuffer.Clear();
-        _temporaryArtifactPaths.Clear();
-        _temporaryArtifactPaths.AddRange(invocation.TemporaryArtifactPaths ?? Array.Empty<string>());
-
-        try
-        {
-            _process = Process.Start(invocation.StartInfo)
-                ?? throw new InvalidOperationException("Windows TTS bridge kunne ikke startes.");
-        }
-        catch
-        {
-            CleanupTemporaryArtifacts();
-            throw;
-        }
-        _process.EnableRaisingEvents = true;
-        _process.Exited += ProcessOnExited;
-        _process.OutputDataReceived += ProcessOnOutputDataReceived;
-        _process.ErrorDataReceived += ProcessOnErrorDataReceived;
-        _process.BeginOutputReadLine();
-        _process.BeginErrorReadLine();
-        StatusChanged?.Invoke(
-            this,
-            invocation.FallbackReason is null
-                ? $"Oplæsning startet med {invocation.VoiceDisplayName} ({text.Length} tegn)."
-                : $"Oplæsning bruger fallback: {invocation.FallbackReason}");
-        return new TextToSpeechInvocationResult(
-            invocation.Backend,
-            invocation.VoiceDisplayName,
-            invocation.VoiceSource,
-            invocation.FallbackReason,
-            invocation.SupportsPreciseBoundaryMetadata);
     }
 
     public void Stop()
     {
-        if (_process is null)
+        lock (_gate)
         {
-            return;
+            var session = _current; _current = null;
+            if (session is null) return;
+            session.Active = false; session.Cancel.Cancel(); KillAndReap(session); Cleanup(session);
         }
+    }
+    public void Dispose() => Stop();
 
+    private async Task ObserveAsync(Session session, string payload)
+    {
+        var status = "Oplæsning fejlede. Prøv en anden Windows-stemme.";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(session.Cancel.Token);
+        timeout.CancelAfter(_timeout);
+        async Task Guard(Func<Task> action) { try { await action(); } catch { timeout.Cancel(); throw; } }
         try
         {
-            if (!_process.HasExited)
-            {
-                _process.Kill();
-            }
+            await Task.WhenAll(
+                Guard(() => DrainAsync(session.Process.StandardError, timeout.Token)),
+                Guard(() => ReadOutputAsync(session, timeout.Token)),
+                Guard(async () => { await session.Process.StandardInput.WriteAsync(payload.AsMemory(), timeout.Token); session.Process.StandardInput.Close(); }),
+                Guard(() => session.Process.WaitForExitAsync(timeout.Token)));
+            if (session.Process.ExitCode == 0 && session.PlaybackStarted) status = "Oplæsning færdig.";
         }
-        catch (InvalidOperationException)
-        {
-        }
+        catch (OperationCanceledException) { status = "Oplæsning afbrudt."; }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
         finally
         {
-            CleanupProcess();
-        }
-    }
-
-    public void Dispose()
-    {
-        Stop();
-    }
-
-    private InvocationPlan ResolveInvocation(string text, TtsSpeechOptions options)
-    {
-        if (string.Equals(options.VoiceSource, WindowsVoiceCatalogService.OneCoreSource, StringComparison.OrdinalIgnoreCase))
-        {
-            var oneCoreStatus = GetOneCoreRuntimeStatus();
-            if (oneCoreStatus.IsAvailable)
+            lock (_gate)
             {
-                var oneCoreInvocation = CreateOneCoreProcessStartInfo(text, options);
-                return new InvocationPlan(
-                    oneCoreInvocation.StartInfo,
-                    WindowsVoiceCatalogService.OneCoreSource,
-                    options.VoiceDisplayName ?? "Windows OneCore-stemme",
-                    WindowsVoiceCatalogService.OneCoreSource,
-                    options.FallbackReason,
-                    !string.Equals(options.ReadingHighlightMode, "none", StringComparison.OrdinalIgnoreCase),
-                    oneCoreInvocation.TemporaryArtifactPaths);
-            }
-
-            var sapiFallback = WindowsVoiceCatalogService.ResolveVoiceBySource(
-                options.LanguageCode,
-                preferredVoiceId: null,
-                WindowsVoiceCatalogService.SapiDesktopSource);
-            var fallbackOptions = options with
-            {
-                VoiceId = sapiFallback.Voice?.Id,
-                VoiceDisplayName = sapiFallback.Voice?.DisplayName ?? "Windows standardstemme",
-                VoiceSource = sapiFallback.Voice?.Source ?? WindowsVoiceCatalogService.SapiDesktopSource,
-                FallbackReason = CombineFallbackReasons(
-                    options.FallbackReason,
-                    $"OneCore-backend utilgængelig: {oneCoreStatus.Detail}",
-                    sapiFallback.FallbackReason)
-            };
-            return new InvocationPlan(
-                CreateSapiProcessStartInfo(text, fallbackOptions),
-                WindowsVoiceCatalogService.SapiDesktopSource,
-                fallbackOptions.VoiceDisplayName ?? "Windows standardstemme",
-                fallbackOptions.VoiceSource ?? WindowsVoiceCatalogService.SapiDesktopSource,
-                fallbackOptions.FallbackReason);
-        }
-
-        return new InvocationPlan(
-            CreateSapiProcessStartInfo(text, options),
-            WindowsVoiceCatalogService.SapiDesktopSource,
-            options.VoiceDisplayName ?? "Windows standardstemme",
-            options.VoiceSource ?? WindowsVoiceCatalogService.SapiDesktopSource,
-            options.FallbackReason);
-    }
-
-    private void ProcessOnExited(object? sender, EventArgs e)
-    {
-        var process = _process;
-        var status = "Oplæsning stoppet.";
-        if (process is not null)
-        {
-            try
-            {
-                var stderr = _stderrBuffer.ToString();
-                var stdout = _stdoutBuffer.ToString();
-                var exitCode = process.ExitCode;
-                WriteDiagnostic(
-                    $"Speak process exited: exitCode={exitCode}, stdoutChars={stdout.Length}, stderr={TrimForDiagnostic(stderr)}.");
-                status = exitCode == 0
-                    ? "Oplæsning færdig."
-                    : $"Oplæsning fejlede med exit code {exitCode}. Se tts-flow.log.";
-            }
-            catch (InvalidOperationException ex)
-            {
-                WriteDiagnostic($"Speak process exit inspection failed: {ex.GetType().Name}");
+                session.Active = false; KillAndReap(session); Cleanup(session);
+                if (ReferenceEquals(_current, session)) SpeechStopped?.Invoke(session, status);
             }
         }
-
-        CleanupProcess();
-        SpeechStopped?.Invoke(this, status);
     }
-
-    private void ProcessOnOutputDataReceived(object sender, DataReceivedEventArgs e)
+    private async Task ReadOutputAsync(Session session, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(e.Data))
+        var buffer = new char[1024]; var line = new StringBuilder(); var total = 0;
+        int read;
+        while ((read = await session.Process.StandardOutput.ReadAsync(buffer.AsMemory(), token)) > 0)
         {
-            return;
+            total += read; if (total > 2 * 1024 * 1024) throw new InvalidOperationException();
+            for (var i = 0; i < read; i++)
+            {
+                var character = buffer[i];
+                if (character == '\n') { HandleLine(session, line.ToString().TrimEnd('\r')); line.Clear(); }
+                else { if (line.Length >= 512) throw new InvalidOperationException(); line.Append(character); }
+            }
         }
-
-        _stdoutBuffer.AppendLine(e.Data);
-
-        if (string.Equals(e.Data, "WS_TTS|PLAYBACK_START", StringComparison.Ordinal))
+        if (line.Length > 0) HandleLine(session, line.ToString());
+    }
+    private void HandleLine(Session session, string line)
+    {
+        lock (_gate)
         {
-            PrecisePlaybackStarted?.Invoke(this, EventArgs.Empty);
-            return;
-        }
-
-        if (TryParseBoundaryCue(e.Data, out var cue))
-        {
-            BoundaryCueReceived?.Invoke(this, cue);
+            if (!ReferenceEquals(_current, session) || !session.Active) return;
+            if (line == "WS_TTS|PLAYBACK_START") { session.PlaybackStarted = true; PrecisePlaybackStarted?.Invoke(session, EventArgs.Empty); return; }
+            var parts = line.Split('|');
+            if (parts.Length == 3 && parts[0] == "WS_TTS" && parts[1] == "AUDIO" && int.TryParse(parts[2], out var milliseconds) && milliseconds > 0)
+            { session.AudioDuration = TimeSpan.FromMilliseconds(milliseconds); return; }
+            if (parts.Length != 6 || parts[0] != "WS_TTS" || parts[1] != "CUE" ||
+                !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var at) ||
+                !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out var duration) ||
+                !int.TryParse(parts[4], NumberStyles.None, CultureInfo.InvariantCulture, out var start) ||
+                !int.TryParse(parts[5], NumberStyles.None, CultureInfo.InvariantCulture, out var length) ||
+                !ValidRange(session.Text, start, length)) return;
+            if (session.Mode == "none") return;
+            if (session.Mode == "sentence" && session.Backend != WindowsVoiceCatalogService.OneCoreSource && TypingReadAloudPolicy.SentenceAt(session.Text, start) is { } sentence)
+            { start = sentence.Start; length = sentence.Length; }
+            BoundaryCueReceived?.Invoke(session, new(TimeSpan.FromMilliseconds(at), TimeSpan.FromMilliseconds(duration), start, length));
         }
     }
-
-    private void ProcessOnErrorDataReceived(object sender, DataReceivedEventArgs e)
+    public static bool ValidRange(string text, int start, int length) => start >= 0 && length > 0 && start <= text.Length - length &&
+        Boundary(text, start) && Boundary(text, start + length);
+    private static bool Boundary(string text, int at) => at == 0 || at == text.Length || !(char.IsLowSurrogate(text[at]) && char.IsHighSurrogate(text[at - 1]));
+    private static async Task DrainAsync(StreamReader reader, CancellationToken token)
     {
-        if (string.IsNullOrWhiteSpace(e.Data))
-        {
-            return;
-        }
-
-        _stderrBuffer.AppendLine(e.Data);
+        var buffer = new char[1024]; var count = 0; int read;
+        while ((read = await reader.ReadAsync(buffer.AsMemory(), token)) > 0) { count += read; if (count > 256 * 1024) throw new InvalidOperationException(); }
     }
-
-    private void CleanupProcess()
+    private static void KillAndReap(Session session)
     {
-        if (_process is null)
-        {
-            CleanupTemporaryArtifacts();
-            return;
-        }
-
-        _process.Exited -= ProcessOnExited;
-        _process.OutputDataReceived -= ProcessOnOutputDataReceived;
-        _process.ErrorDataReceived -= ProcessOnErrorDataReceived;
-        _process.Dispose();
-        _process = null;
-        CleanupTemporaryArtifacts();
+        try { if (!session.Process.HasExited) session.Process.Kill(entireProcessTree: true); session.Process.WaitForExit(2000); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
     }
-
-    private static OneCoreRuntimeStatus ProbeOneCoreRuntime()
+    private static void Cleanup(Session session)
     {
+        foreach (var name in new[] { "worker.ps1", "speech.wav" })
+            try { File.Delete(Path.Combine(session.Directory, name)); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        try { Directory.Delete(session.Directory); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        session.Process.Dispose();
+    }
+    private static OneCoreRuntimeStatus ProbeOneCore()
+    {
+        var command = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Runtime.WindowsRuntime; $null=[Windows.Media.SpeechSynthesis.SpeechSynthesizer,Windows.Foundation,ContentType=WindowsRuntime]; $s=[Activator]::CreateInstance([Type]::GetType('Windows.Media.SpeechSynthesis.SpeechSynthesizer,Windows,ContentType=WindowsRuntime')); $s.Dispose()";
+        var info = new ProcessStartInfo(PowerShellPath) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes(command)) }) info.ArgumentList.Add(arg);
         try
         {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-Sta -NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand {EncodePowerShellCommand(BuildOneCoreProbeCommand())}",
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                StandardErrorEncoding = Encoding.UTF8,
-                StandardOutputEncoding = Encoding.UTF8
-            };
-
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                return new OneCoreRuntimeStatus(false, "OneCore probe-processen kunne ikke startes.");
-            }
-
-            process.WaitForExit();
-            var stdout = process.StandardOutput.ReadToEnd().Trim();
-            var stderr = TrimForDiagnostic(process.StandardError.ReadToEnd());
-            if (process.ExitCode == 0)
-            {
-                return new OneCoreRuntimeStatus(true, string.IsNullOrWhiteSpace(stdout) ? "OneCore probe ok." : stdout);
-            }
-
-            return new OneCoreRuntimeStatus(
-                false,
-                string.IsNullOrWhiteSpace(stderr)
-                    ? $"OneCore probe fejlede med exit code {process.ExitCode}."
-                    : stderr);
+            using var process = Process.Start(info)!;
+            var output = process.StandardOutput.ReadToEndAsync(); var errors = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(5000)) { process.Kill(entireProcessTree: true); process.WaitForExit(); return new(false, "OneCore-kontrol fik timeout."); }
+            return new(process.ExitCode == 0, process.ExitCode == 0 ? "OneCore tilgængelig." : "OneCore utilgængelig.");
         }
-        catch (Exception ex)
-        {
-            return new OneCoreRuntimeStatus(false, ex.Message);
-        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or System.ComponentModel.Win32Exception) { return new(false, "OneCore utilgængelig."); }
     }
-
-    private static ProcessStartInfo CreateSapiProcessStartInfo(string text, TtsSpeechOptions options)
+    private static string PowerShellPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
+    private sealed class Session(string directory, string text, string mode, string backend)
     {
-        var command = "$ErrorActionPreference = 'Stop'; " +
-            "$speaker = New-Object -ComObject SAPI.SpVoice; " +
-            BuildSapiVoiceSelectionCommand(options) +
-            BuildSapiRateCommand(options) +
-            $"$null = $speaker.Speak('{EscapePowerShellSingleQuotedString(text)}')";
-
-        return new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments = $"-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand {EncodePowerShellCommand(command)}",
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            StandardErrorEncoding = Encoding.UTF8,
-            StandardOutputEncoding = Encoding.UTF8
-        };
-    }
-
-    private static OneCoreProcessInvocation CreateOneCoreProcessStartInfo(string text, TtsSpeechOptions options)
-    {
-        var artifactPrefix = Path.Combine(
-            Path.GetTempPath(),
-            $"wordsuggestor-onecore-{Guid.NewGuid():N}");
-        var payloadPath = artifactPrefix + ".json";
-        var scriptPath = artifactPrefix + ".ps1";
-        var payload = new OneCorePlaybackPayload(
-            options.VoiceId,
-            text,
-            ResolveOneCoreSpeakingRate(options),
-            string.Equals(options.ReadingHighlightMode, "word", StringComparison.OrdinalIgnoreCase),
-            string.Equals(options.ReadingHighlightMode, "sentence", StringComparison.OrdinalIgnoreCase));
-
-        File.WriteAllText(
-            payloadPath,
-            JsonSerializer.Serialize(
-                payload,
-                new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                }),
-            new UTF8Encoding(false));
-        File.WriteAllText(
-            scriptPath,
-            BuildOneCorePlaybackScript(),
-            new UTF8Encoding(false));
-
-        return new OneCoreProcessInvocation(
-            new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments =
-                    $"-Sta -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"{scriptPath}\" -PayloadPath \"{payloadPath}\"",
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                StandardErrorEncoding = Encoding.UTF8,
-                StandardOutputEncoding = Encoding.UTF8
-            },
-            [payloadPath, scriptPath]);
-    }
-
-    private static string BuildSapiVoiceSelectionCommand(TtsSpeechOptions options)
-    {
-        if (string.IsNullOrWhiteSpace(options.VoiceId))
-        {
-            return string.Empty;
-        }
-
-        var voiceId = EscapePowerShellSingleQuotedString(options.VoiceId);
-        return $"$targetVoiceId = '{voiceId}'; " +
-            "foreach ($voice in $speaker.GetVoices()) { if ($voice.Id -eq $targetVoiceId) { $speaker.Voice = $voice; break } }; ";
-    }
-
-    private static string BuildSapiRateCommand(TtsSpeechOptions options)
-    {
-        if (options.UseSystemSpeechSettings)
-        {
-            return string.Empty;
-        }
-
-        var sapiRate = Math.Clamp((int)Math.Round(options.ReadingSpeedDelta * 4.0), -10, 10);
-        return $"$speaker.Rate = {sapiRate}; ";
-    }
-
-    private static string BuildOneCoreProbeCommand() =>
-        "$ErrorActionPreference = 'Stop'; " +
-        "Add-Type -AssemblyName System.Runtime.WindowsRuntime; " +
-        "$null = [Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows.Foundation, ContentType = WindowsRuntime]; " +
-        "$synth = [Activator]::CreateInstance([Type]::GetType('Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows, ContentType=WindowsRuntime')); " +
-        "$voiceCount = @([Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices).Count; " +
-        "[Console]::Out.Write(('OneCore voices=' + $voiceCount));";
-
-    private static string BuildOneCorePlaybackScript() =>
-        """
-param(
-    [Parameter(Mandatory = $true)]
-    [string] $PayloadPath
-)
-
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-
-Add-Type -AssemblyName System.Runtime.WindowsRuntime
-$null = [Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Media.SpeechSynthesis.SpeechSynthesisStream, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Media.Core.SpeechCue, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Storage.Streams.DataReader, Windows.Foundation, ContentType = WindowsRuntime]
-$null = [Windows.Foundation.IAsyncOperation`1, Windows.Foundation, ContentType = WindowsRuntime]
-
-function Await($Operation, [Type] $ResultType) {
-    $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() |
-        Where-Object { $_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1 } |
-        Select-Object -First 1
-    $task = $asTask.MakeGenericMethod($ResultType).Invoke($null, @($Operation))
-    $task.GetAwaiter().GetResult()
-}
-
-function Emit([string] $line) {
-    [Console]::Out.WriteLine($line)
-    [Console]::Out.Flush()
-}
-
-$payload = Get-Content -LiteralPath $PayloadPath -Raw -Encoding UTF8 | ConvertFrom-Json
-$synth = [Activator]::CreateInstance([Type]::GetType('Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows, ContentType=WindowsRuntime'))
-$synth.Options.IncludeWordBoundaryMetadata = [bool]$payload.includeWordBoundaryMetadata
-$synth.Options.IncludeSentenceBoundaryMetadata = [bool]$payload.includeSentenceBoundaryMetadata
-
-$targetVoiceId = [string]$payload.voiceId
-if (-not [string]::IsNullOrWhiteSpace($targetVoiceId)) {
-    $voice = [Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices | Where-Object { $_.Id -eq $targetVoiceId } | Select-Object -First 1
-    if ($null -ne $voice) {
-        $synth.Voice = $voice
+        public readonly string Directory = directory, Text = text, Mode = mode, Backend = backend;
+        public Process Process = new(); public readonly CancellationTokenSource Cancel = new();
+        public bool Active = true, PlaybackStarted; public TimeSpan? AudioDuration;
     }
 }
-
-$speakingRate = [double]$payload.speakingRate
-if ($speakingRate -gt 0) {
-    $synth.Options.SpeakingRate = $speakingRate
-}
-
-$text = [string]$payload.text
-$stream = Await ($synth.SynthesizeTextToStreamAsync($text)) ([Windows.Media.SpeechSynthesis.SpeechSynthesisStream])
-$wavePath = Join-Path $env:TEMP ('wordsuggestor-onecore-' + [guid]::NewGuid().ToString('N') + '.wav')
-
-try {
-    foreach ($track in $stream.TimedMetadataTracks) {
-        foreach ($cueObject in $track.Cues) {
-            $cue = [Windows.Media.Core.SpeechCue]$cueObject
-            if ($null -eq $cue) {
-                continue
-            }
-
-            $startPosition = if ($null -ne $cue.StartPositionInInput) { [int]$cue.StartPositionInInput } else { -1 }
-            $length = 0
-            if (-not [string]::IsNullOrWhiteSpace($cue.Text)) {
-                $length = $cue.Text.Length
-            } elseif ($null -ne $cue.EndPositionInInput -and $startPosition -ge 0) {
-                $length = [Math]::Max(0, ([int]$cue.EndPositionInInput) - $startPosition)
-            }
-
-            if ($startPosition -ge 0 -and $length -gt 0) {
-                $startMs = [int][Math]::Round($cue.StartTime.TotalMilliseconds)
-                $durationMs = [int][Math]::Round($cue.Duration.TotalMilliseconds)
-                Emit('WS_TTS|CUE|' + $startMs + '|' + $durationMs + '|' + $startPosition + '|' + $length)
-            }
-        }
-    }
-
-    $reader = New-Object Windows.Storage.Streams.DataReader($stream.GetInputStreamAt(0))
-    try {
-        $size = [uint32]$stream.Size
-        $null = Await ($reader.LoadAsync($size)) ([uint32])
-        $bytes = New-Object byte[] ([int]$stream.Size)
-        $reader.ReadBytes($bytes)
-        [System.IO.File]::WriteAllBytes($wavePath, $bytes)
-        $player = New-Object System.Media.SoundPlayer $wavePath
-        $player.Load()
-        Emit('WS_TTS|PLAYBACK_START')
-        $player.PlaySync()
-        Emit('WS_TTS|PLAYBACK_END')
-    } finally {
-        $reader.Dispose()
-    }
-} finally {
-    if ($stream -is [System.IDisposable]) { $stream.Dispose() }
-    Remove-Item -LiteralPath $wavePath -Force -ErrorAction SilentlyContinue
-}
-""";
-
-    private static double ResolveOneCoreSpeakingRate(TtsSpeechOptions options)
-    {
-        if (options.UseSystemSpeechSettings)
-        {
-            return 1.0;
-        }
-
-        return Math.Clamp(Math.Pow(1.35, options.ReadingSpeedDelta), 0.5, 6.0);
-    }
-
-    private static string? CombineFallbackReasons(params string?[] values)
-    {
-        var reasons = values
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!.Trim())
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        return reasons.Length == 0 ? null : string.Join(" ", reasons);
-    }
-
-    private static string EscapePowerShellSingleQuotedString(string value) =>
-        value.Replace("'", "''", StringComparison.Ordinal);
-
-    private static string EncodePowerShellCommand(string command) =>
-        Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
-
-    private static bool TryParseBoundaryCue(string line, out TextToSpeechBoundaryCue cue)
-    {
-        cue = default!;
-
-        var parts = line.Split('|');
-        if (parts.Length != 6 ||
-            !string.Equals(parts[0], "WS_TTS", StringComparison.Ordinal) ||
-            !string.Equals(parts[1], "CUE", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (!int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var startMs) ||
-            !int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var durationMs) ||
-            !int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var start) ||
-            !int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out var length))
-        {
-            return false;
-        }
-
-        cue = new TextToSpeechBoundaryCue(
-            TimeSpan.FromMilliseconds(Math.Max(0, startMs)),
-            TimeSpan.FromMilliseconds(Math.Max(0, durationMs)),
-            Math.Max(0, start),
-            Math.Max(0, length));
-        return length > 0;
-    }
-
-    private static void WriteDiagnostic(string message)
-    {
-        var line = $"{DateTimeOffset.Now:O} {message}";
-        Debug.WriteLine($"WordSuggestor TTS: {message}");
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(DiagnosticLogPath)!);
-            File.AppendAllText(DiagnosticLogPath, line + Environment.NewLine);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
-    private static string TrimForDiagnostic(string value) => "<process diagnostics omitted>";
-
-    private void CleanupTemporaryArtifacts()
-    {
-        foreach (var path in _temporaryArtifactPaths)
-        {
-            try
-            {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
-
-        _temporaryArtifactPaths.Clear();
-    }
-
-    private sealed record InvocationPlan(
-        ProcessStartInfo StartInfo,
-        string Backend,
-        string VoiceDisplayName,
-        string VoiceSource,
-        string? FallbackReason,
-        bool SupportsPreciseBoundaryMetadata = false,
-        IReadOnlyList<string>? TemporaryArtifactPaths = null);
-
-    private sealed record OneCorePlaybackPayload(
-        string? VoiceId,
-        string Text,
-        double SpeakingRate,
-        bool IncludeWordBoundaryMetadata,
-        bool IncludeSentenceBoundaryMetadata);
-
-    private sealed record OneCoreProcessInvocation(
-        ProcessStartInfo StartInfo,
-        IReadOnlyList<string> TemporaryArtifactPaths);
-}
-
 public sealed record OneCoreRuntimeStatus(bool IsAvailable, string Detail);
-
-public sealed record TextToSpeechInvocationResult(
-    string Backend,
-    string VoiceDisplayName,
-    string VoiceSource,
-    string? FallbackReason,
-    bool SupportsPreciseBoundaryMetadata = false);
-
-public sealed record TextToSpeechBoundaryCue(
-    TimeSpan StartTime,
-    TimeSpan Duration,
-    int Start,
-    int Length);
+public sealed record TextToSpeechInvocationResult(string Backend, string VoiceDisplayName, string VoiceSource, string? FallbackReason, bool SupportsPreciseBoundaryMetadata = false);
+public sealed record TextToSpeechBoundaryCue(TimeSpan StartTime, TimeSpan Duration, int Start, int Length);

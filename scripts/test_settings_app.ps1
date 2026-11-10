@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('State', 'Ui', 'Core', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -11,6 +11,10 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if ($Mode -in @('Speech', 'All')) {
+    & $runner --speech-settings
+    if ($LASTEXITCODE -ne 0) { throw "Settings speech adapter smoke failed ($LASTEXITCODE)." }
+}
 if ($Mode -in @('Core', 'All')) {
     & $runner --core-settings
     if ($LASTEXITCODE -ne 0) { throw "Settings Core adapter smoke failed ($LASTEXITCODE)." }
@@ -22,4 +26,8 @@ if ($Mode -in @('State', 'All')) {
 if ($Mode -in @('Ui', 'All')) {
     & $runner --settings-ui
     if ($LASTEXITCODE -ne 0) { throw "Settings desktop smoke failed ($LASTEXITCODE). An unlocked interactive Windows desktop is required." }
+}
+if ($Mode -in @('SpeechUi', 'All')) {
+    & $runner --speech-ui
+    if ($LASTEXITCODE -ne 0) { throw "Speech desktop smoke failed ($LASTEXITCODE). An unlocked interactive Windows desktop is required." }
 }

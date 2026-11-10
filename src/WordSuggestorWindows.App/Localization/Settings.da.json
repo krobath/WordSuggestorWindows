@@ -24,11 +24,11 @@
   "O02.Title": "Systemindstillinger for oplæsning",
   "O02.Help": "Åbner Windows taleindstillinger. Flere stemmer administreres i Windows sprogindstillinger.",
   "O03.Title": "Oplæsningshastighed",
-  "O03.Help": "Bevarer den hidtidige Windows-indstilling for taletempo. Stemme og hastighed følger systemet, når systemvalget er slået til.",
+  "O03.Help": "Vælg 50–150 % i trin på 5 %. 100 % er stemmens normale hastighed. En ændring vælger appens tempo frem for det tidligere Windows-systemvalg.",
   "O04.Title": "Oplæsningsstrategi",
-  "O04.Help": "Det gemte valg bevares, men automatisk oplæsning under skrivning er endnu ikke implementeret i Windows. Manuel oplæsning virker uafhængigt.",
+  "O04.Help": "Læs ord ved en ordgrænse, sætning ved punktum efterfulgt af mellemrum eller afsnit ved punktum efterfulgt af linjeskift. Indsætning af større tekstblokke læses ikke automatisk.",
   "O05.Title": "Markering under oplæsning",
-  "O05.Help": "Vælger ingen markering, ord eller sætning under manuel oplæsning.",
+  "O05.Help": "Vælger ingen markering, ord eller sætning ved editoroplæsning. Markeringen følger stemmens tidsdata. Redigering, fokusskift og stop afbryder sikkert.",
   "F01.Title": "Aktiver ordforslag",
   "F01.Help": "Slår Windows-betaens globale forslag til eller fra. Den separate editor bevarer sine egne dokumenter.",
   "F17.Title": "Fagordslister",
@@ -153,5 +153,7 @@
   "Update.available": "Version {0} er klar. Gem dit arbejde og afslut WordSuggestor, før du installerer opdateringen.",
   "Update.current": "Du har den nyeste offentliggjorte Windows-beta.",
   "VersionDevelopment": "WordSuggestor {0} · lokal udviklerudgave",
-  "VersionInstalled": "WordSuggestor {0} · pakke {1} · x64"
+  "VersionInstalled": "WordSuggestor {0} · pakke {1} · x64",
+  "SystemSpeechOverrideNotice": "Det tidligere systemvalg er aktivt. Ændring af stemme eller hastighed vælger appens indstillinger; systemvalget kan genaktiveres i legacy-indstillinger.",
+  "SystemTempoValue": "Systemtempo (gemt app-tempo: {0} %)"
 }

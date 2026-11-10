@@ -1,8 +1,8 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
 Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
-og baseline leveret; slice 1–3 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
-Næste implementation: slice 4, oplæsningshastighed, strategi og markering.
+og baseline leveret; slice 1–4 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
+Næste implementation: slice 5, ordforslagsindstillinger og tre genvejelanes.
 
 ## Resultat sprintet skal levere
 
@@ -125,7 +125,8 @@ Se [slice 1-evidens](../qualification/WSA-UX-029_slice1.md) og
 [ændringsnote](../changes/2026-11-10_wsa_ux_029_slice1_settings_sidebar.md).
 [Slice 2-evidens og gendannelse](../qualification/WSA-UX-029_slice2.md) beskriver
 den nye data-/runtimeautoritet. [Slice 3](../qualification/WSA-UX-029_slice3.md)
-leverer Core-grænsen; slice 4–9 er ikke implementeret; konto-/Hello-/OS-toggle
+leverer Core-grænsen; [slice 4](../qualification/WSA-UX-029_slice4.md) leverer
+oplæsning/strategi/markering; slice 5–9 er ikke implementeret; konto-/Hello-/OS-toggle
 aktiveres ikke af denne leverance.
 
 ### Slice 0 — konkret risikokvalifikation
@@ -284,7 +285,7 @@ backendtestadgang er eksterne testforudsætninger, ikke noget der allerede er ti
 ## Status og næste handling
 
 Produkt-/referenceafklaringer: afsluttet. Slice 0: kvalifikationskode/baseline
-leveret, positiv Hello-/OS-updategodkendelse åben. Slice 1–3: implementeret med
+leveret, positiv Hello-/OS-updategodkendelse åben. Slice 1–4: implementeret med
 afgrænset testbevis og dokumenterede manuelle/platformmæssige restgates.
 Tekniske risici: updaterstyring på tværs af Windows-versioner, Hello-beskyttelse,
 Core-adapterudvidelser, analyse/fortolkningsdata og sikker ekstern assist.
@@ -299,7 +300,17 @@ Den samlede Swift-testsuite stopper i uændrede Windows-kilder med manglende
 CFAbsoluteTimeGetCurrent; de målrettede CLI-/Windows-gates er særskilt kvalificeret.
 Se [slice 3-evidens](../qualification/WSA-UX-029_slice3.md).
 
-Næste arbejde er slice 4: reel hastighed, oplæsningsstrategi, markering og stop.
+Slice 4 er implementeret: 50–150 % i 5 %-trin, schema-3-migration med originale
+backups, fire skrive-strategier, native OneCore-/SAPI-timing, separat markering uden
+caret-/selectionændring samt sikker stop/erstatning/fokus- og dokumentafgrænsning.
+Kandidatlyd bruger samme valgte stemme/tempo og samme afbrydelige service. Tidligere
+system-/sprogmodes bevares i legacy; primære voice-/tempoændringer vælger eksplicit
+appstyring. Se [slice 4-kvalifikation](../qualification/WSA-UX-029_slice4.md).
+
+Næste arbejde er slice 5: indstillingerne skal styre forslagets kilder, fagordslister,
+detaljer, responsivitet, fade og tre konfliktkontrollerede genvejelanes. Brugeren
+skal kunne vælge og høre forslag med samme sikre accept-/cancelsti. Analyse,
+lokale læringsvalg, konto og updaterstyring forbliver senere leverancer.
 Kilde-/domæne-/analysevalg forbindes til rigtige effekter i slice 5–6; de aktiveres
 ikke alene, fordi transporten nu kan levere data. Ingen C#-sproglig fork tilføjes.
 Parallelt i kvalifikationsrækkefølgen kræves en Hello-provisioneret testsession

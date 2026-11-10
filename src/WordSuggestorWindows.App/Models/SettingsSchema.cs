@@ -4,7 +4,7 @@ namespace WordSuggestorWindows.App.Models;
 // consent are not inferred or created by this migration.
 public static class SettingsSchema
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public static AppSettingsSnapshot Upgrade(AppSettingsSnapshot source)
     {
@@ -24,7 +24,10 @@ public static class SettingsSchema
         result.SchemaVersion = CurrentVersion;
         if (result.InterfaceLocalePreference is not ("system_default" or "da-DK" or "en-GB"))
             throw new InvalidOperationException("Unsupported interface preference.");
-        result.ReadingSpeedDelta = Math.Clamp(result.ReadingSpeedDelta, -1, 1);
+        result.ReadingSpeedDelta = source.SchemaVersion < 3
+            ? Services.SpeechSpeedPolicy.FromLegacy(source.ReadingSpeedDelta)
+            : Services.SpeechSpeedPolicy.Normalize(source.ReadingSpeedDelta);
+        result.ReadingStrategy = Services.TypingReadAloudPolicy.NormalizeStrategy(source.ReadingStrategy);
         if (!result.FollowCaretOptionEnabled) result.SuggestionPlacementMode = "static";
         return result;
     }

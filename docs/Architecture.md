@@ -4,6 +4,30 @@ Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
+## Speech lifecycle — WSA-UX-029 slice 4
+
+`MainWindow.Speech` orchestrates typed document/verified native-target snapshots
+and shared cancellable playback. Existing WPF/OneCore/SAPI adapters remain; ranking,
+normalization and pack logic stay in Core. Speech trigger/span policy is bounded
+presentation logic, not a second grammatical analyzer. Text changes, target/voice/
+strategy changes and window shutdown cancel stale work. Appending after an already
+committed automatic span retains its audio; the next boundary replaces it without
+a growing queue. Manual speech stops on editing/navigation/focus change.
+
+The worker is a fixed embedded PowerShell resource, started with the Windows system
+PowerShell path. Versioned JSON travels over stdin; numeric cue/audio timing travels
+back over bounded pipes. No text-bearing arguments/script/JSON temp files or raw
+stderr diagnostics. Each utterance owns its process, opaque event identity and
+random scratch directory; cancellation invalidates the identity, kills/reaps the
+process tree and removes its script/WAV. Dispatcher delivery checks the identity
+again, plus editor reference/generation, before changing presentation.
+
+Native word/sentence metadata replaces estimated highlighting on both routes.
+An adorner paints ranges without moving focus, selection, caret or undo. SAPI SSML
+offsets/entities map back to the exact original buffer; invalid/surrogate-splitting
+metadata is ignored. No voice timing means no invented highlight.
+See [speech contract and recovery](Speech.md) and [qualification](qualification/WSA-UX-029_slice4.md).
+
 ## Settings engine boundary — WSA-UX-029 slice 3
 
 The existing CLI provider also implements `ICoreSettingsAdapter` through a partial
@@ -159,7 +183,7 @@ Existing `%LOCALAPPDATA%\WordSuggestor` is preserved:
 
 | Data | Location/policy |
 |---|---|
-| Preferences | Historical `settings/settings-v1.json`, schema 2; exact once-only v1 migration `.v1.bak`, atomic replace/rolling `.bak`; invalid/future data protected |
+| Preferences | Historical `settings/settings-v1.json`, schema 3; exact once-only `.v1.bak`/`.v2.bak` migration originals, atomic replace/rolling `.bak`; invalid/future data protected |
 | User words | `UserWords/local_lexicon_overlay_v2.json`; Core owns format/normalization |
 | Installed packs | `Packs`; old roaming packs stay discoverable; bundled packs remain separate/read-only |
 | Insights | `insights/error-insights.jsonl`; kinds/counts by default; word examples require explicit preference |

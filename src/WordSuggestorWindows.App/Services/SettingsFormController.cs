@@ -68,7 +68,7 @@ internal sealed class SettingsFormController : IDisposable
         if (Optional<ComboBox>("PlacementModeComboBox") is { } placement)
             placement.ItemsSource = new[] { Option("followCaret", "FollowCaret"), Option("static", "Static") };
         SpeechLanguage.ItemsSource = new[] { Option("useSelectedLanguage", "UseSelectedLanguage"), Option("autoDetect", "AutoLanguage") };
-        Strategy.ItemsSource = new[] { Option("none", "None"), Option("word", "ReadWord"), Option("sentence", "ReadSentence"), Option("paragraph", "ReadParagraph"), Option("page", "ReadPage"), Option("all", "ReadAll") };
+        Strategy.ItemsSource = new[] { Option("none", "None"), Option("word", "ReadWord"), Option("sentence", "ReadSentence"), Option("paragraph", "ReadParagraph") };
         Highlight.ItemsSource = new[] { Option("none", "None"), Option("word", "Word"), Option("sentence", "Sentence") };
     }
 
@@ -93,7 +93,7 @@ internal sealed class SettingsFormController : IDisposable
         { placement.SelectedValue = _settings.SuggestionPlacementMode; placement.IsEnabled = _viewModel.FollowCaretOptionEnabled; }
         SpeechLanguage.SelectedValue = _settings.SpeechLanguageMode;
         Global.IsChecked = _settings.IsGlobalCaptureEnabled; Domain.IsChecked = _settings.IsDomainListsEnabled;
-        SystemSpeech.IsChecked = _settings.UseSystemSpeechSettings; Speed.Value = _settings.ReadingSpeedDelta;
+        SystemSpeech.IsChecked = _settings.UseSystemSpeechSettings; Speed.Value = SpeechSpeedPolicy.Percentage(_settings.ReadingSpeedDelta);
         Strategy.SelectedValue = _settings.ReadingStrategy; Highlight.SelectedValue = _settings.ReadingHighlightMode;
         Analysis.IsChecked = _settings.IsTextAnalyzerEnabled; Colouring.IsChecked = _settings.IsTextAnalyzerColoringEnabled;
         Semantic.IsChecked = _settings.IsSemanticDiagnosticsEnabled; Punctuation.IsChecked = _settings.IsPunctuationDiagnosticsEnabled;
@@ -111,7 +111,7 @@ internal sealed class SettingsFormController : IDisposable
         if (Optional<ComboBox>("PlacementModeComboBox") is { } placement) _settings.SuggestionPlacementMode = placement.SelectedValue as string ?? _settings.SuggestionPlacementMode;
         _settings.SpeechLanguageMode = SpeechLanguage.SelectedValue as string ?? _settings.SpeechLanguageMode;
         _settings.IsGlobalCaptureEnabled = Global.IsChecked == true; _settings.IsDomainListsEnabled = Domain.IsChecked == true;
-        _settings.UseSystemSpeechSettings = SystemSpeech.IsChecked == true; _settings.ReadingSpeedDelta = Speed.Value;
+        _settings.UseSystemSpeechSettings = SystemSpeech.IsChecked == true; _settings.ReadingSpeedDelta = SpeechSpeedPolicy.Normalize((Speed.Value - 100) / 100);
         _settings.ReadingStrategy = Strategy.SelectedValue as string ?? _settings.ReadingStrategy;
         _settings.ReadingHighlightMode = Highlight.SelectedValue as string ?? _settings.ReadingHighlightMode;
         SaveVoiceOverride();
@@ -184,11 +184,19 @@ internal sealed class SettingsFormController : IDisposable
     private void OnSpeechChanged(object sender, RoutedEventArgs e)
     { if (_loading) return; RefreshSpeechControls(); CommitLive(); }
     private void OnSpeedChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    { Find<TextBlock>("ReadingSpeedValueText").Text = $"{(int)((1 + Speed.Value) * 100)}%"; CommitLive(); }
+    { Find<TextBlock>("ReadingSpeedValueText").Text = SpeedLabel(); UseAppSpeechForExplicitChange(); CommitLive(); }
     private void OnVoiceChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || _refreshingVoices || _voiceLanguageKey is null) return;
-        _editedVoiceLanguages.Add(_voiceLanguageKey); CommitLive();
+        _editedVoiceLanguages.Add(_voiceLanguageKey); UseAppSpeechForExplicitChange(); CommitLive();
+    }
+
+    private void UseAppSpeechForExplicitChange()
+    {
+        if (_loading || !_live) return;
+        // Explicit edits in the primary surface choose app control; preserve the
+        // old system preference until the user actually changes voice or tempo.
+        _loading = true; try { SystemSpeech.IsChecked = false; } finally { _loading = false; }
     }
 
     private void RefreshSpeechControls()
@@ -206,12 +214,17 @@ internal sealed class SettingsFormController : IDisposable
             Voice.SelectedValue = _settings.SystemVoiceIdOverrideByLanguage.TryGetValue(_voiceLanguageKey, out var saved) && options.Any(o => o.Value.Equals(saved, StringComparison.OrdinalIgnoreCase)) ? saved : "";
         }
         finally { _refreshingVoices = false; }
-        Voice.IsEnabled = SystemSpeech.IsChecked != true && options.Count > 1;
-        Speed.IsEnabled = SystemSpeech.IsChecked != true;
+        Voice.IsEnabled = (_live || SystemSpeech.IsChecked != true) && options.Count > 1;
+        Speed.IsEnabled = _live || SystemSpeech.IsChecked != true;
         var unavailableOneCore = voices.Any(v => v.Source == WindowsVoiceCatalogService.OneCoreSource && !v.IsFallback) && !WindowsTextToSpeechService.GetOneCoreRuntimeStatus().IsAvailable;
         Find<TextBlock>("VoiceStatusTextBlock").Text = SettingsText.Format(unavailableOneCore ? "VoiceRuntimeUnavailable" : WindowsVoiceCatalogService.HasLanguageVoice(language) ? "VoiceAvailable" : "VoiceMissing", language);
-        Find<TextBlock>("ReadingSpeedValueText").Text = $"{(int)((1 + Speed.Value) * 100)}%";
+        if (_live && SystemSpeech.IsChecked == true) Find<TextBlock>("VoiceStatusTextBlock").Text += " " + SettingsText.Get("SystemSpeechOverrideNotice");
+        Find<TextBlock>("ReadingSpeedValueText").Text = SpeedLabel();
     }
+
+    private string SpeedLabel() => _live && SystemSpeech.IsChecked == true
+        ? SettingsText.Format("SystemTempoValue", SpeechSpeedPolicy.Percentage((Speed.Value - 100) / 100))
+        : $"{SpeechSpeedPolicy.Percentage((Speed.Value - 100) / 100)}%";
 
     private void SaveVoiceOverride()
     {

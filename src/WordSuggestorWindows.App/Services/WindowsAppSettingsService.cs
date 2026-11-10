@@ -5,7 +5,7 @@ using WordSuggestorWindows.App.Models;
 namespace WordSuggestorWindows.App.Services;
 
 public enum SettingsLoadState { Missing, Current, Migrated, Unavailable }
-public sealed record SettingsLoadResult(AppSettingsSnapshot Settings, SettingsLoadState State)
+public sealed record SettingsLoadResult(AppSettingsSnapshot Settings, SettingsLoadState State, int? OriginalSchemaVersion = null)
 {
     public bool CanWrite => State != SettingsLoadState.Unavailable;
 }
@@ -30,7 +30,7 @@ public sealed class WindowsAppSettingsService
         {
             var latest = ReadCurrent(); // strict: no recovery defaults during writes
             merged = SettingsPatch.Merge(original, edited, latest.Settings);
-            Write(merged, latest.State == SettingsLoadState.Migrated);
+            Write(merged, latest.OriginalSchemaVersion);
         }
         Changed?.Invoke(this, merged.Clone());
         return merged;
@@ -69,7 +69,8 @@ public sealed class WindowsAppSettingsService
         if (version is < 1 or > SettingsSchema.CurrentVersion) throw new InvalidOperationException("Unsupported settings schema.");
         var settings = root.Deserialize<AppSettingsSnapshot>(JsonOptions) ?? throw new JsonException("Empty settings.");
         settings.SchemaVersion = version;
-        return new(SettingsSchema.Upgrade(settings), version == 1 ? SettingsLoadState.Migrated : SettingsLoadState.Current);
+        return new(SettingsSchema.Upgrade(settings), version < SettingsSchema.CurrentVersion ? SettingsLoadState.Migrated : SettingsLoadState.Current,
+            version < SettingsSchema.CurrentVersion ? version : null);
     }
 
     public void Save(AppSettingsSnapshot settings)
@@ -78,18 +79,18 @@ public sealed class WindowsAppSettingsService
         lock (_gate)
         {
             var latest = ReadCurrent();
-            Write(normalized, latest.State == SettingsLoadState.Migrated);
+            Write(normalized, latest.OriginalSchemaVersion);
         }
         Changed?.Invoke(this, normalized.Clone());
     }
 
-    private void Write(AppSettingsSnapshot settings, bool migrate)
+    private void Write(AppSettingsSnapshot settings, int? migrateFrom)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        // Once-only exact v1 bytes for documented recovery; subsequent .bak
+        // Once-only exact original-version bytes; subsequent .bak
         // snapshots are allowed to advance without destroying this migration copy.
-        if (migrate && !File.Exists(_settingsPath + ".v1.bak"))
-            File.Copy(_settingsPath, _settingsPath + ".v1.bak", overwrite: false);
+        if (migrateFrom is { } version && !File.Exists(_settingsPath + $".v{version}.bak"))
+            File.Copy(_settingsPath, _settingsPath + $".v{version}.bak", overwrite: false);
         var tempPath = $"{_settingsPath}.{Guid.NewGuid():N}.tmp";
         try
         {

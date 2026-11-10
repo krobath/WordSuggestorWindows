@@ -9,7 +9,10 @@ aflæses som status for andre platforme.
 
 - [WSA-UX-029: Settings-sprint](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md):
   oprettet 2026-11-10 efter alle produktvalg; ti slices og komplet kontrol-/testmapping.
-  **Slice 0-baseline og slice 1–3 leveret; fuld funktionsparitet åben.**
+  **Slice 0-baseline og slice 1–4 leveret; fuld funktionsparitet åben.**
+- [Slice 4: oplæsning, strategi og markering](qualification/WSA-UX-029_slice4.md):
+  schema 3, native tempo/timing og editor/Notepad; [talekontrakt/gendannelse](Speech.md)
+  og [ændringsnote](changes/2026-11-10_wsa_ux_029_slice4_speech.md).
 - [Slice 3: Core-capabilities og typed adapter](qualification/WSA-UX-029_slice3.md):
   versionsforhandling, kildevalg, domæner, ordformer og UTF-16-analyse; UI-adoption
   og lokal læring følger senere. [Ændringsnote](changes/2026-11-10_wsa_ux_029_slice3_core_settings_adapter.md).

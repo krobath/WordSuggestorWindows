@@ -30,7 +30,8 @@ public static class WindowsVoiceCatalogService
         var voices = GetInstalledVoices();
         var languageMatches = voices
             .Where(voice => IsLanguageMatch(voice.LanguageCode, languageCode))
-            .OrderByDescending(IsOneCoreVoice)
+            .OrderByDescending(voice => string.Equals(voice.LanguageCode, languageCode, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(IsOneCoreVoice)
             .ThenBy(option => option.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -70,7 +71,8 @@ public static class WindowsVoiceCatalogService
 
         var sameLanguage = voices
             .Where(voice => IsLanguageMatch(voice.LanguageCode, languageCode))
-            .OrderByDescending(IsOneCoreVoice)
+            .OrderByDescending(voice => string.Equals(voice.LanguageCode, languageCode, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(IsOneCoreVoice)
             .FirstOrDefault();
         if (sameLanguage is not null)
         {
@@ -113,7 +115,8 @@ public static class WindowsVoiceCatalogService
             }
         }
 
-        var sameLanguage = voices.FirstOrDefault(voice => IsLanguageMatch(voice.LanguageCode, languageCode));
+        var sameLanguage = voices.Where(voice => IsLanguageMatch(voice.LanguageCode, languageCode))
+            .OrderByDescending(voice => string.Equals(voice.LanguageCode, languageCode, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
         if (sameLanguage is not null)
         {
             return new TtsVoiceSelection(sameLanguage, null);

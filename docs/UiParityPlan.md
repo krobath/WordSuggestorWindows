@@ -31,7 +31,7 @@ parity gaps, not invented Windows implementations. Reference media stays untrack
 
 See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
 
-Settings UI target (slices 1–3 implemented within recorded scope; full parity remains open):
+Settings UI target (slices 1–4 implemented within recorded scope; full parity remains open):
 [WSA-UX-029](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 uses canonical macOS ba18b45 and the 11 supplied screenshots. It specifies the
 Profile account card and General/Speech/Suggestions/Analysis/Learning/Error Tracking/
@@ -57,8 +57,15 @@ UI toggles or change the approved Windows-specific product choices.
 Slice 3 delivers the engine boundary, with no new enabled controls or visual
 change. Source preferences/domains/families/analysis use shared Core APIs and
 reported data capabilities; unavailable learning remains unavailable. UI effects
-are gated until slices 5–6. Next slice 4 handles speech behavior. See
+are gated until slices 5–6. Speech behavior is delivered in slice 4 below. See
 [slice 3 qualification](qualification/WSA-UX-029_slice3.md).
+
+Slice 4 enables O01–O05: per-language Windows voice, OS settings links, percentage
+speed, four typing strategies and native-timed word/sentence/none highlighting.
+The two older Windows-specific speech options remain in legacy; their saved values
+survive. Primary voice/tempo edits explicitly opt into app control. Highlighting
+never uses editor selection, so typing/keyboard navigation remains normal. See
+[slice 4 evidence](qualification/WSA-UX-029_slice4.md) and [speech semantics](Speech.md).
 
 ---
 
