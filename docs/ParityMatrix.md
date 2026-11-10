@@ -1,6 +1,6 @@
 # Windows evidence-based parity matrix
 
-Updated 2026-11-10 (Settings slices 1–2 qualified within recorded scope; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
+Updated 2026-11-10 (Settings slices 1–3 qualified within recorded scope; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
 real Core contract tests and real-desktop smoke. Historical "Done" labels mean code
 was delivered, not all target programs or accessibility modes were verified.
 
@@ -9,6 +9,7 @@ was delivered, not all target programs or accessibility modes were verified.
 | Native shell | WPF/.NET 9 built; 560×68 toolbar observed | WPF/.NET 10, compact non-activating toolbar; desktop startup/focus checks pass | Human visual approval |
 | Editor window | Shared topmost toolbar/editor conflicted with new handoff | Separate normal activating editor; actual local edits/Unicode/paragraph/selection checks pass with Notepad open | Extended document/file-dialog checks recorded in delivery note |
 | Core reuse | Real CLI but failed builds could return success/stale binary | Versioned stdin JSON, timeout/cancellation/process reap, generation guards; real fixtures and failure-host tests pass | Mac-machine fixture execution |
+| Core Settings bridge | v1 offered only suggestions/user words | Slice 3: v1 capability discovery and typed v2 source/domain/morphology/UTF-16 analysis queries; 169 portable and 58 Windows contract checks | UI wiring in slices 5–6; no adaptive/choice persistence; optional pack data absent; Mac executable run and full Swift suite not green/qualified; see slice-3 evidence |
 | Danish pack | Legacy schema 0, no pack_meta | Read-only integrity/schema validation; explicit DA legacy profile; real suggestions pass | Metadata-complete modern DA artifact |
 | EN/DE | Empty EN file incorrectly considered installed; DE absent | Empty/corrupt/wrong-language/future schema rejected; routing preserved | Actual compatible EN/DE packs |
 | Suggestions/paging | Separate overlay, 10/page, 4 pages | Shared accept path; stale/duplicate results rejected; real mouse/Ctrl+1 pass | Broader keyboard/screen-reader coverage |

@@ -14,6 +14,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (CoreSettingsSmoke.IsBridgeChild(args)) return CoreSettingsSmoke.FakeBridge();
         if (args.Contains("--stdio-json-v1")) return FakeCore();
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var code = 1;
@@ -21,7 +22,8 @@ internal static class Program
         {
             try
             {
-                if (args.Contains("--settings-state")) SettingsStateSmoke.Run(Path.Combine(FindRepo(), ".artifacts", "tests", "settings-state-" + Guid.NewGuid().ToString("N")));
+                if (args.Contains("--core-settings")) await CoreSettingsSmoke.Run(FindRepo());
+                else if (args.Contains("--settings-state")) SettingsStateSmoke.Run(Path.Combine(FindRepo(), ".artifacts", "tests", "settings-state-" + Guid.NewGuid().ToString("N")));
                 else if (args.Contains("--settings-ui")) await SettingsUiSmoke.Run(FindRepo());
                 else if (args.Contains("--gui")) await GuiSmoke.Run(FindRepo());
                 else if (args.Contains("--media")) await MediaSmoke.Run(FindRepo());

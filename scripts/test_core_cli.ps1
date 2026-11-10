@@ -1,4 +1,4 @@
-param([switch]$SkipBootstrap)
+param([switch]$SkipBootstrap, [switch]$SettingsContract)
 $ErrorActionPreference = "Stop"
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $coreRepo = Join-Path (Split-Path $repoRoot -Parent) "WordSuggestorCore"
@@ -57,3 +57,8 @@ for ($i = 0; $i -lt $fixtures.Count; $i++) {
     } finally { if (-not $process.HasExited) { $process.Kill() }; $process.Dispose() }
 }
 Write-Output 'PASS Core CLI: 6 real Danish fixtures; no document echo.'
+if ($SettingsContract) {
+    $output = Join-Path $testDir 'settings-contract'
+    & python (Join-Path $coreRepo 'Tools\SuggestCLI\test_settings_protocol.py') --cli $cli --output $output
+    if ($LASTEXITCODE -ne 0) { throw "Core Settings contract failed ($LASTEXITCODE)." }
+}

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('State', 'Ui', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -11,6 +11,10 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if ($Mode -in @('Core', 'All')) {
+    & $runner --core-settings
+    if ($LASTEXITCODE -ne 0) { throw "Settings Core adapter smoke failed ($LASTEXITCODE)." }
+}
 if ($Mode -in @('State', 'All')) {
     & $runner --settings-state
     if ($LASTEXITCODE -ne 0) { throw "Settings state smoke failed ($LASTEXITCODE)." }

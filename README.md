@@ -107,10 +107,25 @@ desktop and moves the mouse/keyboard with synthetic test data. Do not interact
 while it runs. `-SkipBuild -RunnerPath <smoke-exe>` tests isolated build output.
 See [slice 2 results and remaining manual gates](docs/qualification/WSA-UX-029_slice2.md).
 
+Slice 3 adds a typed, capability-negotiated Core adapter for source preferences,
+explicit domain catalogs, word information and UTF-16 diagnostics. Existing app
+suggestions continue through JSON v1; later slices connect the new controls.
+Missing pack data and learning persistence are not simulated. See the
+[bridge contract](docs/BridgeContract.md) and [slice 3 evidence](docs/qualification/WSA-UX-029_slice3.md).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_core_cli.ps1 -SettingsContract
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode Core
+```
+
+The default Settings test now also runs the Core adapter gate. `-Mode Core` needs
+the real Core CLI/DA pack, but no account or production secret. The portable gate
+requires Python 3.10+ (standard library only). No new UI controls are enabled here.
+
 ## Documentation
 
 - [Windows documentation index](docs/README.md)
-- [Windows Settings sprint WSA-UX-029 (slices 1–2 delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
+- [Windows Settings sprint WSA-UX-029 (slices 1–3 delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 - [Settings slice 0 qualification and actual platform limits](docs/qualification/WSA-UX-029_slice0.md)
 - [Settings reference/function analysis](docs/analysis/2026-11-09_settings_parity_analysis.md)
 - [Documentation ownership across platforms](docs/DocumentationOrganization.md)

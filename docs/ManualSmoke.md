@@ -3,6 +3,22 @@
 Updated 2026-11-08. Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
+## Settings slice 3 — 2026-11-10
+
+[Qualification and exact-source results](qualification/WSA-UX-029_slice3.md) cover
+the new Core boundary, not completed Settings feature parity. Run
+`scripts\test_core_cli.ps1 -SettingsContract` and
+`scripts\test_settings_app.ps1 -Mode Core`; the default Settings gate includes
+Core, state and UI. Existing editor/Notepad focus and acceptance gates still apply.
+No UI controls are enabled by this slice. A live document-switch caller must
+recheck returned scope before applying results; current scope/mismatch checks
+are adapter-level, not a claim of a new analysis UI flow.
+
+Portable contracts pass on Windows only; matching macOS execution remains open.
+The repository-wide Swift test was attempted but cannot compile unchanged Windows
+test/tool sources using CFAbsoluteTimeGetCurrent. Hardware DPI, Narrator/Hello,
+audible TTS and signed install/update gates remain open. See the linked matrix.
+
 ## Settings slice 2 — 2026-11-10
 
 [Current evidence and recovery](qualification/WSA-UX-029_slice2.md) supersede the

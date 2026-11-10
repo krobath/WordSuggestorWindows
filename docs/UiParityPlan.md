@@ -31,7 +31,7 @@ parity gaps, not invented Windows implementations. Reference media stays untrack
 
 See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
 
-Settings UI target (slices 1–2 implemented within recorded scope; full parity remains open):
+Settings UI target (slices 1–3 implemented within recorded scope; full parity remains open):
 [WSA-UX-029](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 uses canonical macOS ba18b45 and the 11 supplied screenshots. It specifies the
 Profile account card and General/Speech/Suggestions/Analysis/Learning/Error Tracking/
@@ -53,6 +53,12 @@ and each runtime effect require the sprint's own evidence before being called pa
 The [slice 0 report](qualification/WSA-UX-029_slice0.md) records the passing baseline
 and the current negative Hello/updater findings; those do not qualify functional
 UI toggles or change the approved Windows-specific product choices.
+
+Slice 3 delivers the engine boundary, with no new enabled controls or visual
+change. Source preferences/domains/families/analysis use shared Core APIs and
+reported data capabilities; unavailable learning remains unavailable. UI effects
+are gated until slices 5–6. Next slice 4 handles speech behavior. See
+[slice 3 qualification](qualification/WSA-UX-029_slice3.md).
 
 ---
 

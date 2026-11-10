@@ -1,8 +1,8 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
 Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
-og baseline leveret; slice 1–2 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
-Næste implementation: slice 3, kvalificerede Core-capabilities til de manglende funktioner.
+og baseline leveret; slice 1–3 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
+Næste implementation: slice 4, oplæsningshastighed, strategi og markering.
 
 ## Resultat sprintet skal levere
 
@@ -124,7 +124,8 @@ accessibility/DPI-signoff er ikke lukket.
 Se [slice 1-evidens](../qualification/WSA-UX-029_slice1.md) og
 [ændringsnote](../changes/2026-11-10_wsa_ux_029_slice1_settings_sidebar.md).
 [Slice 2-evidens og gendannelse](../qualification/WSA-UX-029_slice2.md) beskriver
-den nye data-/runtimeautoritet. Slice 3–9 er ikke implementeret; konto-/Hello-/OS-toggle
+den nye data-/runtimeautoritet. [Slice 3](../qualification/WSA-UX-029_slice3.md)
+leverer Core-grænsen; slice 4–9 er ikke implementeret; konto-/Hello-/OS-toggle
 aktiveres ikke af denne leverance.
 
 ### Slice 0 — konkret risikokvalifikation
@@ -155,7 +156,7 @@ fremtidige formater. Bevar udtrykkeligt false/ukendt samtykke og teksteksempler 
 som standard. UI-sprog må ikke udledes af skrivesprog. Mac-stemme-ID'er eller
 Mac-modifier-råværdier må ikke anvendes direkte som Windows-systemidentiteter.
 
-Core JSON v1 kan nu kun `suggest` og `addUserWord`. Udvidelser skal være aftalte,
+Før slice 3 kunne Core JSON v1 kun `suggest` og `addUserWord`. Udvidelser skal være aftalte,
 versions-/capability-styrede og testet mod gammel klientadfærd. Kildevalg må ikke
 implementeres ved vilkårlig C#-efterfiltrering, og ingen lingvistiske regler må
 flyttes fra Swift/Core ind i UI'et. Resultater skal knyttes til request-ID,
@@ -283,16 +284,24 @@ backendtestadgang er eksterne testforudsætninger, ikke noget der allerede er ti
 ## Status og næste handling
 
 Produkt-/referenceafklaringer: afsluttet. Slice 0: kvalifikationskode/baseline
-leveret, positiv Hello-/OS-updategodkendelse åben. Slice 1–2: implementeret med
+leveret, positiv Hello-/OS-updategodkendelse åben. Slice 1–3: implementeret med
 afgrænset testbevis og dokumenterede manuelle/platformmæssige restgates.
 Tekniske risici: updaterstyring på tværs af Windows-versioner, Hello-beskyttelse,
 Core-adapterudvidelser, analyse/fortolkningsdata og sikker ekstern assist.
 
-Næste arbejde er slice 3: kvalificér den fælles enginegrænse til kildevalg,
-fagordslister, ordformer, analyse og læringssignaler. I praksis skal nye kontroller
-først aktiveres, når de kan styre rigtige Core-funktioner med testede svar og
-capabilities. Det giver brugerne faktisk skrivehjælp frem for virkningsløse valg.
-Der må ikke tilføjes en separat C#-ranking-/analyseimplementation.
+Slice 3 er leveret i Core og Windows: additive v1-capabilities og typed JSON v2
+til kildevalg, eksplicitte domæner, morfologi/familier og originale UTF-16-diagnoser.
+169 portable og 58 Windows-adapterkontroller passerer. Choice persistence og
+adaptiv læring er eksplicit utilgængelige; lokal lagring/consent tilhører slice 6.
+Legacy-DA mangler family-/ngramdata; seed-domænet er kun eksplicit testreference.
+Core-versionen er fastlåst i Windows-lockfilen; Mac-eksekvering er ikke udført.
+Den samlede Swift-testsuite stopper i uændrede Windows-kilder med manglende
+CFAbsoluteTimeGetCurrent; de målrettede CLI-/Windows-gates er særskilt kvalificeret.
+Se [slice 3-evidens](../qualification/WSA-UX-029_slice3.md).
+
+Næste arbejde er slice 4: reel hastighed, oplæsningsstrategi, markering og stop.
+Kilde-/domæne-/analysevalg forbindes til rigtige effekter i slice 5–6; de aktiveres
+ikke alene, fordi transporten nu kan levere data. Ingen C#-sproglig fork tilføjes.
 Parallelt i kvalifikationsrækkefølgen kræves en Hello-provisioneret testsession
 med en konkret sikker adapter samt et vellykket OS-update-roundtrip på relevante
 understøttede miljøer. Den registrerede hostfejl omdefinerer ikke G05 til en falsk

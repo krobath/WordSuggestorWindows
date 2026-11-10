@@ -9,7 +9,10 @@ aflæses som status for andre platforme.
 
 - [WSA-UX-029: Settings-sprint](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md):
   oprettet 2026-11-10 efter alle produktvalg; ti slices og komplet kontrol-/testmapping.
-  **Slice 0-baseline og slice 1–2 leveret; fuld funktionsparitet åben.**
+  **Slice 0-baseline og slice 1–3 leveret; fuld funktionsparitet åben.**
+- [Slice 3: Core-capabilities og typed adapter](qualification/WSA-UX-029_slice3.md):
+  versionsforhandling, kildevalg, domæner, ordformer og UTF-16-analyse; UI-adoption
+  og lokal læring følger senere. [Ændringsnote](changes/2026-11-10_wsa_ux_029_slice3_core_settings_adapter.md).
 - [Slice 2: løbende gemning, sprog og caret-tilladelse](qualification/WSA-UX-029_slice2.md):
   schema 2, backup/gendannelse, dansk/engelsk Settings og testbevis.
   [Ændringsnote](changes/2026-11-10_wsa_ux_029_slice2_live_settings.md).

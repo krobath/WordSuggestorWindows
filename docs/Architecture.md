@@ -4,6 +4,28 @@ Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
+## Settings engine boundary — WSA-UX-029 slice 3
+
+The existing CLI provider also implements `ICoreSettingsAdapter` through a partial
+class and a shared serialized process transport. Additive v1 capabilities precede
+typed JSON v2 queries; only an explicit old-protocol rejection allows legacy
+fallback. Timeouts, cancellation, bounded output and child-process reaping are
+shared with the existing v1 path. No shell or text-bearing diagnostic exception
+is introduced. The normal app suggestion path still uses v1.
+
+DTOs preserve Core source switches, separate domain display/insert text, opaque
+reading IDs, pack-dependent families and original UTF-16 diagnostic ranges/groups.
+Response version/request/document/generation/language must match. Future callers
+must additionally use `CoreQueryResult.IsCurrent` against their live document and
+language at dispatcher delivery; returning a scoped DTO does not itself update UI.
+The adapter rejects invalid ranges and split surrogate pairs before returning.
+
+Core is pinned in `dependencies.lock.json`; the DA pack hash/format is unchanged.
+The legacy pack has no families/ngram evidence. An explicit seed domain catalog is
+tested, not bundled/promoted. Choice persistence/adaptive learning are unavailable;
+no consent, settings schema, data migration or user-profile writes are added.
+See [contract](BridgeContract.md) and [qualification](qualification/WSA-UX-029_slice3.md).
+
 ## Settings UI — WSA-UX-029 slices 1–2
 
 `SettingsWindow` uses native WPF ListBox navigation for eight categories and a

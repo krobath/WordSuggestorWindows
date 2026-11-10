@@ -6,7 +6,7 @@ using WordSuggestorWindows.App.Models;
 
 namespace WordSuggestorWindows.App.Services;
 
-public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
+public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider, ICoreSettingsAdapter
 {
     private readonly string _baseDirectory;
     private readonly string? _workspaceRoot;
@@ -47,30 +47,56 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
 
     private async Task<BridgeResponse> ExecuteAsync(string operation, string text, CancellationToken cancellationToken)
     {
+        var language = RequireLanguagePack();
+        var requestId = Guid.NewGuid().ToString("N");
+        var userWordsPath = Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(userWordsPath)!);
+        var request = new { version = 1, requestId, operation, language = language.LanguageCode,
+            packPath = language.PackPath, textBeforeCaret = text.Length > 16000 ? text[^16000..] : text,
+            maxSuggestions = 40, userWordsPath };
+        var output = await ExchangeAsync(request, "--stdio-json-v1", cancellationToken);
+        var response = Decode<BridgeResponse>(output);
+        if (response.Version != 1 || response.RequestId != requestId)
+            throw new InvalidOperationException("Core-protokollen er inkompatibel.");
+        if (response.ErrorCode is not null) throw new InvalidOperationException("Core afviste forespørgslen.");
+        HealthWarning = response.WarningCode == "user_words_unavailable" ? "Brugerord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
+        if (response.Suggestions is null || response.Suggestions.Any(r => string.IsNullOrWhiteSpace(r.Term) || r.Term.Length > 512 || !double.IsFinite(r.Score)))
+            throw new InvalidOperationException("Core returnerede ugyldige forslag.");
+        return response;
+    }
+
+    private LanguageOption RequireLanguagePack()
+    {
         var language = SelectedLanguage;
         if (language.PackPath is null || !ValidateCached(language.PackPath, language).Compatible)
             throw new InvalidOperationException("Sprogpakken mangler eller er inkompatibel.");
         if (_cliPath is null || !File.Exists(_cliPath)) throw new FileNotFoundException("Core er ikke installeret.");
+        return language;
+    }
+
+    private static T Decode<T>(string output)
+    {
+        try { return JsonSerializer.Deserialize<T>(output, JsonOptions) ?? throw new InvalidOperationException("Ugyldigt Core-svar."); }
+        catch (JsonException) { throw new InvalidOperationException("Ugyldigt Core-svar."); }
+    }
+
+    private async Task<string> ExchangeAsync(object request, string transport, CancellationToken cancellationToken)
+    {
+        var cliPath = _cliPath ?? throw new FileNotFoundException("Core er ikke installeret.");
         await _processGate.WaitAsync(cancellationToken);
         try
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(_timeout);
             var token = deadline.Token;
-            var requestId = Guid.NewGuid().ToString("N");
-            var userWordsPath = Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(userWordsPath)!);
-            var request = new { version = 1, requestId, operation, language = language.LanguageCode,
-                packPath = language.PackPath, textBeforeCaret = text.Length > 16000 ? text[^16000..] : text,
-                maxSuggestions = 40, userWordsPath };
-            var info = new ProcessStartInfo(_cliPath)
+            var info = new ProcessStartInfo(cliPath)
             {
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
                 RedirectStandardOutput = true, RedirectStandardError = true,
                 StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = Path.GetDirectoryName(_cliPath)!
+                StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = Path.GetDirectoryName(cliPath)!
             };
-            info.ArgumentList.Add("--stdio-json-v1");
+            info.ArgumentList.Add(transport);
             // Pack/runtime logs must not contain user content, even on process failure.
             info.Environment["WORDSUGGESTOR_CORE_DEBUG"] = "0";
             using var process = new Process { StartInfo = info };
@@ -85,14 +111,7 @@ public sealed class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider
                 var output = await stdout;
                 _ = await stderr; // never forward raw process diagnostics into UI/logs
                 if (process.ExitCode != 0) throw new InvalidOperationException($"Core exit code {process.ExitCode}.");
-                var response = JsonSerializer.Deserialize<BridgeResponse>(output, JsonOptions);
-                if (response is null || response.Version != 1 || response.RequestId != requestId)
-                    throw new InvalidOperationException("Core-protokollen er inkompatibel.");
-                if (response.ErrorCode is not null) throw new InvalidOperationException("Core afviste forespørgslen.");
-                HealthWarning = response.WarningCode == "user_words_unavailable" ? "Brugerord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
-                if (response.Suggestions is null || response.Suggestions.Any(r => string.IsNullOrWhiteSpace(r.Term) || r.Term.Length > 512 || !double.IsFinite(r.Score)))
-                    throw new InvalidOperationException("Core returnerede ugyldige forslag.");
-                return response;
+                return output;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             { throw new TimeoutException("Core svarede ikke inden tidsgrænsen."); }

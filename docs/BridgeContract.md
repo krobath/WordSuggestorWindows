@@ -1,4 +1,60 @@
-# Core CLI contract v1
+# Core CLI contracts — v1 compatibility and negotiated v2
+
+## Settings extension — 2026-11-10, WSA-UX-029 slice 3
+
+Core revision: `c87f68aa2c145220817c0264279854d5b9b32078`. The authoritative
+portable contract lives in the Core repository at
+`docs/140_suggest_cli_settings_bridge_contract.md`; its executable test is
+`Tools/SuggestCLI/test_settings_protocol.py`. Windows owns the typed adapter and
+the qualification below. Existing v1 requests/batch results remain supported.
+
+`ICoreSettingsAdapter` uses the existing provider/process gate. A v1 `capabilities`
+request discovers schema-1 pack capabilities; only explicit `invalid_request`
+from an old CLI permits a v1-only result. Transport/JSON/timeouts never turn into
+successful legacy negotiation. Ordinary toolbar/editor suggestions still use v1;
+there is no per-keystroke negotiation or latency claim in this slice. Advanced
+queries negotiate each time, capture the selected pack/language once and use v2.
+
+V2 envelopes require version, requestId, operation, language, packPath, text,
+maxResults (1–40), and context `{documentId: nonzero UUID, generation: Int64 >= 0}`.
+Optional fields are operation-specific options, userWordsPath, catalogPath/domainId.
+Unknown/inapplicable options fail closed. Stdin is at most 128 KiB, text at most
+16,000 UTF-16 units; Windows rejects oversized analysis input instead of silently
+truncating ranges. Its shared transport limits stdout to 2 MiB/stderr to 256 KiB,
+uses direct executable launch, drains both pipes, kills/reaps failed children and
+applies the existing timeout/cancellation policy. Stderr/raw exceptions are private.
+
+| Typed API | Core authority | Missing-data behavior |
+|---|---|---|
+| SuggestWithOptionsAsync | Profile source switches and optional PackNgramReranker | Missing ngram data explicitly rejects contextBased=true; no C# after-filter |
+| GetDomainsAsync / SuggestDomainAsync | Explicit filesystem catalog / specialized suggestions | No catalog means empty; invalid catalog warns; unknown domain rejects; display and insert forms remain separate |
+| GetWordInfoAsync | analyses, ProductWordClassMapper, lemmaFamilyHits | Existing Core fallback readings; missing term_variants gives empty families and warning |
+| AnalyzeAsync | ContextDiagnosticsEngine; semantic/punctuation toggles, both comma styles/modes | Only da-DK is qualified; disabled sources produce no findings |
+
+All v2 responses must match version/requestId/documentId/generation/language before
+payloads are returned. `CoreQueryResult.IsCurrent` is a second delivery check that
+future UI callers must compare with their current document/generation/language on
+the dispatcher. It does not automatically discard a DTO retained by arbitrary
+caller code. Counts, required strings, finite scores, diagnostic/edit bounds and
+surrogate boundaries are checked; malformed output never becomes an empty success.
+Original UTF-16 offsets, grouped corrections, requirements and separate insertText
+cross intact. Reading IDs are opaque `analysis_v1:` values, scoped to Core/pack,
+not automatically persisted learning keys. No diagnostic edits are auto-applied.
+
+Capabilities are selected-pack dependent, not a guarantee of suggestions. The
+bundled legacy DA lacks family/ngram/phonetic evidence. The tested ai_ml_llm
+catalog is a tracked Core **seed**, explicitly selected by tests; Windows neither
+bundles it nor silently discovers/promotes it. Modern pack validation below and
+the existing data locations remain unchanged. Local compatible user words can
+participate in v2 suggest; a corrupt/future overlay is preserved with a warning.
+
+Choice persistence/adaptive learning are explicitly false. V2 uses disabled,
+memory-only statistics in both ranking lanes and adds no storage/consent/backend
+operation. Feature UI wiring remains slices 5–6; speech is next in slice 4.
+See [slice 3 qualification](qualification/WSA-UX-029_slice3.md) for tests and open
+Mac/full-Swift-suite/hardware gates.
+
+## Existing v1 transport and pack boundary
 
 Updated 2026-11-08, WSA-RT-016. The portable implementation is
 `WordSuggestorCore/Tools/SuggestCLI/StdioProtocol.swift`; the Windows client is

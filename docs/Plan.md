@@ -7,7 +7,7 @@ public RC is claimed while signing/install/update qualification remains open.
 | Sprint | Delivery | Status |
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
-| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–2 delivered: sidebar, live settings, schema 2, independent interface language and caret permission; remaining functional/platform gates open; next slice 3 |
+| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–3 delivered: sidebar, live settings, schema 2, independent interface language and caret permission; Core adapter qualified; UI adoption and platform gates open; next slice 4 |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
 | WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |
@@ -33,9 +33,11 @@ now covers the implemented sidebar, help, legacy and safe concurrent saves.
 Slice 2 now adds live persistence, schema-2 migration, separate interface/writing
 language and actual caret-permission guards. [Evidence/recovery](qualification/WSA-UX-029_slice2.md)
 records the Settings-only translation boundary and remaining human/hardware gates.
-Next: qualify Core capabilities for source selection, domain lists, word families,
-analysis and learning before enabling their controls (slice 3). Account/Hello and
-OS update authority stay gated; no C# linguistic substitute is introduced.
+Slice 3 now qualifies negotiated Core capabilities, typed advanced queries and
+safe process/response boundaries. [Evidence and limits](qualification/WSA-UX-029_slice3.md)
+distinguish real DA results from optional-table/seed fixtures and unavailable
+learning. Next: slice 4, speech rate/strategy/highlights. Source/domain/analysis
+controls remain for slices 5–6; account/Hello and OS authority stay gated.
 Existing sprint history is preserved; full functional parity is still open.
 Documentation ownership is defined in [DocumentationOrganization.md](DocumentationOrganization.md).
 
