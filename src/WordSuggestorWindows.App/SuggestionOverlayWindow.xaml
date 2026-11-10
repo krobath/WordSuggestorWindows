@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WordSuggestor Suggestions"
-        Width="292"
+        Width="{Binding SuggestionOverlayWidth}"
         Height="532"
         Background="Transparent"
         AllowsTransparency="True"
@@ -187,17 +187,17 @@
             <ScrollViewer Grid.Row="1"
                           Margin="5,3,5,1"
                           VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding VisibleSuggestions}">
+<StackPanel Orientation="Horizontal"><StackPanel Width="276" Margin="2,0">                <ItemsControl ItemsSource="{Binding VisibleSuggestions}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,1,0,0"
+                            <Border Margin="0,1,0,0" Height="{Binding RowHeight}"
                                     Padding="6,2"
                                     CornerRadius="7"
                                     BorderThickness="1"
                                     BorderBrush="{Binding BorderBrush}"
                                     Background="{Binding BackgroundBrush}"
                                     ToolTip="{Binding MatchKindHelpText}"
-                                    PreviewMouseLeftButtonUp="SuggestionRow_OnPreviewMouseLeftButtonUp">
+                                    MouseEnter="SuggestionRow_OnMouseEnter" MouseLeave="SuggestionRow_OnMouseLeave" PreviewMouseLeftButtonUp="SuggestionRow_OnPreviewMouseLeftButtonUp">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -206,7 +206,7 @@
                                     </Grid.ColumnDefinitions>
 
                                     <TextBlock Grid.Column="0"
-                                               Width="28"
+                                               Width="70"
                                                Margin="0,1,6,0"
                                                FontSize="10"
                                                Foreground="#697585"
@@ -265,7 +265,163 @@
                             <StackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                </ItemsControl></StackPanel><StackPanel Width="276" Margin="2,0" Visibility="{Binding ShowPrimaryLane, Converter={StaticResource BoolToVisibilityConverter}}"><StackPanel Orientation="Horizontal"><TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{Binding PrimaryLaneSummary}"/><Button Content="←" Tag="1" Click="DomainPrevious_OnClick" AutomationProperties.Name="Previous domain page"/><Button Content="→" Tag="1" Click="DomainNext_OnClick" AutomationProperties.Name="Next domain page"/></StackPanel>                <ItemsControl ItemsSource="{Binding VisiblePrimarySuggestions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,1,0,0" Height="{Binding RowHeight}"
+                                    Padding="6,2"
+                                    CornerRadius="7"
+                                    BorderThickness="1"
+                                    BorderBrush="{Binding BorderBrush}"
+                                    Background="{Binding BackgroundBrush}"
+                                    ToolTip="{Binding MatchKindHelpText}"
+                                    MouseEnter="SuggestionRow_OnMouseEnter" MouseLeave="SuggestionRow_OnMouseLeave" PreviewMouseLeftButtonUp="SuggestionRow_OnPreviewMouseLeftButtonUp">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Width="70"
+                                               Margin="0,1,6,0"
+                                               FontSize="10"
+                                               Foreground="#697585"
+                                               Text="{Binding ShortcutLabel}" />
+
+                                    <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0"
+                                            HorizontalContentAlignment="Stretch" Focusable="False"
+                                            AutomationProperties.AutomationId="AcceptCandidate"
+                                            AutomationProperties.Name="{Binding Suggestion.Term}"
+                                            Click="AcceptButton_OnClick">
+                                    <StackPanel>
+                                        <TextBlock FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#272B31"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Suggestion.Term, Mode=OneWay}" />
+                                            <Run Text=" " />
+                                            <Run Foreground="#6F7986"
+                                                 FontWeight="Regular"
+                                                 Text="{Binding KindInlineSummary, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock Margin="0,0,0,0"
+                                                   FontSize="10"
+                                                   Foreground="#697585"
+                                                   Text="{Binding MetadataSummary}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding HasMetadataSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    </StackPanel>
+                                    </Button>
+
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Margin="6,0,0,0"
+                                                VerticalAlignment="Center">
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Læs ordet op"
+                                                Click="SpeakButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x1F50A;" />
+                                        </Button>
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Vis ordinfo"
+                                                Click="InfoButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x24D8;" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl></StackPanel><StackPanel Width="276" Margin="2,0" Visibility="{Binding ShowSecondaryLane, Converter={StaticResource BoolToVisibilityConverter}}"><StackPanel Orientation="Horizontal"><TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="{Binding SecondaryLaneSummary}"/><Button Content="←" Tag="2" Click="DomainPrevious_OnClick" AutomationProperties.Name="Previous domain page"/><Button Content="→" Tag="2" Click="DomainNext_OnClick" AutomationProperties.Name="Next domain page"/></StackPanel>                <ItemsControl ItemsSource="{Binding VisibleSecondarySuggestions}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,1,0,0" Height="{Binding RowHeight}"
+                                    Padding="6,2"
+                                    CornerRadius="7"
+                                    BorderThickness="1"
+                                    BorderBrush="{Binding BorderBrush}"
+                                    Background="{Binding BackgroundBrush}"
+                                    ToolTip="{Binding MatchKindHelpText}"
+                                    MouseEnter="SuggestionRow_OnMouseEnter" MouseLeave="SuggestionRow_OnMouseLeave" PreviewMouseLeftButtonUp="SuggestionRow_OnPreviewMouseLeftButtonUp">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0"
+                                               Width="70"
+                                               Margin="0,1,6,0"
+                                               FontSize="10"
+                                               Foreground="#697585"
+                                               Text="{Binding ShortcutLabel}" />
+
+                                    <Button Grid.Column="1" Background="Transparent" BorderThickness="0" Padding="0"
+                                            HorizontalContentAlignment="Stretch" Focusable="False"
+                                            AutomationProperties.AutomationId="AcceptCandidate"
+                                            AutomationProperties.Name="{Binding Suggestion.Term}"
+                                            Click="AcceptButton_OnClick">
+                                    <StackPanel>
+                                        <TextBlock FontSize="12.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#272B31"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding Suggestion.Term, Mode=OneWay}" />
+                                            <Run Text=" " />
+                                            <Run Foreground="#6F7986"
+                                                 FontWeight="Regular"
+                                                 Text="{Binding KindInlineSummary, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock Margin="0,0,0,0"
+                                                   FontSize="10"
+                                                   Foreground="#697585"
+                                                   Text="{Binding MetadataSummary}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding HasMetadataSummary, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    </StackPanel>
+                                    </Button>
+
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                Margin="6,0,0,0"
+                                                VerticalAlignment="Center">
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Læs ordet op"
+                                                Click="SpeakButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x1F50A;" />
+                                        </Button>
+                                        <Button Style="{StaticResource OverlayActionButtonStyle}"
+                                                ToolTip="Vis ordinfo"
+                                                Click="InfoButton_OnClick">
+                                            <TextBlock FontSize="10"
+                                                       Foreground="#556272"
+                                                       Text="&#x24D8;" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl></StackPanel></StackPanel>
             </ScrollViewer>
 
             <Border Grid.Row="2"
@@ -296,7 +452,7 @@
                         <TextBlock FontSize="9"
                                    Foreground="#65707C"
                                    HorizontalAlignment="Center"
-                                   Text="Ctrl+1..0 vælger | Ctrl+Venstre/Højre skifter side" />
+                                   Text="{Binding SuggestionShortcutSummary}" />
                     </StackPanel>
 
                     <Button Grid.Column="2"

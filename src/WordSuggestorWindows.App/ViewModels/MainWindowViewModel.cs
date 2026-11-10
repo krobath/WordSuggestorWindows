@@ -8,7 +8,7 @@ using WordSuggestorWindows.App.Services;
 
 namespace WordSuggestorWindows.App.ViewModels;
 
-public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
+public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 {
     private const int SuggestionPageSize = 10;
     private const int MaxSuggestionPages = 4;
@@ -453,14 +453,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
                 .Take(SuggestionPageSize)
                 .Select((suggestion, index) => new SuggestionOverlayEntry(
                     index,
-                    index == 9 ? "Ctrl+0" : $"Ctrl+{index + 1}",
+                    SuggestionShortcutPolicy.Label(_appliedSettings.Suggestions.OrdinaryShortcut, index),
                     suggestion,
-                    SelectedSuggestion == suggestion))
+                    SelectedSuggestion == suggestion) { Density = _appliedSettings.Suggestions.Density })
                 .ToArray();
         }
     }
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    public bool HasSuggestions => Suggestions.Count > 0 || HasPrimarySuggestions || HasSecondarySuggestions;
 
     public bool ShouldShowSuggestionOverlay =>
         _isSuggestionOverlaySessionVisible && (_isLocalEditorActive || _isExternalSuggestionSessionActive);
@@ -706,6 +706,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private void SettingsServiceOnChanged(object? sender, AppSettingsSnapshot settings)
     {
         ApplySavedSettings(settings);
+        ClearSuggestionSession(keepOverlayVisible: false);
+        if (_isLocalEditorActive) ScheduleSuggestionsRefresh();
         SettingsChanged?.Invoke(this, settings.Clone());
     }
 
@@ -824,7 +826,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
             visible[visibleIndex].Suggestion,
             _externalSuggestionToken,
             _externalSuggestionToken.Length,
-            _externalSuggestionWindowHandle);
+            _externalSuggestionWindowHandle) { ExpectedTarget = _currentCommitTarget };
     }
 
     public void CompleteExternalSuggestionCommit(ExternalSuggestionCommitRequest request)
@@ -850,11 +852,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     private bool TryAcceptSelectedSuggestion()
     {
-        if (SelectedSuggestion is null || !Suggestions.Contains(SelectedSuggestion)) return false;
+        if (!IsSuggestionInteractionEnabled || SelectedSuggestion is null || !ContainsCurrentSuggestion(SelectedSuggestion)) return false;
         if (_isExternalSuggestionSessionActive)
         {
             var request = new ExternalSuggestionCommitRequest(SelectedSuggestion, _externalSuggestionToken,
-                _externalSuggestionToken.Length, _externalSuggestionWindowHandle);
+                _externalSuggestionToken.Length, _externalSuggestionWindowHandle) { ExpectedTarget = _currentCommitTarget };
             if (ExternalCommitRequested?.Invoke(request) != true) return false;
             CompleteExternalSuggestionCommit(request);
             return true;
@@ -863,7 +865,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         if (_suggestionContext != EditorText[..Math.Clamp(CaretIndex, 0, EditorText.Length)]) return false;
         var accepted = SelectedSuggestion;
         var typed = CurrentTokenAtCaret(EditorText, CaretIndex);
-        var result = EditorCommit.Replace(EditorText, _selectionStart, _selectionEnd, accepted.Term);
+        var result = EditorCommit.Replace(EditorText, _selectionStart, _selectionEnd, accepted.CommitPlan?.Text ?? accepted.InsertText ?? accepted.Term, exactInsertion: accepted.CommitPlan is not null);
         var rank = Suggestions.IndexOf(accepted) + 1;
         // Set both backing values before notifying WPF: text/caret are one transaction.
         _caretIndex = _selectionStart = _selectionEnd = result.Caret;
@@ -873,6 +875,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         NotifyEditorMetricsChanged();
         if (_isErrorTrackingEnabled) _insightsStore.RecordAcceptedSuggestion(typed, accepted, SelectedLanguageOption.LanguageCode, rank);
         ClearSuggestionSession(keepOverlayVisible: true);
+        LocalSuggestionCommitted?.Invoke(this, accepted);
         StatusMessage = "Forslag indsat. Skriv videre for nye forslag.";
         return true;
     }
@@ -880,6 +883,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private void ClearSuggestionSession(bool keepOverlayVisible)
     {
         Interlocked.Increment(ref _requestRevision);
+        _suggestionDocumentId = Guid.NewGuid();
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = null;
@@ -891,6 +895,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _isSuggestionOverlaySessionVisible = keepOverlayVisible;
         _currentSuggestionPage = 0;
         Suggestions.Clear();
+        ClearDomainSuggestions(keepOverlayVisible);
         SelectedSuggestion = null;
         IsBusy = false;
         UpdateSuggestionPageState();
@@ -904,12 +909,20 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     private void ScheduleSuggestionsRefresh(string text, int delayMs)
     {
+        if (_isExternalSuggestionSessionActive && !_isLocalEditorActive && ExternalSuggestionTarget is { } externalTarget &&
+            externalTarget.Start == externalTarget.End && externalTarget.Token == text)
+            text = externalTarget.Text[..externalTarget.End];
         Interlocked.Increment(ref _requestRevision);
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = new CancellationTokenSource();
         var token = _suggestionCts.Token;
         var revision = _requestRevision;
+        var scope = new CoreRequestContext(_suggestionDocumentId, revision);
+        var suffix = _isLocalEditorActive ? EditorCommit.Suffix(EditorText, _selectionStart, _selectionEnd) : ExternalSuggestionSuffix;
+        var preferences = _appliedSettings.Suggestions.Copy();
+        var target = ExternalSuggestionTarget;
+        delayMs = _suggestionScheduler.NextDelay(preferences.Responsiveness, Environment.TickCount64);
         ClearSuggestionResults(keepOverlayVisible: text.Length > 0);
 
         _ = Task.Run(async () =>
@@ -917,7 +930,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
             try
             {
                 await Task.Delay(delayMs, token);
-                await RefreshSuggestionsAsync(text, revision, token);
+                await RefreshSuggestionsAsync(text, revision, token, scope, suffix, preferences, target);
             }
             catch (OperationCanceledException)
             {
@@ -925,7 +938,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         }, token);
     }
 
-    private async Task RefreshSuggestionsAsync(string text, long revision, CancellationToken cancellationToken)
+    private async Task RefreshSuggestionsAsync(string text, long revision, CancellationToken cancellationToken, CoreRequestContext scope, string suffix, SuggestionPreferences preferences, ExternalTextSnapshot? target)
     {
         if (text.Length == 0)
         {
@@ -972,13 +985,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
         try
         {
-            var suggestions = await _suggestionProvider.SuggestAsync(text, cancellationToken);
+            var results = await QuerySuggestionLanesAsync(text, scope, suffix, preferences, cancellationToken);
+            var suggestions = results.Ordinary;
 
             await App.Current.Dispatcher.InvokeAsync(() =>
             {
                 if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 _isSuggestionOverlaySessionVisible = true;
                 _suggestionContext = text;
+                _currentCommitTarget = target;
+                SetDomainSuggestions(results.Primary, results.Secondary);
                 Suggestions.Clear();
                 foreach (var suggestion in suggestions.Take(40))
                 {
@@ -1149,6 +1165,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
         _settingsService.Changed -= SettingsServiceOnChanged;
         Interlocked.Increment(ref _requestRevision);
+        _suggestionDocumentId = Guid.NewGuid();
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();
         _suggestionCts = null;

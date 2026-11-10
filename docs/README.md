@@ -1,5 +1,14 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Latest: slice 5 implementation candidate, 2026-11-11
+
+- [Suggestion runtime/data contract](Suggestions.md).
+- [Slice 5 evidence and outstanding desktop tests](qualification/WSA-UX-029_slice5.md).
+- [Change note and exact file scope](changes/2026-11-11_wsa_ux_029_slice5_suggestion_settings.md).
+
+Slice 5 is implemented but not yet functionally qualified on the locked desktop.
+Earlier dated slice statuses below remain historical evidence only.
+
 Opdateret 2026-11-10. Dette er den lokale dokumentation for **Windows**.
 macOS-dokumentation ejes af `WordSuggestor/docs/`; fælles produkt-/kontraktoversigter
 og platformindgange ejes af `WordSuggestorDocs/`. Implementeringsstatus her må ikke

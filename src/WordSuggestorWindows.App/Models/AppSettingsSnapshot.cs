@@ -38,6 +38,7 @@ public sealed class AppSettingsSnapshot
     public bool StoreSentenceExamples { get; set; }
 
     public bool IsDomainListsEnabled { get; set; }
+    public SuggestionPreferences Suggestions { get; set; } = new();
 
     public bool UseSystemSpeechSettings { get; set; } = true;
 
@@ -81,6 +82,7 @@ public sealed class AppSettingsSnapshot
             IsErrorTrackingEnabled = IsErrorTrackingEnabled,
             StoreSentenceExamples = StoreSentenceExamples,
             IsDomainListsEnabled = IsDomainListsEnabled,
+            Suggestions = Suggestions.Copy(),
             UseSystemSpeechSettings = UseSystemSpeechSettings,
             TextToSpeechVoiceMode = TextToSpeechVoiceMode,
             SpeechLanguageMode = SpeechLanguageMode,

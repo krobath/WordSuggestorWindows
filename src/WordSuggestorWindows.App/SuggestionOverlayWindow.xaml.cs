@@ -23,6 +23,7 @@ public partial class SuggestionOverlayWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         Closed += OnClosed;
+        InitializeSuggestionBehavior();
     }
 
     private void StaticPlacementButton_OnClick(object sender, RoutedEventArgs e)
@@ -127,7 +128,7 @@ public partial class SuggestionOverlayWindow : Window
         }
     }
 
-    private void InfoButton_OnClick(object sender, RoutedEventArgs e)
+    private async void InfoButton_OnClick(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: SuggestionOverlayEntry entry } button)
         {
@@ -138,6 +139,25 @@ public partial class SuggestionOverlayWindow : Window
         {
             Margin = new Thickness(4)
         };
+        var scope = _viewModel.SuggestionScope;
+        var language = _viewModel.SelectedLanguageOption.LanguageCode;
+        CoreWordInfo? wordInfo = null;
+        var preferences = _viewModel.LoadSettingsSnapshot().Suggestions;
+        if (preferences.WordForms && _viewModel.CoreSettings is { } adapter)
+        {
+            try
+            {
+                var caps = await adapter.GetCapabilitiesAsync();
+                if (caps.WordFamilies || caps.MorphologicalAnalyses)
+                {
+                    var result = await adapter.GetWordInfoAsync(entry.Suggestion.Term, scope, caps.WordFamilies,
+                        spacingMode: caps.CommitPlans ? preferences.Spacing : null, suffix: _viewModel.CurrentSuggestionSuffix);
+                    if (result.IsCurrent(scope, language)) wordInfo = result.Value;
+                }
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or OperationCanceledException or System.IO.IOException or NotSupportedException) { }
+        }
+        if (!IsVisible || _viewModel.SuggestionScope != scope || _viewModel.SelectedLanguageOption.LanguageCode != language) return;
 
         infoPanel.Children.Add(new TextBlock
         {
@@ -171,6 +191,22 @@ public partial class SuggestionOverlayWindow : Window
             StaysOpenOnClick = true
         });
 
+        if (wordInfo is not null)
+        {
+            foreach (var analysis in wordInfo.Analyses)
+                menu.Items.Add(new MenuItem { Header = analysis.WordClass + " · " + analysis.Gram, IsEnabled = false });
+            foreach (var family in wordInfo.Families)
+            {
+                var item = new MenuItem { Header = family.Term + " · " + family.Gram };
+                item.Click += (_, _) =>
+                {
+                    if (_viewModel.SuggestionScope == scope && _viewModel.SelectedLanguageOption.LanguageCode == language)
+                        _viewModel.AcceptFamilyForm(entry.Suggestion, family);
+                };
+                menu.Items.Add(item);
+            }
+        }
+
         menu.IsOpen = true;
         _viewModel.SetStatusMessage($"Viser ordinfo for '{entry.Suggestion.Term}'.");
     }
@@ -178,6 +214,7 @@ public partial class SuggestionOverlayWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         Closed -= OnClosed;
+        DisposeSuggestionBehavior();
     }
 
     private static bool IsInteractiveElement(DependencyObject? origin)

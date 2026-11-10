@@ -156,10 +156,64 @@
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.F01.Title}" ControlId="F01" Description="{DynamicResource WS.Settings.F01.Help}">
                                     <CheckBox x:Name="GlobalSuggestionsCheckBox"/>
                                 </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F02.Title}" ControlId="F02" Description="{DynamicResource WS.Settings.F02.Help}">
+                                    <ComboBox x:Name="SuggestionDensity" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F03.Title}" ControlId="F03" Description="{DynamicResource WS.Settings.F03.Help}">
+                                    <ComboBox x:Name="SuggestionSpacing" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F04.Title}" ControlId="F04" Description="{DynamicResource WS.Settings.F04.Help}">
+                                    <StackPanel><TextBlock Text="{Binding ElementName=SuggestionResponsiveness, Path=Value}" HorizontalAlignment="Right"/><Slider x:Name="SuggestionResponsiveness" Minimum="0" Maximum="4" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1"/></StackPanel>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F05.Title}" ControlId="F05" Description="{DynamicResource WS.Settings.F05.Help}">
+                                    <ComboBox x:Name="OrdinaryShortcut" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F06.Title}" ControlId="F06" Description="{DynamicResource WS.Settings.F06.Help}">
+                                    <ComboBox x:Name="PrimaryShortcut" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F07.Title}" ControlId="F07" Description="{DynamicResource WS.Settings.F07.Help}">
+                                    <ComboBox x:Name="SecondaryShortcut" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F08.Title}" ControlId="F08" Description="{DynamicResource WS.Settings.F08.Help}">
+                                    <CheckBox x:Name="SpeakOnHover"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F09.Title}" ControlId="F09" Description="{DynamicResource WS.Settings.F09.Help}">
+                                    <CheckBox x:Name="WordForms"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F10.Title}" ControlId="F10" Description="{DynamicResource WS.Settings.F10.Help}">
+                                    <CheckBox x:Name="LivePeriodAssist"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F11.Title}" ControlId="F11" Description="{DynamicResource WS.Settings.F11.Help}">
+                                    <StackPanel><TextBlock Text="{Binding ElementName=SuggestionIdleFade, Path=Value}" HorizontalAlignment="Right"/><Slider x:Name="SuggestionIdleFade" Minimum="0" Maximum="31" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1"/></StackPanel>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F12.Title}" ControlId="F12" Description="{DynamicResource WS.Settings.F12.Help}">
+                                    <CheckBox x:Name="ContextBased"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F13.Title}" ControlId="F13" Description="{DynamicResource WS.Settings.F13.Help}">
+                                    <CheckBox x:Name="ConfusionSet"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F14.Title}" ControlId="F14" Description="{DynamicResource WS.Settings.F14.Help}">
+                                    <CheckBox x:Name="Phonetic"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F15.Title}" ControlId="F15" Description="{DynamicResource WS.Settings.F15.Help}">
+                                    <CheckBox x:Name="Misspelling"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F16.Title}" ControlId="F16" Description="{DynamicResource WS.Settings.F16.Help}">
+                                    <CheckBox x:Name="Synonym"/>
+                                </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.F17.Title}" ControlId="F17" Description="{DynamicResource WS.Settings.F17.Help}">
                                     <CheckBox x:Name="DomainListsCheckBox" IsEnabled="False"/>
                                 </ui:SettingsRow>
-                                <TextBlock Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.SuggestionsNote}"/>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F18.Title}" ControlId="F18" Description="{DynamicResource WS.Settings.F18.Help}">
+                                    <ComboBox x:Name="PrimaryDomain" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F19.Title}" ControlId="F19" Description="{DynamicResource WS.Settings.F19.Help}">
+                                    <ComboBox x:Name="SecondaryDomain" DisplayMemberPath="Label" SelectedValuePath="Value"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.F20.Title}" ControlId="F20" Description="{DynamicResource WS.Settings.F20.Help}">
+                                    <CheckBox x:Name="EditorWrap"/>
+                                </ui:SettingsRow>
+                                <TextBlock Style="{StaticResource SettingsNote}" x:Name="SuggestionCapabilityStatus" Text="{DynamicResource WS.Settings.SuggestionsNote}"/>
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>

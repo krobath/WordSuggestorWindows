@@ -1,5 +1,14 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## Slice 5 candidate — 2026-11-11
+
+F01–F20 UI/runtime implementation is present; Core `7491a0b` supplies portable
+insertion/punctuation decisions. Noninteractive gates pass; **desktop qualification
+is blocked by the disconnected/locked Windows session**. Do not close slice 5 or
+infer native focus/acceptance signoff. See [qualification](../qualification/WSA-UX-029_slice5.md)
+and [runtime contract](../Suggestions.md). Slice 6 remains the next feature slice.
+Earlier dated statuses in this plan document prior deliveries.
+
 Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
 og baseline leveret; slice 1–4 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
 Næste implementation: slice 5, ordforslagsindstillinger og tre genvejelanes.

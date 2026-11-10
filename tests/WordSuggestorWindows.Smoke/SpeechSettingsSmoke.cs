@@ -46,7 +46,7 @@ internal static class SpeechSettingsSmoke
         var store = new WindowsAppSettingsService(path); var loaded = store.LoadResult();
         Check("v2 migration is in-memory and read-only", loaded.State == SettingsLoadState.Migrated && raw.SequenceEqual(File.ReadAllBytes(path)));
         var edited = loaded.Settings.Clone(); edited.ReadingHighlightMode = "sentence"; store.SaveChanges(loaded.Settings, edited);
-        Check("first v3 write preserves byte-exact v2 backup", File.ReadAllBytes(path + ".v2.bak").SequenceEqual(raw) && store.Load().SchemaVersion == 3);
+        Check("first current-schema write preserves byte-exact v2 backup", File.ReadAllBytes(path + ".v2.bak").SequenceEqual(raw) && store.Load().SchemaVersion == SettingsSchema.CurrentVersion);
         Check("migration keeps false consent and data", !store.Load().AdditionalProperties["learningConsent"].GetBoolean() && !store.Load().StoreSentenceExamples);
         var tracker = new SpeechTypingTracker(); var key = Guid.NewGuid();
         tracker.Reset(key, "æble", 4);

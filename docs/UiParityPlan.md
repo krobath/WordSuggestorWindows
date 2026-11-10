@@ -1,5 +1,15 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Slice 5 UI implementation — 2026-11-11
+
+The Ordforslag category now contains F01–F20 in canonical order, with native WPF
+controls, labels/help, live persistence and capability-dependent states. The
+sidebar/category architecture stays. Rows use fixed density; ordinary/primary/
+secondary lists retain separate page limits and a shared commit authority.
+Pack-dependent controls preserve unavailable saved intentions. The Core seed is
+not installed automatically. [Desktop qualification](qualification/WSA-UX-029_slice5.md)
+is pending; screenshot/Narrator/DPI signoff is not inferred from successful builds.
+
 The April 17 WSA-UX-012 handoff and the supplied November macOS recordings supersede
 the expanded-toolbar descriptions retained below for history. The implementation
 uses three independent surfaces: compact non-activating toolbar, normal activating

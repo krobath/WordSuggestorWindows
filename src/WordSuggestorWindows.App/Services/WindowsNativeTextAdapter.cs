@@ -55,7 +55,7 @@ public sealed class WindowsNativeTextAdapter
         }
     }
 
-    public bool TryCommit(ExternalTextSnapshot expected, string typedToken, string replacement, out string diagnostic)
+    public bool TryCommit(ExternalTextSnapshot expected, string typedToken, string replacement, out string diagnostic, bool exactInsertion = false)
     {
         diagnostic = "NativeEdit.TargetChanged";
         var current = ReadFocused();
@@ -64,7 +64,17 @@ public sealed class WindowsNativeTextAdapter
         var end = current.End;
         if (current.Start == current.End)
             while (end < current.Text.Length && EditorCommit.IsTokenCharacter(current.Text[end])) end++;
-        var insertion = replacement + (end < current.Text.Length && char.IsWhiteSpace(current.Text[end]) ? "" : " ");
+        var insertion = replacement + (exactInsertion || end < current.Text.Length && char.IsWhiteSpace(current.Text[end]) ? "" : " ");
+        return TryReplaceExact(current, start, end, insertion, out diagnostic);
+    }
+
+    public bool TryReplaceExact(ExternalTextSnapshot expected, int start, int end, string insertion, out string diagnostic)
+    {
+        diagnostic = "NativeEdit.TargetChanged";
+        var current = ReadFocused();
+        if (current != expected || start < 0 || end < start || end > expected.Text.Length ||
+            (start > 0 && start < expected.Text.Length && char.IsLowSurrogate(expected.Text[start]) && char.IsHighSurrogate(expected.Text[start - 1])) ||
+            (end > 0 && end < expected.Text.Length && char.IsLowSurrogate(expected.Text[end]) && char.IsHighSurrogate(expected.Text[end - 1]))) return false;
         if (!Send(current.Control, 0x00B1, new IntPtr(start), new IntPtr(end), out _)) return false;
         var selected = ReadFocused();
         if (selected != current with { Start = start, End = end }) return false;

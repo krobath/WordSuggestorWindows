@@ -1,5 +1,16 @@
 # Analyse: Settings-paritet for Windows
 
+## Canonical-source correction — 2026-11-11
+
+Detailed inspection of `GlobalKeyCaptureManager` at canonical `ba18b45` narrows
+F10: **English only**, direct uppercase after a recent newline, starter/token
+thresholds and connector exclusions. It is not general uppercase rewriting or
+a Danish sentence heuristic. F03 Smart also has a verified 1.5-second followup
+receipt, rather than only inserting a trailing space. These findings supersede
+broader interpretations in the original control register below. The Core-owned
+portable policy and [Windows host contract](../Suggestions.md) implement that
+boundary; Windows external period rewriting remains disabled/unqualified.
+
 Analyseret: 2026-11-09. Afklaringer afsluttet: 2026-11-10. Ejer: Windows-sporet.
 Status: kildeanalyse og produktvalg afsluttet; [WSA-UX-029 er oprettet](../sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md).
 Der er ikke ændret appkode i analyse-/planopgaven. Slice 0 har efterfølgende

@@ -1,6 +1,6 @@
 {
     "danishPackSha256":  "6970C398077C235355F513D9491E4193534FE88B751AEEA07EDDEF9ABC3FB82F",
-    "coreRevision":  "c87f68aa2c145220817c0264279854d5b9b32078",
+    "coreRevision":  "7491a0b748ac87d5286b50f4c0c93d1b90c6a84d",
     "dotnetSdk":  "10.0.403",
     "swift":  "6.3.0",
     "windowsSdk":  "10.0.22621.0",

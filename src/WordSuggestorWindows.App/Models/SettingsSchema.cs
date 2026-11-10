@@ -4,15 +4,16 @@ namespace WordSuggestorWindows.App.Models;
 // consent are not inferred or created by this migration.
 public static class SettingsSchema
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public static AppSettingsSnapshot Upgrade(AppSettingsSnapshot source)
     {
         if (source.SchemaVersion is < 1 or > CurrentVersion)
             throw new InvalidOperationException("Unsupported settings schema.");
         if (source.AdditionalProperties is null || source.SystemVoiceIdOverrideByLanguage is null ||
-            source.SelectedLanguageCode is null || !double.IsFinite(source.ReadingSpeedDelta))
+            source.SelectedLanguageCode is null || source.Suggestions is null || !double.IsFinite(source.ReadingSpeedDelta))
             throw new InvalidOperationException("Invalid settings values.");
+        source.Suggestions.Validate();
         var result = source.Clone();
         if (source.SchemaVersion == 1)
         {
@@ -28,6 +29,7 @@ public static class SettingsSchema
             ? Services.SpeechSpeedPolicy.FromLegacy(source.ReadingSpeedDelta)
             : Services.SpeechSpeedPolicy.Normalize(source.ReadingSpeedDelta);
         result.ReadingStrategy = Services.TypingReadAloudPolicy.NormalizeStrategy(source.ReadingStrategy);
+        result.Suggestions.Validate();
         if (!result.FollowCaretOptionEnabled) result.SuggestionPlacementMode = "static";
         return result;
     }

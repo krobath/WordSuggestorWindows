@@ -123,6 +123,10 @@ public partial class MainWindow : Window
         LocationChanged += OnWindowLocationOrSizeChanged;
         SizeChanged += OnWindowLocationOrSizeChanged;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
+        _viewModel.SettingsChanged += SuggestionSettingsOnChanged;
+        _viewModel.LocalSuggestionCommitted += LocalSuggestionOnCommitted;
+        _editorWindow.Deactivated += SuggestionEditorDeactivated;
+        ApplySuggestionEditorLayout();
         _speechToTextService.TranscriptReceived += SpeechToTextServiceOnTranscriptReceived;
         _speechToTextService.StatusChanged += SpeechToTextServiceOnStatusChanged;
         _speechToTextService.SessionStopped += SpeechToTextServiceOnSessionStopped;
@@ -163,6 +167,10 @@ public partial class MainWindow : Window
     {
         DisposeSpeechLifecycle();
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
+        _viewModel.SettingsChanged -= SuggestionSettingsOnChanged;
+        _viewModel.LocalSuggestionCommitted -= LocalSuggestionOnCommitted;
+        _editorWindow.Deactivated -= SuggestionEditorDeactivated;
+        CancelSuggestionAssist();
         _viewModel.Dispose();
         _editorWindow.CloseForShutdown();
         LocationChanged -= OnWindowLocationOrSizeChanged;
@@ -243,59 +251,8 @@ public partial class MainWindow : Window
             : $"Global TTS hotkey registration failed: GetLastWin32Error={Marshal.GetLastWin32Error()}.");
     }
 
-    private void RegisterExternalSuggestionHotKeys()
-    {
-        if (_windowHandle == IntPtr.Zero || _areExternalSuggestionHotKeysRegistered)
-        {
-            return;
-        }
-
-        var allSucceeded = true;
-        for (var i = 0; i < 10; i++)
-        {
-            var virtualKey = i == 9 ? VirtualKey0 : VirtualKey1 + (uint)i;
-            if (!RegisterHotKey(_windowHandle, ExternalSuggestionAcceptBaseHotKeyId + i, ModControl, virtualKey))
-            {
-                allSucceeded = false;
-            }
-        }
-
-        if (!RegisterHotKey(_windowHandle, ExternalSuggestionPreviousPageHotKeyId, ModControl, VirtualKeyLeft))
-        {
-            allSucceeded = false;
-        }
-
-        if (!RegisterHotKey(_windowHandle, ExternalSuggestionNextPageHotKeyId, ModControl, VirtualKeyRight))
-        {
-            allSucceeded = false;
-        }
-
-        _areExternalSuggestionHotKeysRegistered = true;
-        WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
-            DateTimeOffset.Now,
-            "ExternalSuggestionHotkeys",
-            allSucceeded ? "Registered" : "Partial",
-            allSucceeded
-                ? "Registered Ctrl+1..0 and Ctrl+Left/Right for external suggestion sessions."
-                : $"One or more external suggestion hotkeys failed to register. GetLastWin32Error={Marshal.GetLastWin32Error()}"));
-    }
-
-    private void UnregisterExternalSuggestionHotKeys()
-    {
-        if (!_areExternalSuggestionHotKeysRegistered || _windowHandle == IntPtr.Zero)
-        {
-            return;
-        }
-
-        for (var i = 0; i < 10; i++)
-        {
-            _ = UnregisterHotKey(_windowHandle, ExternalSuggestionAcceptBaseHotKeyId + i);
-        }
-
-        _ = UnregisterHotKey(_windowHandle, ExternalSuggestionPreviousPageHotKeyId);
-        _ = UnregisterHotKey(_windowHandle, ExternalSuggestionNextPageHotKeyId);
-        _areExternalSuggestionHotKeysRegistered = false;
-    }
+    private void RegisterExternalSuggestionHotKeys() => RegisterSuggestionLaneHotKeys();
+    private void UnregisterExternalSuggestionHotKeys() => UnregisterSuggestionLaneHotKeys();
 
     private void UnregisterTextToSpeechHotKey()
     {
@@ -354,40 +311,14 @@ public partial class MainWindow : Window
             return IntPtr.Zero;
         }
 
-        if (msg == WmHotKey)
-        {
-            var hotKeyId = wParam.ToInt32();
-            if (_viewModel.IsExternalSuggestionSessionActive)
-            {
-                if (hotKeyId >= ExternalSuggestionAcceptBaseHotKeyId &&
-                    hotKeyId < ExternalSuggestionAcceptBaseHotKeyId + 10)
-                {
-                    handled = true;
-                    TryAcceptExternalSuggestion(hotKeyId - ExternalSuggestionAcceptBaseHotKeyId);
-                    return IntPtr.Zero;
-                }
-
-                if (hotKeyId == ExternalSuggestionPreviousPageHotKeyId)
-                {
-                    handled = true;
-                    _viewModel.ChangeSuggestionPage(-1);
-                    return IntPtr.Zero;
-                }
-
-                if (hotKeyId == ExternalSuggestionNextPageHotKeyId)
-                {
-                    handled = true;
-                    _viewModel.ChangeSuggestionPage(1);
-                    return IntPtr.Zero;
-                }
-            }
-        }
+        if (msg == WmHotKey && TryHandleSuggestionLaneHotKey(wParam.ToInt32())) { handled = true; return IntPtr.Zero; }
 
         return IntPtr.Zero;
     }
 
     private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainWindowViewModel.EditorText)) ApplySuggestionEditorLayout();
         switch (e.PropertyName)
         {
             case nameof(MainWindowViewModel.IsEditorExpanded):
@@ -413,6 +344,7 @@ public partial class MainWindow : Window
             case nameof(MainWindowViewModel.IsAnalyzerColoringEnabled):
                 ApplyEditorColoring();
                 break;
+            case nameof(MainWindowViewModel.IsSuggestionInteractionEnabled):
             case nameof(MainWindowViewModel.ShouldShowSuggestionOverlay):
             case nameof(MainWindowViewModel.CurrentSuggestionPage):
             case nameof(MainWindowViewModel.VisibleSuggestions):
@@ -445,6 +377,9 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() =>
         {
             HandleExternalTypingSpeech(speechSnapshot);
+            ObserveExternalSuggestionInput(speechSnapshot);
+            _viewModel.ExternalSuggestionSuffix = speechSnapshot is null ? "" : EditorCommit.Suffix(speechSnapshot.Text, speechSnapshot.Start, speechSnapshot.End);
+            _viewModel.ExternalSuggestionTarget = speechSnapshot;
             if (e.WindowHandle == IntPtr.Zero)
             {
                 _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
@@ -484,13 +419,14 @@ public partial class MainWindow : Window
     private bool TryCommitExternalSuggestion(ExternalSuggestionCommitRequest request)
     {
         var snapshot = _globalSuggestionCaptureService.CurrentSnapshot;
-        if (snapshot is null || snapshot.Window != request.WindowHandle) return false;
+        if (snapshot is null || snapshot.Window != request.WindowHandle || request.ExpectedTarget != snapshot) return false;
         var committed = _externalSuggestionCommitService.TryCommitSuggestion(snapshot, request.TypedToken,
-            request.Suggestion.Term, out var diagnostic);
+            request.Suggestion.CommitPlan?.Text ?? request.Suggestion.InsertText ?? request.Suggestion.Term, out var diagnostic, exactInsertion: request.Suggestion.CommitPlan is not null);
         WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(DateTimeOffset.Now,
             "ExternalSuggestionCommit", committed ? "Success" : "Rejected", diagnostic));
         _globalSuggestionCaptureService.ClearTokenAfterCommittedSuggestion();
         _lastExternalSuggestionAnchor = null;
+        if (committed) RememberExternalSmartCommit(request.Suggestion);
         if (!committed)
         {
             _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
@@ -1261,6 +1197,7 @@ public partial class MainWindow : Window
         }
 
         OnEditorSpeechTextChanged();
+        ObserveSuggestionEditorInput();
         UpdateOverlayPosition();
     }
 
@@ -1280,6 +1217,7 @@ public partial class MainWindow : Window
 
     internal void EditorTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        RegisterSuggestionKey(e);
         if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
         {
             return;
@@ -1336,41 +1274,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private bool TryHandleControlDigitSuggestion(KeyEventArgs e)
-    {
-        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
-        {
-            return false;
-        }
-
-        var index = e.Key switch
-        {
-            Key.D1 or Key.NumPad1 => 0,
-            Key.D2 or Key.NumPad2 => 1,
-            Key.D3 or Key.NumPad3 => 2,
-            Key.D4 or Key.NumPad4 => 3,
-            Key.D5 or Key.NumPad5 => 4,
-            Key.D6 or Key.NumPad6 => 5,
-            Key.D7 or Key.NumPad7 => 6,
-            Key.D8 or Key.NumPad8 => 7,
-            Key.D9 or Key.NumPad9 => 8,
-            Key.D0 or Key.NumPad0 => 9,
-            _ => -1,
-        };
-
-        if (index < 0 || !_viewModel.AcceptSuggestionAtIndex(index))
-        {
-            return false;
-        }
-
-        RefocusEditor();
-        e.Handled = true;
-        return true;
-    }
+    private bool TryHandleControlDigitSuggestion(KeyEventArgs e) => TryHandleSuggestionDigit(e);
 
     private bool TryHandleControlPaging(KeyEventArgs e)
     {
-        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0)
+        if (Keyboard.Modifiers != ModifierKeys.Control)
         {
             return false;
         }
@@ -1890,7 +1798,7 @@ public partial class MainWindow : Window
         }
 
         EnsureOverlayWindow();
-        if (_viewModel.IsExternalSuggestionSessionActive && _viewModel.HasSuggestions) RegisterExternalSuggestionHotKeys();
+        if (_viewModel.IsExternalSuggestionSessionActive && _viewModel.HasSuggestions && _viewModel.IsSuggestionInteractionEnabled) RegisterExternalSuggestionHotKeys();
         else UnregisterExternalSuggestionHotKeys();
         UpdateOverlayPosition();
 
@@ -1918,6 +1826,8 @@ public partial class MainWindow : Window
         };
         _overlayWindow.ManualPlacementCommitted += OverlayWindowOnManualPlacementCommitted;
         _overlayWindow.SpeechRequested += OverlaySpeechRequested;
+        _overlayWindow.HoverSpeechRequested += OverlayHoverSpeechRequested;
+        _overlayWindow.HoverSpeechCancelled += OverlayHoverSpeechCancelled;
         WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
             DateTimeOffset.Now,
             "SuggestionOverlay",

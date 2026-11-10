@@ -11,8 +11,10 @@ public interface ICoreSettingsAdapter
         CoreSuggestionOptions options, CancellationToken cancellationToken = default);
     Task<CoreQueryResult<IReadOnlyList<CoreDomain>>> GetDomainsAsync(string? catalogPath, CoreRequestContext context, CancellationToken cancellationToken = default);
     Task<CoreQueryResult<IReadOnlyList<CoreCandidate>>> SuggestDomainAsync(string text, string catalogPath, string domainId,
-        CoreRequestContext context, CancellationToken cancellationToken = default);
-    Task<CoreQueryResult<CoreWordInfo>> GetWordInfoAsync(string surface, CoreRequestContext context, bool includeFamilies = false, CancellationToken cancellationToken = default);
+        CoreRequestContext context, CancellationToken cancellationToken = default, CoreSuggestionOptions? options = null);
+    Task<CoreQueryResult<CoreWordInfo>> GetWordInfoAsync(string surface, CoreRequestContext context, bool includeFamilies = false, CancellationToken cancellationToken = default, string? spacingMode = null, string? suffix = null);
+    Task<CoreQueryResult<CoreFollowup>> GetSmartFollowupAsync(string input, CoreRequestContext context, CancellationToken cancellationToken = default);
+    Task<CoreQueryResult<CorePeriodDecision>> GetLivePeriodAsync(string prefix, CoreRequestContext context, CancellationToken cancellationToken = default);
     Task<CoreQueryResult<IReadOnlyList<CoreDiagnostic>>> AnalyzeAsync(string text, CoreRequestContext context,
         CoreAnalysisOptions options, CancellationToken cancellationToken = default);
 }

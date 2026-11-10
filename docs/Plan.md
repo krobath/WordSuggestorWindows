@@ -1,5 +1,14 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 5 — implementation candidate, 2026-11-11
+
+F01–F20 now have Windows UI/runtime paths using the retained WPF/Core architecture.
+Core owns insertion/punctuation/source policies; Windows owns bounded scheduling,
+target snapshots and presentation. [Evidence](qualification/WSA-UX-029_slice5.md)
+separates passing noninteractive gates from pending connected-desktop smoke.
+Complete those gates before closing slice 5; slice 6 is the next feature slice.
+No change to backend, signing/update gates or existing unrelated work.
+
 This section supersedes the historical plan below. Evidence and release gates are
 in `ManualSmoke.md`, `ReleaseAudit.md` and the 2026-11-08 delivery note. No signed
 public RC is claimed while signing/install/update qualification remains open.

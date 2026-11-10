@@ -1,5 +1,18 @@
 # WordSuggestorWindows
 
+## Settings slice 5 — 2026-11-11
+
+Suggestion preferences now have implementation paths for density, Core insertion
+plans/source options, three lanes, hover/fade and editor wrapping. Native desktop
+qualification is **pending**, not a release signoff. See [contract](docs/Suggestions.md)
+and [results/remaining smoke](docs/qualification/WSA-UX-029_slice5.md).
+
+Build with the existing `scripts/build_app.ps1`; run
+`powershell -ExecutionPolicy Bypass -File scripts/test_settings_app.ps1 -Mode SuggestionState`
+for noninteractive checks. On a connected, unlocked desktop run the same script
+with `-Mode All`; this includes the new physical-input/Notepad fixture. Existing
+Core, app, GUI and media gates remain required. No production secrets needed.
+
 Native Windows WPF host for WordSuggestorCore. Current delivery: functioning beta
 implementation and signing-ready x64 MSIX payload; public release qualification is
 still open. See [release evidence](docs/changes/2026-11-08_wsa_rt_016_windows_beta_hardening.md).

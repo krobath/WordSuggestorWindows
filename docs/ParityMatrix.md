@@ -1,5 +1,19 @@
 # Windows evidence-based parity matrix
 
+## Settings F01–F20 candidate — 2026-11-11
+
+| Controls | Implemented boundary | Evidence / remaining gap |
+|---|---|---|
+| F01–F04 | Global permission, density, Core spacing, five schedulers | State/real Core transactions and controlled cadence pass; physical UI pending |
+| F05–F07 | Three exact, conflict-swapping digit schemes; per-lane registration rollback | Native collision/AltGr/three-lane acceptance pending |
+| F08–F11 | Shared cancellable hover TTS, actual word-info/families, English internal period, idle hide | Core eligibility passes; native presentation/interaction pending |
+| F12–F16 | Core source preferences with actual pack capability gates | Core source fixtures pass; no missing pack data fabricated |
+| F17–F19 | Explicit installed catalog, language-scoped IDs, bounded independent lanes | Core seed used only as explicit isolated test fixture; desktop pending |
+| F20 | FlowDocument wrap without document replacement | Implementation complete; native text/caret/undo qualification pending |
+
+F10 canonical-source correction: English newline transitions only; Windows external
+period rewriting is disabled. See [full evidence/limits](qualification/WSA-UX-029_slice5.md).
+
 Updated 2026-11-10 (Settings slices 1–4 qualified within recorded scope; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
 real Core contract tests and real-desktop smoke. Historical "Done" labels mean code
 was delivered, not all target programs or accessibility modes were verified.

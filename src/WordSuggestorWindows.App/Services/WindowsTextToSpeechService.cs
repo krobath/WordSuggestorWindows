@@ -24,6 +24,7 @@ public sealed class WindowsTextToSpeechService : IDisposable
     public event EventHandler<TextToSpeechBoundaryCue>? BoundaryCueReceived;
     public bool IsSpeaking { get { lock (_gate) return _current is { Active: true }; } }
     public bool IsCurrent(object? sender) { lock (_gate) return sender is not null && ReferenceEquals(sender, _current); }
+    internal object? CurrentIdentity { get { lock (_gate) return _current; } }
     public int? CurrentProcessId { get { lock (_gate) return _current is { Active: true } s ? s.Process.Id : null; } }
     public TimeSpan? LastAudioDuration { get { lock (_gate) return _current?.AudioDuration; } }
     public static OneCoreRuntimeStatus GetOneCoreRuntimeStatus() => OneCoreStatus.Value;

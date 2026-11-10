@@ -5,7 +5,7 @@ using WordSuggestorWindows.App.ViewModels;
 
 namespace WordSuggestorWindows.App.Services;
 
-internal sealed class SettingsFormController : IDisposable
+internal sealed partial class SettingsFormController : IDisposable
 {
     private readonly MainWindowViewModel _viewModel;
     private readonly Window _host;
@@ -30,6 +30,7 @@ internal sealed class SettingsFormController : IDisposable
         _original = viewModel.LoadSettingsSnapshot().Clone(); _settings = _original.Clone();
         InitializeOptionSources(); LoadControls(); RenderStatus();
         _loading = false;
+        AttachSuggestionControls();
         Language.SelectionChanged += OnLanguageChanged;
         Voice.SelectionChanged += OnVoiceChanged;
         SystemSpeech.Checked += OnSpeechChanged; SystemSpeech.Unchecked += OnSpeechChanged;
@@ -101,10 +102,12 @@ internal sealed class SettingsFormController : IDisposable
         Performance.IsChecked = _settings.IsPerformanceInstrumentationEnabled; AppDebug.IsChecked = _settings.IsAppDebugLoggingEnabled;
         PanelDebug.IsChecked = _settings.IsPlacementDebugLoggingEnabled; CoreDebug.IsChecked = _settings.IsCoreDebugLoggingEnabled;
         RefreshSpeechControls();
+        LoadSuggestionControls();
     }
 
     private void ReadControls()
     {
+        ReadSuggestionControls();
         _settings.SelectedLanguageCode = Language.SelectedValue as string ?? _settings.SelectedLanguageCode;
         if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui) _settings.InterfaceLocalePreference = ui.SelectedValue as string ?? _settings.InterfaceLocalePreference;
         if (Optional<CheckBox>("FollowCaretOptionCheckBox") is { } allowed) _settings.FollowCaretOptionEnabled = allowed.IsChecked == true;

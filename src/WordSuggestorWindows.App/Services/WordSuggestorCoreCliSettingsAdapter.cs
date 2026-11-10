@@ -13,6 +13,8 @@ public sealed class CoreBridgeRejectedException(string code) : InvalidOperationE
 public sealed partial class WordSuggestorCoreCliSuggestionProvider
 {
     private static readonly JsonSerializerOptions ExtendedJson = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    private readonly object _capabilityGate = new();
+    private readonly Dictionary<string, CoreCapabilities> _capabilities = [];
 
     public async Task<CoreCapabilities> GetCapabilitiesAsync(string? catalogPath = null, CancellationToken cancellationToken = default)
     {
@@ -22,6 +24,9 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
 
     private async Task<CoreCapabilities> ReadCapabilitiesAsync(LanguageOption language, string? catalogPath, CancellationToken cancellationToken)
     {
+        static string Stamp(string? path) => path is not null && File.Exists(path) ? path + ":" + new FileInfo(path).Length + ":" + File.GetLastWriteTimeUtc(path).Ticks : path ?? "";
+        var key = language.LanguageCode + "|" + Stamp(language.PackPath) + "|" + Stamp(_cliPath) + "|" + Stamp(catalogPath);
+        lock (_capabilityGate) if (_capabilities.TryGetValue(key, out var cached)) return cached;
         var id = Guid.NewGuid().ToString("N");
         var request = new { version = 1, requestId = id, operation = "capabilities", language = language.LanguageCode,
             packPath = language.PackPath, textBeforeCaret = "", maxSuggestions = 40, catalogPath };
@@ -35,6 +40,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         if (caps is null || caps.SchemaVersion != 1 || caps.ProtocolVersions is null ||
             !caps.ProtocolVersions.Contains(2) || caps.ProtocolVersions.Length > 4 || caps.Operations is null ||
             caps.Operations.Length > 16 || caps.Operations.Any(s => !Safe(s, 64))) throw InvalidProtocol();
+        lock (_capabilityGate) { if (_capabilities.Count >= 16) _capabilities.Clear(); _capabilities[key] = caps; }
         return caps;
     }
 
@@ -42,6 +48,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         CoreSuggestionOptions options, CancellationToken cancellationToken = default)
     {
         var response = await QueryAsync("suggest", text, context, options, null, null, cancellationToken);
+        HealthWarning = response.WarningCode == "user_words_unavailable" ? "Brugerord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
         return Result(response, ValidateCandidates(response.Suggestions));
     }
 
@@ -54,21 +61,34 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     }
 
     public async Task<CoreQueryResult<IReadOnlyList<CoreCandidate>>> SuggestDomainAsync(string text, string catalogPath, string domainId,
-        CoreRequestContext context, CancellationToken cancellationToken = default)
+        CoreRequestContext context, CancellationToken cancellationToken = default, CoreSuggestionOptions? options = null)
     {
         if (!Safe(domainId, 128)) throw new ArgumentException("Invalid domain identifier.");
-        var response = await QueryAsync("domainSuggestions", text, context, null, catalogPath, domainId, cancellationToken);
+        var response = await QueryAsync("domainSuggestions", text, context, options is null ? null : new { options.RuntimeBudget, options.SpacingMode, options.Suffix }, catalogPath, domainId, cancellationToken);
         return Result(response, ValidateCandidates(response.Suggestions));
     }
 
-    public async Task<CoreQueryResult<CoreWordInfo>> GetWordInfoAsync(string surface, CoreRequestContext context, bool includeFamilies = false, CancellationToken cancellationToken = default)
+    public async Task<CoreQueryResult<CoreWordInfo>> GetWordInfoAsync(string surface, CoreRequestContext context, bool includeFamilies = false, CancellationToken cancellationToken = default, string? spacingMode = null, string? suffix = null)
     {
         if (!Safe(surface, 128)) throw new ArgumentException("Invalid word-info input.");
-        var response = await QueryAsync("wordInfo", surface, context, new { includeFamilies }, null, null, cancellationToken);
+        var response = await QueryAsync("wordInfo", surface, context, new { includeFamilies, spacingMode, suffix }, null, null, cancellationToken);
         if (response.Analyses is null || response.Families is null || response.Analyses.Length > 40 || response.Families.Length > 40 ||
             response.Analyses.Any(a => !Safe(a.Id, 4096) || !Safe(a.Gram, 512) || !Safe(a.Pos, 64) || !Safe(a.WordClass, 64)) ||
-            response.Families.Any(f => !Safe(f.Term, 512) || f.Gram is null || f.Gram.Length > 512)) throw InvalidProtocol();
+            response.Families.Any(f => !Safe(f.Term, 512) || f.Gram is null || f.Gram.Length > 512 || !ValidPlan(f.Term, f.CommitPlan))) throw InvalidProtocol();
         return Result(response, new CoreWordInfo(response.Analyses, response.Families));
+    }
+
+    public async Task<CoreQueryResult<CoreFollowup>> GetSmartFollowupAsync(string input, CoreRequestContext context, CancellationToken cancellationToken = default)
+    {
+        var response = await QueryAsync("smartFollowup", input, context, null, null, null, cancellationToken);
+        if (response.Followup is not { } result || result.Replacement is { } replacement && replacement != input && replacement != " ") throw InvalidProtocol();
+        return Result(response, result);
+    }
+    public async Task<CoreQueryResult<CorePeriodDecision>> GetLivePeriodAsync(string prefix, CoreRequestContext context, CancellationToken cancellationToken = default)
+    {
+        var response = await QueryAsync("livePeriod", prefix, context, null, null, null, cancellationToken);
+        if (response.PeriodDecision is not { } result || result.Edit is { } edit && (!ValidRange(prefix, edit.Start, edit.Length) || edit.Replacement != "." || edit.Length != 0)) throw InvalidProtocol();
+        return Result(response, result);
     }
 
     public async Task<CoreQueryResult<IReadOnlyList<CoreDiagnostic>>> AnalyzeAsync(string text, CoreRequestContext context,
@@ -105,9 +125,10 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
 
     private static IReadOnlyList<CoreCandidate> ValidateCandidates(CoreCandidate[]? rows)
     {
-        if (rows is null || rows.Length > 40 || rows.Any(c => !Safe(c.Term, 512) || !Safe(c.InsertText, 512) || !Safe(c.Kind, 64) || !Safe(c.Type, 64) || !double.IsFinite(c.Score))) throw InvalidProtocol();
+        if (rows is null || rows.Length > 40 || rows.Any(c => !Safe(c.Term, 512) || !Safe(c.InsertText, 512) || !Safe(c.Kind, 64) || !Safe(c.Type, 64) || !double.IsFinite(c.Score) || !ValidPlan(c.InsertText, c.CommitPlan))) throw InvalidProtocol();
         return rows;
     }
+    private static bool ValidPlan(string insertion, CoreCommitPlan? plan) => plan is null || (plan.AutoSpace ? plan.Text == insertion + " " : plan.Text == insertion);
     private static bool Safe(string? value, int maximum) => !string.IsNullOrWhiteSpace(value) && value.Length <= maximum;
     private static bool ValidRange(string text, int start, int length) => start >= 0 && length >= 0 && start <= text.Length && length <= text.Length - start && Boundary(text, start) && Boundary(text, start + length);
     private static bool Boundary(string text, int index) => index == 0 || index == text.Length || !(char.IsLowSurrogate(text[index]) && char.IsHighSurrogate(text[index - 1]));
@@ -116,5 +137,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision);
 }

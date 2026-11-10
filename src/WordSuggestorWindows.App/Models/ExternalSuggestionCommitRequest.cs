@@ -4,4 +4,7 @@ public sealed record ExternalSuggestionCommitRequest(
     SuggestionItem Suggestion,
     string TypedToken,
     int ReplaceCharacterCount,
-    IntPtr WindowHandle);
+    IntPtr WindowHandle)
+{
+    public Services.ExternalTextSnapshot? ExpectedTarget { get; init; }
+}

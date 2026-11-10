@@ -1,5 +1,17 @@
 # Core CLI contracts — v1 compatibility and negotiated v2
 
+## Current live Settings boundary — 2026-11-11, slice 5
+
+Pinned Core is `7491a0b748ac87d5286b50f4c0c93d1b90c6a84d`. Live suggestions now
+use negotiated v2 options/plans when available, retaining v1 fallback for old
+providers. Successful metadata-keyed capabilities are cached; failures are not.
+Core owns `spacingMode`, suffix-aware `commitPlan`, `smartFollowup` and English
+`livePeriod`; Windows validates and applies only verified scoped transactions.
+Source switches are sent to Core rather than applied as UI post-filters.
+The [Windows host contract](Suggestions.md) complements Core-owned
+`docs/140_suggest_cli_settings_bridge_contract.md`. The older slice-3 description
+below records the transport-only phase and does not describe current live wiring.
+
 ## Settings extension — 2026-11-10, WSA-UX-029 slice 3
 
 Core revision: `c87f68aa2c145220817c0264279854d5b9b32078`. The authoritative

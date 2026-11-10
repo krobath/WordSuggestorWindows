@@ -1,5 +1,16 @@
 # WordSuggestorWindows architecture
 
+## Suggestion settings boundary — 2026-11-11
+
+Retain the existing WPF shell, activating editor, nonactivating overlay and CLI.
+The [suggestion contract](Suggestions.md) describes schema 4, cloned preferences,
+source-backed v2 plans, three lane collections and cancellation/generation checks.
+Mouse/keyboard/family selection share one commit; external requests retain the
+original control/window/PID/process-start/text/selection snapshot. Native exact
+edits reverify it rather than retargeting a newer field in the same window.
+No C# ranking/punctuation heuristics, clipboard fallback or extra backend flow.
+Desktop qualification is [still pending](qualification/WSA-UX-029_slice5.md).
+
 Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.

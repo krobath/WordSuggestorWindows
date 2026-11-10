@@ -5,7 +5,7 @@ namespace WordSuggestorWindows.App.Services;
 // UTF-16 offsets at the Windows editing boundary, not language/ranking logic.
 public static class EditorCommit
 {
-    public static (string Text, int Caret) Replace(string text, int start, int end, string replacement)
+    public static (string Text, int Caret) Replace(string text, int start, int end, string replacement, bool exactInsertion = false)
     {
         start = Math.Clamp(start, 0, text.Length);
         end = Math.Clamp(end, start, text.Length);
@@ -18,8 +18,28 @@ public static class EditorCommit
         if (start > 0 && start < text.Length && char.IsLowSurrogate(text[start]) && char.IsHighSurrogate(text[start - 1])) start--;
         if (end > 0 && end < text.Length && char.IsHighSurrogate(text[end - 1]) && char.IsLowSurrogate(text[end])) end++;
         var space = end < text.Length && char.IsWhiteSpace(text[end]) ? "" : " ";
-        var inserted = replacement + space;
+        var inserted = replacement + (exactInsertion ? "" : space);
         return (text[..start] + inserted + text[end..], start + inserted.Length);
+    }
+
+    public static string Suffix(string text, int start, int end)
+    {
+        start = Math.Clamp(start, 0, text.Length); end = Math.Clamp(end, start, text.Length);
+        if (start == end) while (end < text.Length && IsTokenCharacter(text[end])) end++;
+        return text[end..];
+    }
+
+    public static string PrefixWindow(string text, int maximum)
+    {
+        var end = Math.Min(maximum, text.Length);
+        if (end > 0 && end < text.Length && char.IsHighSurrogate(text[end - 1]) && char.IsLowSurrogate(text[end])) end--;
+        return text[..end];
+    }
+    public static string TailWindow(string text, int maximum)
+    {
+        var start = Math.Max(0, text.Length - maximum);
+        if (start > 0 && start < text.Length && char.IsLowSurrogate(text[start]) && char.IsHighSurrogate(text[start - 1])) start++;
+        return text[start..];
     }
 
     public static bool IsTokenCharacter(char value) => char.IsLetterOrDigit(value) ||

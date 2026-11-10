@@ -1,5 +1,28 @@
 # Windows smoke and qualification
 
+## Slice 5 desktop gate — 2026-11-11, not yet passed
+
+Current session is disconnected/locked. On a connected unlocked desktop:
+
+1. Run `scripts/test_settings_app.ps1 -Mode All`, plus existing GUI/media gates.
+2. Check all F01–F20 rows, info help, keyboard focus and unavailable pack reasons.
+3. Compare Smart/Always/Never insertion at selections, Unicode and suffix punctuation;
+   use mouse and digits, inspect caret/undo and immediate punctuation/space followup.
+4. Use two explicitly installed test domains; test both lane shortcuts and paging,
+   reserved-key collision rollback and Danish AltGr without candidate acceptance.
+5. Confirm hover debounce/leave/latest-utterance cancellation, 3-second fade/hide,
+   disabled acceptance while fading and restoration from fresh input.
+6. Check Core analyses/family choices and English physical newline/uppercase period
+   eligibility; Danish/same-line/external text must not be auto-rewritten.
+7. Verify wrap preserves document/text/caret/undo, including existing editor tabs.
+8. Verify Notepad exact target/snapshot commit, focus/control change cancellation
+   and Smart followup without clipboard changes. Other apps are not newly supported.
+9. Restart and inspect retained schema-4 settings, false consents, user words/packs
+   and byte-exact migration backup; unavailable domain IDs survive unrelated saves.
+10. Check Narrator, high contrast, 125/150/200% DPI and multiple monitors separately.
+
+Record actual results in [slice 5 evidence](qualification/WSA-UX-029_slice5.md).
+
 Updated 2026-11-08. Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
