@@ -171,6 +171,9 @@
                         </ToggleButton>
                         <ToggleButton Style="{StaticResource OverlayPlacementToggleStyle}"
                                       IsChecked="{Binding IsFollowCaretPlacementMode, Mode=OneWay}"
+                                      Visibility="{Binding FollowCaretOptionEnabled, Converter={StaticResource BoolToVisibilityConverter}}"
+                                      AutomationProperties.AutomationId="FollowCaretPlacement"
+                                      AutomationProperties.Name="Følg markør"
                                       ToolTip="Follow-caret"
                                       Click="FollowCaretButton_OnClick">
                             <TextBlock FontSize="10"

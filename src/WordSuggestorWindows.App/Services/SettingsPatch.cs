@@ -17,13 +17,14 @@ public static class SettingsPatch
 
     public static AppSettingsSnapshot Merge(AppSettingsSnapshot original, AppSettingsSnapshot edited, AppSettingsSnapshot latest)
     {
-        if (original.SchemaVersion != 1 || edited.SchemaVersion != 1 || latest.SchemaVersion != 1)
-            throw new InvalidOperationException("Unsupported settings schema.");
+        original = SettingsSchema.Upgrade(original);
+        edited = SettingsSchema.Upgrade(edited);
+        latest = SettingsSchema.Upgrade(latest);
         var before = JsonSerializer.SerializeToNode(original, Options)!.AsObject();
         var draft = JsonSerializer.SerializeToNode(edited, Options)!.AsObject();
         var merged = JsonSerializer.SerializeToNode(latest, Options)!.AsObject();
         MergeObject(before, draft, merged);
-        return merged.Deserialize<AppSettingsSnapshot>(Options)!;
+        return SettingsSchema.Upgrade(merged.Deserialize<AppSettingsSnapshot>(Options)!);
     }
 
     private static void MergeObject(JsonObject before, JsonObject draft, JsonObject latest)

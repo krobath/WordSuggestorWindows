@@ -83,9 +83,18 @@ HTTPS beta updates, data retention, rollback and remaining installation gates.
 
 Open **Indstillinger** on the floating toolbar. The Windows-native sidebar now
 contains Profile and seven categories; **Avanceret → Åbn legacy-indstillinger**
-opens the previous Windows settings. Use **Gem** to apply changes or **Annuller**
-to discard them. Full functional parity and live saving are later sprint slices;
-unavailable account/Hello/analysis/learning functions are identified explicitly.
+opens the previous Windows settings. Ordinary preferences save immediately;
+**Luk** closes the primary window. The legacy window retains **Gem/Annuller**.
+Interface language (Follow Windows/Danish/English) is independent of writing
+language. The Settings and legacy surfaces are translated; older app surfaces
+still contain Danish copy. Disabling Follow caret permission forces static
+placement; enabling permission does not itself choose Follow caret.
+
+Schema 2 keeps the historical `settings/settings-v1.json` location. Migration
+preserves an exact `.v1.bak` once and uses the rolling `.bak`. Future/corrupt data
+is retained and blocks writes; failed changes are not applied. See
+[data recovery and qualification](docs/qualification/WSA-UX-029_slice2.md).
+Full functional parity and account/Hello/analysis/learning remain later work.
 
 From this repository, run the new state and interactive-window tests:
 
@@ -96,12 +105,12 @@ powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1
 Use `-Mode State` for noninteractive storage tests; `-Mode Ui` requires an unlocked
 desktop and moves the mouse/keyboard with synthetic test data. Do not interact
 while it runs. `-SkipBuild -RunnerPath <smoke-exe>` tests isolated build output.
-See [slice 1 results and remaining manual gates](docs/qualification/WSA-UX-029_slice1.md).
+See [slice 2 results and remaining manual gates](docs/qualification/WSA-UX-029_slice2.md).
 
 ## Documentation
 
 - [Windows documentation index](docs/README.md)
-- [Windows Settings sprint WSA-UX-029 (slice 1 shell delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
+- [Windows Settings sprint WSA-UX-029 (slices 1–2 delivered)](docs/sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 - [Settings slice 0 qualification and actual platform limits](docs/qualification/WSA-UX-029_slice0.md)
 - [Settings reference/function analysis](docs/analysis/2026-11-09_settings_parity_analysis.md)
 - [Documentation ownership across platforms](docs/DocumentationOrganization.md)

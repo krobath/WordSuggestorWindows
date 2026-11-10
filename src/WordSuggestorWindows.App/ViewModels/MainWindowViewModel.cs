@@ -43,6 +43,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     private IntPtr _externalSuggestionWindowHandle;
     private string _externalSuggestionToken = string.Empty;
     private string _externalSuggestionSource = string.Empty;
+    private bool _applyingSettings;
+    private bool _followCaretOptionEnabled = true;
+    private AppSettingsSnapshot _appliedSettings;
 
     public MainWindowViewModel(
         ISuggestionProvider suggestionProvider,
@@ -54,6 +57,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _insightsStore = insightsStore;
         _settingsService = settingsService;
         var settings = _settingsService.Load();
+        _appliedSettings = settings.Clone();
+        SettingsText.ApplyPreference(settings.InterfaceLocalePreference);
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
         _selectionStart = _selectionEnd = _caretIndex;
@@ -72,9 +77,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
         _insightsStore.StoreTextExamples = settings.StoreSentenceExamples;
         _suggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
+        _followCaretOptionEnabled = settings.FollowCaretOptionEnabled;
         Suggestions = [];
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
+        _settingsService.Changed += SettingsServiceOnChanged;
 
         if (!string.IsNullOrWhiteSpace(_editorText))
         {
@@ -83,6 +90,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event EventHandler<AppSettingsSnapshot>? SettingsChanged;
+    public bool CanWriteSettings => _settingsService.LoadResult().CanWrite;
+    public bool FollowCaretOptionEnabled => _followCaretOptionEnabled;
+    public bool RequestsCaretGeometry => FollowCaretOptionEnabled && IsFollowCaretPlacementMode;
     public Func<bool>? CanCommitLocally { get; set; }
     public Func<ExternalSuggestionCommitRequest, bool>? ExternalCommitRequested { get; set; }
     public bool IsLocalEditorActive => _isLocalEditorActive;
@@ -228,9 +239,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         get => _isGlobalCaptureEnabled;
         set
         {
+            if (!_applyingSettings)
+            {
+                if (value != _isGlobalCaptureEnabled && !ChangeSetting(s => s.IsGlobalCaptureEnabled = value)) OnPropertyChanged();
+                return;
+            }
             if (SetProperty(ref _isGlobalCaptureEnabled, value))
             {
-                PersistCurrentSettings();
                 StatusMessage = value
                     ? "Global forslag er slået til for understøttede Windows-apps."
                     : "Global forslag er slået fra i Windows-shell'en.";
@@ -248,11 +263,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
+            if (!_applyingSettings)
+            {
+                if (value != _selectedLanguageOption && !ChangeSetting(s => s.SelectedLanguageCode = value.LanguageCode)) OnPropertyChanged();
+                return;
+            }
+
             if (SetProperty(ref _selectedLanguageOption, value))
             {
                 ClearSuggestionSession(keepOverlayVisible: false);
                 _suggestionProvider.SetLanguage(value);
-                PersistCurrentSettings();
                 OnPropertyChanged(nameof(ProviderDescription));
                 OnPropertyChanged(nameof(OverlaySupportSummary));
 
@@ -365,6 +385,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
                 OnPropertyChanged(nameof(IsStaticPlacementMode));
                 OnPropertyChanged(nameof(IsFollowCaretPlacementMode));
                 OnPropertyChanged(nameof(SuggestionPlacementSummary));
+                OnPropertyChanged(nameof(RequestsCaretGeometry));
             }
         }
     }
@@ -599,7 +620,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     public ErrorInsightsSnapshot LoadInsightsSnapshot() => _insightsStore.LoadSnapshot();
 
-    public AppSettingsSnapshot LoadSettingsSnapshot() => CaptureCurrentSettings(_settingsService.Load());
+    public AppSettingsSnapshot LoadSettingsSnapshot() => _appliedSettings.Clone();
 
     public TtsSpeechOptions CreateTextToSpeechOptions(string text)
     {
@@ -625,50 +646,74 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     public void ApplySettingsSnapshot(AppSettingsSnapshot settings)
     {
         if (!TrySaveSettings(settings)) return;
-
-        ApplySavedSettings(settings);
     }
 
     public bool TryApplySettingsChanges(AppSettingsSnapshot original, AppSettingsSnapshot edited)
     {
         try
         {
-            var merged = _settingsService.SaveChanges(original, edited);
-            ApplySavedSettings(merged);
+            if (!string.Equals(original.SelectedLanguageCode, edited.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase) &&
+                !LanguageOptions.Any(l => string.Equals(l.LanguageCode, edited.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase) && l.IsPackAvailable))
+            {
+                StatusMessage = SettingsText.Get("MissingPackError");
+                return false;
+            }
+            _settingsService.SaveChanges(original, edited);
             return true;
         }
         catch (SettingsConflictException)
         {
-            StatusMessage = "Indstillingerne er ændret i et andet vindue. Luk og åbn indstillingerne igen for at hente de nyeste værdier.";
+            StatusMessage = SettingsText.Get("SaveConflict");
             return false;
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
         {
-            StatusMessage = "Indstillingerne kunne ikke gemmes. Eksisterende data er bevaret.";
+            StatusMessage = SettingsText.Get("SaveFailed");
             return false;
         }
     }
 
     private void ApplySavedSettings(AppSettingsSnapshot settings)
     {
-
-        var selectedLanguage = LanguageOptions.FirstOrDefault(option =>
-            string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase));
-        if (selectedLanguage is not null)
+        _applyingSettings = true;
+        try
         {
-            SelectedLanguageOption = selectedLanguage;
-        }
+            _appliedSettings = settings.Clone();
+            if (SettingsText.Preference != settings.InterfaceLocalePreference) SettingsText.ApplyPreference(settings.InterfaceLocalePreference);
+            SetProperty(ref _followCaretOptionEnabled, settings.FollowCaretOptionEnabled, nameof(FollowCaretOptionEnabled));
+            OnPropertyChanged(nameof(RequestsCaretGeometry));
+            var selectedLanguage = LanguageOptions.FirstOrDefault(option =>
+                string.Equals(option.LanguageCode, settings.SelectedLanguageCode, StringComparison.OrdinalIgnoreCase));
+            if (selectedLanguage is not null)
+            {
+                SelectedLanguageOption = selectedLanguage;
+            }
 
-        IsGlobalCaptureEnabled = settings.IsGlobalCaptureEnabled;
-        IsAnalyzerColoringEnabled = settings.IsTextAnalyzerColoringEnabled;
-        IsSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
-        IsPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
-        _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
-        _insightsStore.StoreTextExamples = settings.StoreSentenceExamples;
-        SuggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
-        NotifyEditorSurfaceStateChanged();
-        OnPropertyChanged(nameof(OverlaySupportSummary));
-        StatusMessage = "Indstillinger er gemt og anvendt i Windows-sessionen.";
+            IsGlobalCaptureEnabled = settings.IsGlobalCaptureEnabled;
+            IsAnalyzerColoringEnabled = settings.IsTextAnalyzerColoringEnabled;
+            IsSemanticDiagnosticsEnabled = settings.IsSemanticDiagnosticsEnabled;
+            IsPunctuationDiagnosticsEnabled = settings.IsPunctuationDiagnosticsEnabled;
+            _isErrorTrackingEnabled = settings.IsErrorTrackingEnabled;
+            _insightsStore.StoreTextExamples = settings.StoreSentenceExamples;
+            SuggestionPlacementMode = ResolveSuggestionPlacementMode(settings.SuggestionPlacementMode);
+            NotifyEditorSurfaceStateChanged();
+            OnPropertyChanged(nameof(OverlaySupportSummary));
+            StatusMessage = SettingsText.Get("Saved");
+        }
+        finally { _applyingSettings = false; }
+    }
+
+    private void SettingsServiceOnChanged(object? sender, AppSettingsSnapshot settings)
+    {
+        ApplySavedSettings(settings);
+        SettingsChanged?.Invoke(this, settings.Clone());
+    }
+
+    private bool ChangeSetting(Action<AppSettingsSnapshot> change)
+    {
+        var original = LoadSettingsSnapshot();
+        var edited = original.Clone(); change(edited);
+        return TryApplySettingsChanges(original, edited);
     }
 
     public void RecordBackspaceActivity()
@@ -689,12 +734,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     public void SetSuggestionPlacementMode(SuggestionPlacementMode mode)
     {
-        SuggestionPlacementMode = mode;
-        PersistCurrentSettings();
-        OnPropertyChanged(nameof(OverlaySupportSummary));
+        if (mode == SuggestionPlacementMode.FollowCaret && !FollowCaretOptionEnabled)
+        { StatusMessage = SettingsText.Get("FollowDisabled"); return; }
+        if (!ChangeSetting(s => s.SuggestionPlacementMode = mode == SuggestionPlacementMode.FollowCaret ? "followCaret" : "static")) return;
         StatusMessage = mode == SuggestionPlacementMode.FollowCaret
-            ? "Ordforslagsboksen følger nu markøren, når caret-placering er tilgængelig."
-            : "Ordforslagsboksen bruger nu statisk placering.";
+            ? SettingsText.Get("FollowSelected") : SettingsText.Get("StaticSelected");
     }
 
     public void ChangeSuggestionPage(int delta)
@@ -1053,12 +1097,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
         return SelectedLanguageOption.LanguageCode;
     }
 
-    private void PersistCurrentSettings() => TrySaveSettings(CaptureCurrentSettings(_settingsService.Load()));
+    private void PersistCurrentSettings()
+    {
+        if (!_applyingSettings) TrySaveSettings(CaptureCurrentSettings(_settingsService.Load()));
+    }
 
     private bool TrySaveSettings(AppSettingsSnapshot settings)
     {
         try { _settingsService.Save(settings); return true; }
-        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
         {
             StatusMessage = "Indstillingerne kunne ikke gemmes. Eksisterende data er bevaret.";
             return false;
@@ -1100,6 +1147,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        _settingsService.Changed -= SettingsServiceOnChanged;
         Interlocked.Increment(ref _requestRevision);
         _suggestionCts?.Cancel();
         _suggestionCts?.Dispose();

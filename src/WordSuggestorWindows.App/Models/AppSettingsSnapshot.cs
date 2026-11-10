@@ -5,7 +5,11 @@ namespace WordSuggestorWindows.App.Models;
 
 public sealed class AppSettingsSnapshot
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = SettingsSchema.CurrentVersion;
+
+    public string InterfaceLocalePreference { get; set; } = "system_default";
+
+    public bool FollowCaretOptionEnabled { get; set; } = true;
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement> AdditionalProperties { get; set; } = [];
@@ -61,6 +65,8 @@ public sealed class AppSettingsSnapshot
         new()
         {
             SchemaVersion = SchemaVersion,
+            InterfaceLocalePreference = InterfaceLocalePreference,
+            FollowCaretOptionEnabled = FollowCaretOptionEnabled,
             AdditionalProperties = AdditionalProperties.ToDictionary(p => p.Key, p => p.Value.Clone()),
             IsGlobalCaptureEnabled = IsGlobalCaptureEnabled,
             SelectedLanguageCode = SelectedLanguageCode,

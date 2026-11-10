@@ -31,7 +31,7 @@ parity gaps, not invented Windows implementations. Reference media stays untrack
 
 See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
 
-Settings UI target (slice 1 shell implemented; full functional parity remains open):
+Settings UI target (slices 1–2 implemented within recorded scope; full parity remains open):
 [WSA-UX-029](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md)
 uses canonical macOS ba18b45 and the 11 supplied screenshots. It specifies the
 Profile account card and General/Speech/Suggestions/Analysis/Learning/Error Tracking/
@@ -40,9 +40,14 @@ The user chose Windows Hello with PIN or biometrics, configurable Ctrl/Ctrl+Shif
 defaults for the three lanes, and the current Windows settings as the migration
 legacy view. Slice 1 provides native sidebar navigation, grouped rows, contextual
 help and the non-recursive Windows legacy window, with shared field-scoped saves.
-It retains explicit Gem/Annuller until slice 2. [Qualification](qualification/WSA-UX-029_slice1.md)
-separates automated desktop evidence from open human accessibility/DPI gates.
-Ordinary settings become live in slice 2; account/profile mutations retain
+Slice 2 now saves ordinary preferences live with a Close action; legacy retains
+explicit Gem/Annuller and conflict protection. Independent Follow Windows/Danish/
+English Settings copy does not change writing language or voices. The translated
+scope is Settings/legacy; older app copy remains a gap. The new caret permission
+normalizes off to static and gates measurement work; on only exposes the choice.
+[Qualification/recovery](qualification/WSA-UX-029_slice2.md) records schema 2,
+automated desktop evidence and open human accessibility/DPI gates.
+Account/profile mutations retain
 explicit actions. Existing editor Ctrl+Tab navigation is preserved. The new layout
 and each runtime effect require the sprint's own evidence before being called parity.
 The [slice 0 report](qualification/WSA-UX-029_slice0.md) records the passing baseline

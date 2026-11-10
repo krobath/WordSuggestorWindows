@@ -87,6 +87,7 @@ public partial class MainWindow : Window
     private bool _isApplyingSpeechHighlightSelection;
     private bool _isResolvingExternalSelection;
     private bool _isUpdatingExternalSuggestionAnchor;
+    private long _caretMeasurementGeneration;
     private string? _documentPath;
     private string _savedDocumentText = string.Empty;
 
@@ -422,6 +423,13 @@ public partial class MainWindow : Window
                     CaptureOrInitializeStaticOverlayPosition();
                 }
 
+                SyncOverlayVisibility();
+                break;
+            case nameof(MainWindowViewModel.RequestsCaretGeometry):
+                _caretMeasurementGeneration++;
+                _lastExternalSuggestionAnchor = null;
+                _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
+                if (_viewModel.IsStaticPlacementMode) CaptureOrInitializeStaticOverlayPosition();
                 SyncOverlayVisibility();
                 break;
             case nameof(MainWindowViewModel.IsGlobalCaptureEnabled):
@@ -993,7 +1001,7 @@ public partial class MainWindow : Window
 
     private void UpdateExternalSuggestionAnchor()
     {
-        if (!_viewModel.IsExternalSuggestionSessionActive)
+        if (!_viewModel.RequestsCaretGeometry || !_viewModel.IsExternalSuggestionSessionActive)
         {
             _lastExternalSuggestionAnchor = null;
             _lastExternalSuggestionAnchorDiagnosticSignature = string.Empty;
@@ -1036,7 +1044,7 @@ public partial class MainWindow : Window
 
     private void UpdateExternalSuggestionAnchorAsync()
     {
-        if (!_viewModel.IsExternalSuggestionSessionActive || _isUpdatingExternalSuggestionAnchor)
+        if (!_viewModel.RequestsCaretGeometry || !_viewModel.IsExternalSuggestionSessionActive || _isUpdatingExternalSuggestionAnchor)
         {
             return;
         }
@@ -1053,6 +1061,7 @@ public partial class MainWindow : Window
         }
 
         _isUpdatingExternalSuggestionAnchor = true;
+        var measurementGeneration = _caretMeasurementGeneration;
         var capturedMainWindow = _windowHandle;
         _ = Task.Run(() =>
         {
@@ -1063,7 +1072,8 @@ public partial class MainWindow : Window
             {
                 _isUpdatingExternalSuggestionAnchor = false;
 
-                if (!_viewModel.IsExternalSuggestionSessionActive || _viewModel.ExternalSuggestionWindowHandle != targetWindow || _editorWindow.IsActive)
+                if (measurementGeneration != _caretMeasurementGeneration || !_viewModel.RequestsCaretGeometry ||
+                    !_viewModel.IsExternalSuggestionSessionActive || _viewModel.ExternalSuggestionWindowHandle != targetWindow || _editorWindow.IsActive)
                 {
                     return;
                 }
@@ -1934,9 +1944,9 @@ public partial class MainWindow : Window
     private void UpdateOverlayPosition()
     {
         if (_overlayWindow is null || !_viewModel.ShouldShowSuggestionOverlay) return;
-        var confirmed = _viewModel.IsExternalSuggestionSessionActive
+        var confirmed = _viewModel.RequestsCaretGeometry && (_viewModel.IsExternalSuggestionSessionActive
             ? _lastExternalSuggestionAnchor is { Quality: SuggestionAnchorQuality.Confirmed }
-            : TryGetCaretScreenRect(out _);
+            : TryGetCaretScreenRect(out _));
         var follow = _viewModel.IsFollowCaretPlacementMode && confirmed;
         var anchor = follow ? ResolveOverlayAnchor() : _manualOverlayTopLeft ?? DefaultStaticPosition();
         ScreenPlacement.Place(_overlayWindow, anchor, follow);
@@ -2000,6 +2010,7 @@ public partial class MainWindow : Window
     private bool TryGetCaretScreenRect(out Rect caretRect)
     {
         caretRect = Rect.Empty;
+        if (!_viewModel.RequestsCaretGeometry) return false;
 
         if (!EditorTextBox.IsLoaded)
         {

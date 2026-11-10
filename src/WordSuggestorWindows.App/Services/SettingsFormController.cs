@@ -9,296 +9,274 @@ internal sealed class SettingsFormController : IDisposable
 {
     private readonly MainWindowViewModel _viewModel;
     private readonly Window _host;
-    private readonly AppSettingsSnapshot _original;
-    private readonly AppSettingsSnapshot _settings;
+    private readonly bool _live;
+    private AppSettingsSnapshot _original;
+    private AppSettingsSnapshot _settings;
     private bool _loading = true;
     private bool _disposed;
-    private string? _voiceLanguageKey;
     private bool _refreshingVoices;
+    private string? _voiceLanguageKey;
     private readonly HashSet<string> _editedVoiceLanguages = [];
+    private readonly List<Action> _unsubscribe = [];
     private readonly WindowsUpdateService _updates = new();
     private readonly CancellationTokenSource _updateCancellation = new();
+    private UpdateCheckResult? _updateResult;
+    private bool _checkingUpdates;
+    private string? _statusKey;
 
-    public SettingsFormController(Window host, MainWindowViewModel viewModel)
+    public SettingsFormController(Window host, MainWindowViewModel viewModel, bool live = false)
     {
-        _host = host;
-        _viewModel = viewModel;
-        _original = viewModel.LoadSettingsSnapshot().Clone();
-        _settings = _original.Clone();
-        InitializeOptionSources();
-        LoadControlsFromSettings();
-        VersionText.Text = _updates.VersionLabel;
-        UpdateStatusText.Text = _updates.IsProductionInstalled
-            ? "Automatisk kontrol ved start og i baggrunden. Du kan også kontrollere manuelt."
-            : "Denne udgave er ikke installeret som den officielle MSIX-beta.";
-        UseSystemSpeechSettingsCheckBox.Checked += SpeechSettings_OnChanged;
-        UseSystemSpeechSettingsCheckBox.Unchecked += SpeechSettings_OnChanged;
-        ReadingSpeedSlider.ValueChanged += ReadingSpeedSlider_OnValueChanged;
-        SystemVoiceComboBox.SelectionChanged += OnVoiceChanged;
+        _host = host; _viewModel = viewModel; _live = live;
+        _original = viewModel.LoadSettingsSnapshot().Clone(); _settings = _original.Clone();
+        InitializeOptionSources(); LoadControls(); RenderStatus();
         _loading = false;
-        _host.Closed += (_, _) => Dispose();
-    }
-
-    public async void CheckUpdates_OnClick(object sender, RoutedEventArgs e)
-    {
-        CheckUpdatesButton.IsEnabled = false;
-        UpdateStatusText.Text = "Kontrollerer opdateringer…";
-        try
+        Language.SelectionChanged += OnLanguageChanged;
+        Voice.SelectionChanged += OnVoiceChanged;
+        SystemSpeech.Checked += OnSpeechChanged; SystemSpeech.Unchecked += OnSpeechChanged;
+        Speed.ValueChanged += OnSpeedChanged;
+        _unsubscribe.Add(() => { Language.SelectionChanged -= OnLanguageChanged; Voice.SelectionChanged -= OnVoiceChanged;
+            SystemSpeech.Checked -= OnSpeechChanged; SystemSpeech.Unchecked -= OnSpeechChanged; Speed.ValueChanged -= OnSpeedChanged; });
+        if (live)
         {
-            var result = await _updates.CheckAsync(_updateCancellation.Token);
-            UpdateStatusText.Text = result.Message;
-            OpenUpdateButton.Visibility = result.Code == "available" ? Visibility.Visible : Visibility.Collapsed;
+            foreach (var combo in new[] { Optional<ComboBox>("InterfaceLanguageComboBox"), SpeechLanguage, Strategy, Highlight })
+            {
+                if (combo is null) continue;
+                SelectionChangedEventHandler handler = (_, _) => CommitLive();
+                combo.SelectionChanged += handler; _unsubscribe.Add(() => combo.SelectionChanged -= handler);
+            }
+            foreach (var check in new[] { Optional<CheckBox>("FollowCaretOptionCheckBox"), Global, Domain, Analysis, Colouring, Semantic, Punctuation, Errors, Examples, Performance, AppDebug, PanelDebug, CoreDebug })
+            {
+                if (check is null) continue;
+                RoutedEventHandler handler = (_, _) => CommitLive();
+                check.Checked += handler; check.Unchecked += handler;
+                _unsubscribe.Add(() => { check.Checked -= handler; check.Unchecked -= handler; });
+            }
         }
-        catch (OperationCanceledException) { }
-        finally { if (!_disposed) CheckUpdatesButton.IsEnabled = true; }
-    }
-
-    public void OpenUpdate_OnClick(object sender, RoutedEventArgs e)
-    {
-        try { _updates.OpenInstaller(); }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-        { UpdateStatusText.Text = "Windows kunne ikke åbne installationsfilen. Prøv igen senere."; }
+        SettingsText.Changed += OnCopyChanged;
+        viewModel.SettingsChanged += OnStoredSettingsChanged;
+        _unsubscribe.Add(() => { SettingsText.Changed -= OnCopyChanged; viewModel.SettingsChanged -= OnStoredSettingsChanged; });
+        _host.Closed += (_, _) => Dispose();
+        if (!viewModel.CanWriteSettings) SetStatus("UnavailableData");
     }
 
     private void InitializeOptionSources()
     {
-        LanguageComboBox.ItemsSource = _viewModel.LanguageOptions;
-        PlacementModeComboBox.ItemsSource = new[]
-        {
-            new SettingsOption("followCaret", "Under tekst / følg markøren"),
-            new SettingsOption("static", "Statisk placering")
-        };
-        SpeechLanguageModeComboBox.ItemsSource = new[]
-        {
-            new SettingsOption("useSelectedLanguage", "Brug valgt sprog"),
-            new SettingsOption("autoDetect", "Automatisk (bruger valgt sprog i Windows-baseline)")
-        };
-        ReadingStrategyComboBox.ItemsSource = new[]
-        {
-            new SettingsOption("none", "Ingen"),
-            new SettingsOption("word", "Læs ord"),
-            new SettingsOption("sentence", "Læs sætning"),
-            new SettingsOption("paragraph", "Læs afsnit"),
-            new SettingsOption("page", "Læs side"),
-            new SettingsOption("all", "Læs alt")
-        };
-        ReadingHighlightModeComboBox.ItemsSource = new[]
-        {
-            new SettingsOption("none", "Ingen"),
-            new SettingsOption("word", "Ord"),
-            new SettingsOption("sentence", "Sætning")
-        };
-
-        LanguageComboBox.SelectionChanged += LanguageComboBox_OnSelectionChanged;
+        Language.ItemsSource = _viewModel.LanguageOptions.Select(l => new SettingsOption(l.LanguageCode,
+            l.IsPackAvailable ? LanguageName(l) : SettingsText.Format("MissingPack", LanguageName(l)), l.IsPackAvailable)).ToArray();
+        if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui)
+            ui.ItemsSource = new[] { Option("system_default", "FollowWindows"), Option("da-DK", "Danish"), Option("en-GB", "English") };
+        if (Optional<ComboBox>("PlacementModeComboBox") is { } placement)
+            placement.ItemsSource = new[] { Option("followCaret", "FollowCaret"), Option("static", "Static") };
+        SpeechLanguage.ItemsSource = new[] { Option("useSelectedLanguage", "UseSelectedLanguage"), Option("autoDetect", "AutoLanguage") };
+        Strategy.ItemsSource = new[] { Option("none", "None"), Option("word", "ReadWord"), Option("sentence", "ReadSentence"), Option("paragraph", "ReadParagraph"), Option("page", "ReadPage"), Option("all", "ReadAll") };
+        Highlight.ItemsSource = new[] { Option("none", "None"), Option("word", "Word"), Option("sentence", "Sentence") };
     }
 
-    private void LoadControlsFromSettings()
+    private static string LanguageName(LanguageOption language) => language.LanguageCode.ToLowerInvariant() switch
+    { "da-dk" => SettingsText.Get("Danish"), "en-us" => SettingsText.Get("English"), "de-de" => SettingsText.Get("German"), _ => language.LanguageCode };
+    private static SettingsOption Option(string value, string key) => new(value, SettingsText.Get(key));
+
+    private void LoadControls()
     {
-        LanguageComboBox.SelectedValue = _settings.SelectedLanguageCode;
-        PlacementModeComboBox.SelectedValue = _settings.SuggestionPlacementMode;
-        SpeechLanguageModeComboBox.SelectedValue = _settings.SpeechLanguageMode;
-        GlobalSuggestionsCheckBox.IsChecked = _settings.IsGlobalCaptureEnabled;
-        DomainListsCheckBox.IsChecked = _settings.IsDomainListsEnabled;
-        UseSystemSpeechSettingsCheckBox.IsChecked = _settings.UseSystemSpeechSettings;
-        ReadingSpeedSlider.Value = _settings.ReadingSpeedDelta;
-        ReadingStrategyComboBox.SelectedValue = _settings.ReadingStrategy;
-        ReadingHighlightModeComboBox.SelectedValue = _settings.ReadingHighlightMode;
-        TextAnalyzerEnabledCheckBox.IsChecked = _settings.IsTextAnalyzerEnabled;
-        TextAnalyzerColoringCheckBox.IsChecked = _settings.IsTextAnalyzerColoringEnabled;
-        SemanticDiagnosticsCheckBox.IsChecked = _settings.IsSemanticDiagnosticsEnabled;
-        PunctuationDiagnosticsCheckBox.IsChecked = _settings.IsPunctuationDiagnosticsEnabled;
-        ErrorTrackingEnabledCheckBox.IsChecked = _settings.IsErrorTrackingEnabled;
-        StoreSentenceExamplesCheckBox.IsChecked = _settings.StoreSentenceExamples;
-        PerformanceInstrumentationCheckBox.IsChecked = _settings.IsPerformanceInstrumentationEnabled;
-        AppDebugLoggingCheckBox.IsChecked = _settings.IsAppDebugLoggingEnabled;
-        PlacementDebugLoggingCheckBox.IsChecked = _settings.IsPlacementDebugLoggingEnabled;
-        CoreDebugLoggingCheckBox.IsChecked = _settings.IsCoreDebugLoggingEnabled;
+        Language.SelectedValue = _settings.SelectedLanguageCode;
+        // Unknown/missing writing-language intentions are retained, not replaced
+        // by a displayed fallback language on an unrelated save.
+        if (Language.SelectedIndex < 0)
+        {
+            var choices = ((IEnumerable<SettingsOption>)Language.ItemsSource).ToList();
+            choices.Add(new(_settings.SelectedLanguageCode, SettingsText.Format("UnavailableLanguage", _settings.SelectedLanguageCode), false));
+            Language.ItemsSource = choices; Language.SelectedValue = _settings.SelectedLanguageCode;
+        }
+        if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui) ui.SelectedValue = _settings.InterfaceLocalePreference;
+        if (Optional<CheckBox>("FollowCaretOptionCheckBox") is { } allowed) allowed.IsChecked = _settings.FollowCaretOptionEnabled;
+        if (Optional<ComboBox>("PlacementModeComboBox") is { } placement)
+        { placement.SelectedValue = _settings.SuggestionPlacementMode; placement.IsEnabled = _viewModel.FollowCaretOptionEnabled; }
+        SpeechLanguage.SelectedValue = _settings.SpeechLanguageMode;
+        Global.IsChecked = _settings.IsGlobalCaptureEnabled; Domain.IsChecked = _settings.IsDomainListsEnabled;
+        SystemSpeech.IsChecked = _settings.UseSystemSpeechSettings; Speed.Value = _settings.ReadingSpeedDelta;
+        Strategy.SelectedValue = _settings.ReadingStrategy; Highlight.SelectedValue = _settings.ReadingHighlightMode;
+        Analysis.IsChecked = _settings.IsTextAnalyzerEnabled; Colouring.IsChecked = _settings.IsTextAnalyzerColoringEnabled;
+        Semantic.IsChecked = _settings.IsSemanticDiagnosticsEnabled; Punctuation.IsChecked = _settings.IsPunctuationDiagnosticsEnabled;
+        Errors.IsChecked = _settings.IsErrorTrackingEnabled; Examples.IsChecked = _settings.StoreSentenceExamples;
+        Performance.IsChecked = _settings.IsPerformanceInstrumentationEnabled; AppDebug.IsChecked = _settings.IsAppDebugLoggingEnabled;
+        PanelDebug.IsChecked = _settings.IsPlacementDebugLoggingEnabled; CoreDebug.IsChecked = _settings.IsCoreDebugLoggingEnabled;
         RefreshSpeechControls();
+    }
+
+    private void ReadControls()
+    {
+        _settings.SelectedLanguageCode = Language.SelectedValue as string ?? _settings.SelectedLanguageCode;
+        if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui) _settings.InterfaceLocalePreference = ui.SelectedValue as string ?? _settings.InterfaceLocalePreference;
+        if (Optional<CheckBox>("FollowCaretOptionCheckBox") is { } allowed) _settings.FollowCaretOptionEnabled = allowed.IsChecked == true;
+        if (Optional<ComboBox>("PlacementModeComboBox") is { } placement) _settings.SuggestionPlacementMode = placement.SelectedValue as string ?? _settings.SuggestionPlacementMode;
+        _settings.SpeechLanguageMode = SpeechLanguage.SelectedValue as string ?? _settings.SpeechLanguageMode;
+        _settings.IsGlobalCaptureEnabled = Global.IsChecked == true; _settings.IsDomainListsEnabled = Domain.IsChecked == true;
+        _settings.UseSystemSpeechSettings = SystemSpeech.IsChecked == true; _settings.ReadingSpeedDelta = Speed.Value;
+        _settings.ReadingStrategy = Strategy.SelectedValue as string ?? _settings.ReadingStrategy;
+        _settings.ReadingHighlightMode = Highlight.SelectedValue as string ?? _settings.ReadingHighlightMode;
+        SaveVoiceOverride();
+        _settings.IsTextAnalyzerEnabled = Analysis.IsChecked == true; _settings.IsTextAnalyzerColoringEnabled = Colouring.IsChecked == true;
+        _settings.IsSemanticDiagnosticsEnabled = Semantic.IsChecked == true; _settings.IsPunctuationDiagnosticsEnabled = Punctuation.IsChecked == true;
+        _settings.IsErrorTrackingEnabled = Errors.IsChecked == true; _settings.StoreSentenceExamples = Examples.IsChecked == true;
+        _settings.IsPerformanceInstrumentationEnabled = Performance.IsChecked == true; _settings.IsAppDebugLoggingEnabled = AppDebug.IsChecked == true;
+        _settings.IsPlacementDebugLoggingEnabled = PanelDebug.IsChecked == true; _settings.IsCoreDebugLoggingEnabled = CoreDebug.IsChecked == true;
+    }
+
+    private void CommitLive()
+    {
+        if (_loading || !_live || _disposed) return;
+        ReadControls();
+        if (_viewModel.TryApplySettingsChanges(_original, _settings)) SetStatus("Saved");
+        else
+        {
+            // Failed live changes are neither queued nor secretly applied. Show
+            // the effective last-known settings and retain a visible error.
+            _settings = _original.Clone(); _editedVoiceLanguages.Clear();
+            _loading = true; try { LoadControls(); } finally { _loading = false; }
+            Find<TextBlock>("SettingsSaveStatus").Text = _viewModel.StatusMessage;
+            _statusKey = null;
+        }
     }
 
     public void SaveButton_OnClick(object sender, RoutedEventArgs e)
     {
-        _settings.SelectedLanguageCode = LanguageComboBox.SelectedValue as string ?? _settings.SelectedLanguageCode;
-        _settings.SuggestionPlacementMode = PlacementModeComboBox.SelectedValue as string ?? "followCaret";
-        _settings.SpeechLanguageMode = SpeechLanguageModeComboBox.SelectedValue as string ?? "useSelectedLanguage";
-        _settings.IsGlobalCaptureEnabled = GlobalSuggestionsCheckBox.IsChecked == true;
-        _settings.IsDomainListsEnabled = DomainListsCheckBox.IsChecked == true;
-        _settings.UseSystemSpeechSettings = UseSystemSpeechSettingsCheckBox.IsChecked == true;
-        _settings.ReadingSpeedDelta = ReadingSpeedSlider.Value;
-        _settings.ReadingStrategy = ReadingStrategyComboBox.SelectedValue as string ?? "none";
-        _settings.ReadingHighlightMode = ReadingHighlightModeComboBox.SelectedValue as string ?? "word";
-        SaveVoiceOverrideForSelectedLanguage();
-        _settings.IsTextAnalyzerEnabled = TextAnalyzerEnabledCheckBox.IsChecked == true;
-        _settings.IsTextAnalyzerColoringEnabled = TextAnalyzerColoringCheckBox.IsChecked == true;
-        _settings.IsSemanticDiagnosticsEnabled = SemanticDiagnosticsCheckBox.IsChecked == true;
-        _settings.IsPunctuationDiagnosticsEnabled = PunctuationDiagnosticsCheckBox.IsChecked == true;
-        _settings.IsErrorTrackingEnabled = ErrorTrackingEnabledCheckBox.IsChecked == true;
-        _settings.StoreSentenceExamples = StoreSentenceExamplesCheckBox.IsChecked == true;
-        _settings.IsPerformanceInstrumentationEnabled = PerformanceInstrumentationCheckBox.IsChecked == true;
-        _settings.IsAppDebugLoggingEnabled = AppDebugLoggingCheckBox.IsChecked == true;
-        _settings.IsPlacementDebugLoggingEnabled = PlacementDebugLoggingCheckBox.IsChecked == true;
-        _settings.IsCoreDebugLoggingEnabled = CoreDebugLoggingCheckBox.IsChecked == true;
-
+        ReadControls();
         if (!_viewModel.TryApplySettingsChanges(_original, _settings))
+        { Find<TextBlock>("SettingsSaveStatus").Text = _viewModel.StatusMessage; return; }
+        _host.Close();
+    }
+    public void CancelButton_OnClick(object sender, RoutedEventArgs e) => _host.Close();
+
+    private void OnStoredSettingsChanged(object? sender, AppSettingsSnapshot snapshot)
+    {
+        if (_disposed) return;
+        if (!_live)
         {
-            Find<TextBlock>("SettingsSaveStatus").Text = _viewModel.StatusMessage;
+            // Keep the legacy draft/baseline for three-way conflict detection.
+            if (Optional<ComboBox>("PlacementModeComboBox") is { } placement) placement.IsEnabled = snapshot.FollowCaretOptionEnabled;
             return;
         }
-        _host.Close();
+        _original = snapshot.Clone(); _settings = snapshot.Clone(); _editedVoiceLanguages.Clear();
+        _loading = true; try { LoadControls(); } finally { _loading = false; }
     }
 
-    public void CancelButton_OnClick(object sender, RoutedEventArgs e)
+    private void OnCopyChanged(object? sender, EventArgs e)
     {
-        _host.Close();
+        if (_disposed) return;
+        // Changing translations must not save, clear a legacy draft or reapply
+        // a voice choice while rebuilding the option presentation.
+        _loading = true;
+        try { ReadControls(); InitializeOptionSources(); LoadControls(); RenderStatus(); }
+        finally { _loading = false; }
     }
-
-    private void LanguageComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void SetStatus(string key) { _statusKey = key; Find<TextBlock>("SettingsSaveStatus").Text = SettingsText.Get(key); }
+    private void RenderStatus()
     {
-        RefreshSpeechControls();
+        Find<TextBlock>("VersionText").Text = _updates.VersionLabel;
+        Find<TextBlock>("UpdateStatusText").Text = _checkingUpdates ? SettingsText.Get("UpdateChecking") : _updateResult is { } result
+            ? SettingsText.Format("Update." + result.Code, result.AvailableVersion)
+            : SettingsText.Get(_updates.IsProductionInstalled ? "UpdateInstalled" : "UpdateDevelopment");
+        if (_statusKey is not null) SetStatus(_statusKey);
     }
 
-    private void SpeechSettings_OnChanged(object sender, RoutedEventArgs e)
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    { if (_loading) return; RefreshSpeechControls(); CommitLive(); }
+    private void OnSpeechChanged(object sender, RoutedEventArgs e)
+    { if (_loading) return; RefreshSpeechControls(); CommitLive(); }
+    private void OnSpeedChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    { Find<TextBlock>("ReadingSpeedValueText").Text = $"{(int)((1 + Speed.Value) * 100)}%"; CommitLive(); }
+    private void OnVoiceChanged(object sender, SelectionChangedEventArgs e)
     {
-        RefreshSpeechControls();
+        if (_loading || _refreshingVoices || _voiceLanguageKey is null) return;
+        _editedVoiceLanguages.Add(_voiceLanguageKey); CommitLive();
     }
-
-    private void ReadingSpeedSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (ReadingSpeedValueText is not null)
-        {
-            ReadingSpeedValueText.Text = $"{(int)((1.0 + ReadingSpeedSlider.Value) * 100)}%";
-        }
-    }
-
-    public void OpenSpeechSettingsButton_OnClick(object sender, RoutedEventArgs e) =>
-        OpenWindowsSettings("ms-settings:speech");
-
-    public void OpenLanguageSettingsButton_OnClick(object sender, RoutedEventArgs e) =>
-        OpenWindowsSettings("ms-settings:regionlanguage");
 
     private void RefreshSpeechControls()
     {
-        if (SystemVoiceComboBox is null)
-        {
-            return;
-        }
-
-        if (!_loading) SaveVoiceOverrideForSelectedLanguage();
-        var languageCode = LanguageComboBox.SelectedValue as string ?? _settings.SelectedLanguageCode;
-        var languageKey = languageCode.ToLowerInvariant();
-        _voiceLanguageKey = languageKey;
-        var matchingVoices = WindowsVoiceCatalogService.GetVoiceOptionsForLanguage(languageCode);
-        var oneCoreStatus = WindowsTextToSpeechService.GetOneCoreRuntimeStatus();
-        var options = new List<SettingsOption>
-        {
-            new(string.Empty, "Automatisk (bedst)")
-        };
-        options.AddRange(matchingVoices.Select(voice => new SettingsOption(voice.Id, voice.DisplayLabel)));
-
+        if (!_loading) SaveVoiceOverride();
+        var language = Language.SelectedValue as string ?? _settings.SelectedLanguageCode;
+        _voiceLanguageKey = language.ToLowerInvariant();
+        var voices = WindowsVoiceCatalogService.GetVoiceOptionsForLanguage(language);
+        var options = new List<SettingsOption> { Option("", "AutomaticVoice") };
+        options.AddRange(voices.Select(v => new SettingsOption(v.Id, v.DisplayLabel)));
         _refreshingVoices = true;
         try
         {
-            SystemVoiceComboBox.ItemsSource = options;
-            SystemVoiceComboBox.SelectedValue =
-                _settings.SystemVoiceIdOverrideByLanguage.TryGetValue(languageKey, out var voiceId) &&
-                options.Any(option => string.Equals(option.Value, voiceId, StringComparison.OrdinalIgnoreCase))
-                    ? voiceId
-                    : string.Empty;
+            Voice.ItemsSource = options;
+            Voice.SelectedValue = _settings.SystemVoiceIdOverrideByLanguage.TryGetValue(_voiceLanguageKey, out var saved) && options.Any(o => o.Value.Equals(saved, StringComparison.OrdinalIgnoreCase)) ? saved : "";
         }
         finally { _refreshingVoices = false; }
-
-        var hasLanguageVoice = WindowsVoiceCatalogService.HasLanguageVoice(languageCode);
-        var oneCoreLanguageVoice = matchingVoices.FirstOrDefault(voice =>
-            string.Equals(voice.Source, WindowsVoiceCatalogService.OneCoreSource, StringComparison.OrdinalIgnoreCase) &&
-            !voice.IsFallback);
-        var useSystemSettings = UseSystemSpeechSettingsCheckBox.IsChecked == true;
-        SystemVoiceComboBox.IsEnabled = !useSystemSettings && options.Count > 1;
-        ReadingSpeedSlider.IsEnabled = !useSystemSettings;
-        VoiceStatusTextBlock.Text =
-            oneCoreLanguageVoice is not null && !oneCoreStatus.IsAvailable
-                ? $"Der findes en installeret OneCore-stemme for {languageCode} ({oneCoreLanguageVoice.DisplayName}), men OneCore-playback er ikke valideret på denne host endnu: {oneCoreStatus.Detail}"
-                : hasLanguageVoice
-                    ? $"Der findes en installeret Windows-stemme for {languageCode}."
-                    : $"Ingen installeret Windows-stemme matcher {languageCode}. Installer en Windows-stemme for sproget, ellers bruges en fallback-stemme.";
-        ReadingSpeedSlider_OnValueChanged(this, new RoutedPropertyChangedEventArgs<double>(ReadingSpeedSlider.Value, ReadingSpeedSlider.Value));
+        Voice.IsEnabled = SystemSpeech.IsChecked != true && options.Count > 1;
+        Speed.IsEnabled = SystemSpeech.IsChecked != true;
+        var unavailableOneCore = voices.Any(v => v.Source == WindowsVoiceCatalogService.OneCoreSource && !v.IsFallback) && !WindowsTextToSpeechService.GetOneCoreRuntimeStatus().IsAvailable;
+        Find<TextBlock>("VoiceStatusTextBlock").Text = SettingsText.Format(unavailableOneCore ? "VoiceRuntimeUnavailable" : WindowsVoiceCatalogService.HasLanguageVoice(language) ? "VoiceAvailable" : "VoiceMissing", language);
+        Find<TextBlock>("ReadingSpeedValueText").Text = $"{(int)((1 + Speed.Value) * 100)}%";
     }
 
-    private void SaveVoiceOverrideForSelectedLanguage()
+    private void SaveVoiceOverride()
     {
-        var languageCode = _voiceLanguageKey ?? _settings.SelectedLanguageCode.ToLowerInvariant();
-        if (!_editedVoiceLanguages.Contains(languageCode)) return;
-        var selectedVoiceId = SystemVoiceComboBox.SelectedValue as string;
-        if (string.IsNullOrWhiteSpace(selectedVoiceId))
-        {
-            _settings.SystemVoiceIdOverrideByLanguage.Remove(languageCode);
-            return;
-        }
-
-        _settings.SystemVoiceIdOverrideByLanguage[languageCode] = selectedVoiceId;
+        if (_voiceLanguageKey is null || !_editedVoiceLanguages.Contains(_voiceLanguageKey)) return;
+        if (Voice.SelectedValue is string id && !string.IsNullOrWhiteSpace(id)) _settings.SystemVoiceIdOverrideByLanguage[_voiceLanguageKey] = id;
+        else _settings.SystemVoiceIdOverrideByLanguage.Remove(_voiceLanguageKey);
     }
 
-    private void OnVoiceChanged(object sender, SelectionChangedEventArgs e)
+    public async void CheckUpdates_OnClick(object sender, RoutedEventArgs e)
     {
-        if (!_loading && !_refreshingVoices && _voiceLanguageKey is not null) _editedVoiceLanguages.Add(_voiceLanguageKey);
-    }
-
-    private static void OpenWindowsSettings(string uri)
-    {
+        var button = Find<Button>("CheckUpdatesButton"); button.IsEnabled = false;
+        _checkingUpdates = true;
+        Find<TextBlock>("UpdateStatusText").Text = SettingsText.Get("UpdateChecking");
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = uri,
-                UseShellExecute = true
-            });
+            _updateResult = await _updates.CheckAsync(_updateCancellation.Token);
+            if (_disposed) return;
+            _checkingUpdates = false;
+            RenderStatus(); Find<Button>("OpenUpdateButton").Visibility = _updateResult.Code == "available" ? Visibility.Visible : Visibility.Collapsed;
         }
-        catch (InvalidOperationException)
-        {
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-        }
+        catch (OperationCanceledException) { }
+        finally { _checkingUpdates = false; if (!_disposed) { button.IsEnabled = true; RenderStatus(); } }
+    }
+    public void OpenUpdate_OnClick(object sender, RoutedEventArgs e)
+    {
+        try { _updates.OpenInstaller(); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        { Find<TextBlock>("UpdateStatusText").Text = SettingsText.Get("UpdateOpenFailed"); }
+    }
+    public void OpenSpeechSettingsButton_OnClick(object sender, RoutedEventArgs e) => OpenWindowsSettings("ms-settings:speech");
+    public void OpenLanguageSettingsButton_OnClick(object sender, RoutedEventArgs e) => OpenWindowsSettings("ms-settings:regionlanguage");
+    private static void OpenWindowsSettings(string uri)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { }
     }
 
+    private T Find<T>(string name) where T : FrameworkElement => Optional<T>(name) ?? throw new InvalidOperationException("Missing settings control: " + name);
+    private T? Optional<T>(string name) where T : FrameworkElement => _host.FindName(name) as T;
+    private ComboBox Language => Find<ComboBox>("LanguageComboBox");
+    private ComboBox SpeechLanguage => Find<ComboBox>("SpeechLanguageModeComboBox");
+    private ComboBox Voice => Find<ComboBox>("SystemVoiceComboBox");
+    private ComboBox Strategy => Find<ComboBox>("ReadingStrategyComboBox");
+    private ComboBox Highlight => Find<ComboBox>("ReadingHighlightModeComboBox");
+    private Slider Speed => Find<Slider>("ReadingSpeedSlider");
+    private CheckBox Global => Find<CheckBox>("GlobalSuggestionsCheckBox");
+    private CheckBox Domain => Find<CheckBox>("DomainListsCheckBox");
+    private CheckBox SystemSpeech => Find<CheckBox>("UseSystemSpeechSettingsCheckBox");
+    private CheckBox Analysis => Find<CheckBox>("TextAnalyzerEnabledCheckBox");
+    private CheckBox Colouring => Find<CheckBox>("TextAnalyzerColoringCheckBox");
+    private CheckBox Semantic => Find<CheckBox>("SemanticDiagnosticsCheckBox");
+    private CheckBox Punctuation => Find<CheckBox>("PunctuationDiagnosticsCheckBox");
+    private CheckBox Errors => Find<CheckBox>("ErrorTrackingEnabledCheckBox");
+    private CheckBox Examples => Find<CheckBox>("StoreSentenceExamplesCheckBox");
+    private CheckBox Performance => Find<CheckBox>("PerformanceInstrumentationCheckBox");
+    private CheckBox AppDebug => Find<CheckBox>("AppDebugLoggingCheckBox");
+    private CheckBox PanelDebug => Find<CheckBox>("PlacementDebugLoggingCheckBox");
+    private CheckBox CoreDebug => Find<CheckBox>("CoreDebugLoggingCheckBox");
 
-    private T Find<T>(string name) where T : FrameworkElement => (T)(_host.FindName(name) ?? throw new InvalidOperationException("Missing settings control: " + name));
-    private ComboBox LanguageComboBox => Find<ComboBox>("LanguageComboBox");
-    private ComboBox PlacementModeComboBox => Find<ComboBox>("PlacementModeComboBox");
-    private ComboBox SpeechLanguageModeComboBox => Find<ComboBox>("SpeechLanguageModeComboBox");
-    private CheckBox GlobalSuggestionsCheckBox => Find<CheckBox>("GlobalSuggestionsCheckBox");
-    private CheckBox DomainListsCheckBox => Find<CheckBox>("DomainListsCheckBox");
-    private CheckBox UseSystemSpeechSettingsCheckBox => Find<CheckBox>("UseSystemSpeechSettingsCheckBox");
-    private Slider ReadingSpeedSlider => Find<Slider>("ReadingSpeedSlider");
-    private ComboBox ReadingStrategyComboBox => Find<ComboBox>("ReadingStrategyComboBox");
-    private ComboBox ReadingHighlightModeComboBox => Find<ComboBox>("ReadingHighlightModeComboBox");
-    private CheckBox TextAnalyzerEnabledCheckBox => Find<CheckBox>("TextAnalyzerEnabledCheckBox");
-    private CheckBox TextAnalyzerColoringCheckBox => Find<CheckBox>("TextAnalyzerColoringCheckBox");
-    private CheckBox SemanticDiagnosticsCheckBox => Find<CheckBox>("SemanticDiagnosticsCheckBox");
-    private CheckBox PunctuationDiagnosticsCheckBox => Find<CheckBox>("PunctuationDiagnosticsCheckBox");
-    private CheckBox ErrorTrackingEnabledCheckBox => Find<CheckBox>("ErrorTrackingEnabledCheckBox");
-    private CheckBox StoreSentenceExamplesCheckBox => Find<CheckBox>("StoreSentenceExamplesCheckBox");
-    private CheckBox PerformanceInstrumentationCheckBox => Find<CheckBox>("PerformanceInstrumentationCheckBox");
-    private CheckBox AppDebugLoggingCheckBox => Find<CheckBox>("AppDebugLoggingCheckBox");
-    private CheckBox PlacementDebugLoggingCheckBox => Find<CheckBox>("PlacementDebugLoggingCheckBox");
-    private CheckBox CoreDebugLoggingCheckBox => Find<CheckBox>("CoreDebugLoggingCheckBox");
-    private ComboBox SystemVoiceComboBox => Find<ComboBox>("SystemVoiceComboBox");
-    private TextBlock VoiceStatusTextBlock => Find<TextBlock>("VoiceStatusTextBlock");
-    private TextBlock ReadingSpeedValueText => Find<TextBlock>("ReadingSpeedValueText");
-    private TextBlock VersionText => Find<TextBlock>("VersionText");
-    private TextBlock UpdateStatusText => Find<TextBlock>("UpdateStatusText");
-    private Button CheckUpdatesButton => Find<Button>("CheckUpdatesButton");
-    private Button OpenUpdateButton => Find<Button>("OpenUpdateButton");
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        foreach (var unsubscribe in _unsubscribe) unsubscribe();
         _updateCancellation.Cancel(); _updates.Dispose(); _updateCancellation.Dispose();
-        SystemVoiceComboBox.SelectionChanged -= OnVoiceChanged;
-        LanguageComboBox.SelectionChanged -= LanguageComboBox_OnSelectionChanged;
-        UseSystemSpeechSettingsCheckBox.Checked -= SpeechSettings_OnChanged;
-        UseSystemSpeechSettingsCheckBox.Unchecked -= SpeechSettings_OnChanged;
-        ReadingSpeedSlider.ValueChanged -= ReadingSpeedSlider_OnValueChanged;
     }
-
-    private sealed record SettingsOption(string Value, string Label);
+    private sealed record SettingsOption(string Value, string Label, bool IsAvailable = true);
 }

@@ -1,8 +1,8 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
 Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
-og baseline leveret; slice 1 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
-Næste implementation: slice 2, løbende gemning og adskilt interface-/skrivesprog.
+og baseline leveret; slice 1–2 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
+Næste implementation: slice 3, kvalificerede Core-capabilities til de manglende funktioner.
 
 ## Resultat sprintet skal levere
 
@@ -113,14 +113,19 @@ arbejdsmappe. Hello returnerer DeviceNotPresent; OS-opdateringsændring fejler m
 0x800706F7 både via cmdlet og native API, med verificeret uændret testtilstand.
 [Slice-0-evidens](../qualification/WSA-UX-029_slice0.md) angiver præcis bevisgrænse.
 Positiv platformgodkendelse er ikke lukket; slice 7/8 er fortsat gated.
-**Slice 1 er nu implementeret** med otte kategorier, grupperede rækker, infohjælp
-og separat Windows-legacyvisning. Settings gemmes stadig eksplicit med Gem;
-løbende gemning og separate sprogautoriteter tilhører slice 2. Eksisterende valg
-bevares med feltafgrænset fletning og konfliktafvisning. De resterende 72-posters
-funktionskrav og menneskelig accessibility/DPI-signoff er ikke lukket.
+**Slice 1 er implementeret** med otte kategorier, grupperede rækker, infohjælp
+og separat Windows-legacyvisning. **Slice 2 er implementeret** med løbende gemning,
+separat interface-/skrivesprog, schema 2-migration/backup og den faktiske
+caret-tilladelse. Primær visning har Luk; legacy beholder Gem/Annuller.
+Dansk/engelsk lokalisation dækker Settings og legacy; ældre øvrig app-copy er
+fortsat en dokumenteret forskel. Eksisterende valg bevares med feltafgrænset
+fletning og konfliktafvisning. De resterende 72-posters funktionskrav og menneskelig
+accessibility/DPI-signoff er ikke lukket.
 Se [slice 1-evidens](../qualification/WSA-UX-029_slice1.md) og
 [ændringsnote](../changes/2026-11-10_wsa_ux_029_slice1_settings_sidebar.md).
-Slice 2–9 er fortsat ikke implementeret. Ingen konto-/Hello-/OS-toggle aktiveres.
+[Slice 2-evidens og gendannelse](../qualification/WSA-UX-029_slice2.md) beskriver
+den nye data-/runtimeautoritet. Slice 3–9 er ikke implementeret; konto-/Hello-/OS-toggle
+aktiveres ikke af denne leverance.
 
 ### Slice 0 — konkret risikokvalifikation
 
@@ -278,13 +283,18 @@ backendtestadgang er eksterne testforudsætninger, ikke noget der allerede er ti
 ## Status og næste handling
 
 Produkt-/referenceafklaringer: afsluttet. Slice 0: kvalifikationskode/baseline
-leveret, positiv Hello-/OS-updategodkendelse åben. Settings-UI: ikke startet.
+leveret, positiv Hello-/OS-updategodkendelse åben. Slice 1–2: implementeret med
+afgrænset testbevis og dokumenterede manuelle/platformmæssige restgates.
 Tekniske risici: updaterstyring på tværs af Windows-versioner, Hello-beskyttelse,
 Core-adapterudvidelser, analyse/fortolkningsdata og sikker ekstern assist.
 
-Næste uafhængige arbejde er slice 1: byg venstremenuen og Windows-legacyvisningen.
+Næste arbejde er slice 3: kvalificér den fælles enginegrænse til kildevalg,
+fagordslister, ordformer, analyse og læringssignaler. I praksis skal nye kontroller
+først aktiveres, når de kan styre rigtige Core-funktioner med testede svar og
+capabilities. Det giver brugerne faktisk skrivehjælp frem for virkningsløse valg.
+Der må ikke tilføjes en separat C#-ranking-/analyseimplementation.
 Parallelt i kvalifikationsrækkefølgen kræves en Hello-provisioneret testsession
 med en konkret sikker adapter samt et vellykket OS-update-roundtrip på relevante
 understøttede miljøer. Den registrerede hostfejl omdefinerer ikke G05 til en falsk
-lokal toggle. Brugeren vil først ved slice 1 se det nye layout; slice 0 aktiverer
-ingen af de manglende produktfunktioner.
+lokal toggle. Layout, live gemning og de afgrænsede Generelt-funktioner er nu
+tilgængelige; konto, deling, analyse og udvidede kilder forbliver gated.

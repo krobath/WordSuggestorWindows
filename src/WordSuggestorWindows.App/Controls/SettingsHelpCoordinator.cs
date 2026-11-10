@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using WordSuggestorWindows.App.Services;
 
 namespace WordSuggestorWindows.App.Controls;
 
@@ -27,6 +28,7 @@ internal sealed class SettingsHelpCoordinator
         KeyboardNavigation.SetTabNavigation(_content, KeyboardNavigationMode.Cycle);
         AutomationProperties.SetAutomationId(_content, "SettingsHelpContent");
         AutomationProperties.SetAutomationId(_close, "SettingsHelpClose");
+        _close.SetResourceReference(ContentControl.ContentProperty, "WS.Settings.CloseHelp");
         _popup.Child = _content;
         _close.Click += (_, _) => Close(true);
         _content.PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) { e.Handled = true; Close(true); } };
@@ -55,7 +57,7 @@ internal sealed class SettingsHelpCoordinator
         _origin = request.Anchor;
         _description.Text = request.Help;
         _content.Header = request.Title;
-        AutomationProperties.SetName(_content, "Hjælp: " + request.Title);
+        AutomationProperties.SetName(_content, SettingsText.Format("HelpTitle", request.Title));
         _popup.PlacementTarget = request.Anchor;
         _popup.IsOpen = true;
     }

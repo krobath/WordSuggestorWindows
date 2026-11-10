@@ -3,7 +3,32 @@
 Updated 2026-11-08. Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
-## Settings slice 1 — 2026-11-10
+## Settings slice 2 — 2026-11-10
+
+[Current evidence and recovery](qualification/WSA-UX-029_slice2.md) supersede the
+slice-1 Save/Cancel behavior below for the primary window. Run the same
+`scripts\test_settings_app.ps1`: 63 state and 58 actual-window checks cover live
+save, independent UI/writing language, legacy conflicts, I/O/corrupt failures,
+permission semantics and native dropdown Escape. Extended real-app/Notepad tests
+verify hidden/re-enabled overlay choice, stable static placement across caret moves,
+explicit follow selection, preserved focus and unchanged target text.
+
+Human checks: switch Follow Windows/Danish/English while keeping Danish writing
+language and an open document. Check headers, option/help/accessibility text and
+voice retention. Change a preference, close/reopen/restart and verify persistence.
+Keep legacy open, change different fields in both views, then save legacy and check
+both values. Deliberately conflict the three-valued highlight choice and verify
+rejection without losing either persisted state or the legacy draft. Cancel legacy.
+Disable caret permission, write/move the caret in Notepad and verify a static panel;
+enable it and verify it remains static until selecting follow explicitly.
+
+Test invalid/unwritable preferences only in a disposable profile; check that live
+controls revert, errors are readable and stored bytes survive. Rehearse schema-1
+migration and recovery using the linked procedure. These human/Narrator/high-contrast,
+mixed-DPI/multiple-screen and signed-update checks remain **NOT RUN**.
+Older app copy outside Settings/legacy is not fully translated.
+
+## Historical Settings slice 1 — 2026-11-10
 
 The native sidebar, grouped rows, single info popup and Windows legacy window are
 implemented. [Settings evidence](qualification/WSA-UX-029_slice1.md) records 20

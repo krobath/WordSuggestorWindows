@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Localization\Settings.*.json" WithCulture="false" LogicalName="WordSuggestorWindows.App.Localization.%(Filename)%(Extension)" />
     <Content Include="Core\**\*;Packs\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Resource Include="Assets\AppIcon.png" />
     <Resource Include="Assets\MacOSCommandIcons\paintbrush.png" />

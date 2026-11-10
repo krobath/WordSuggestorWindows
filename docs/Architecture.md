@@ -4,7 +4,7 @@ Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
-## Settings UI — WSA-UX-029 slice 1
+## Settings UI — WSA-UX-029 slices 1–2
 
 `SettingsWindow` uses native WPF ListBox navigation for eight categories and a
 separate right-hand ScrollViewer. `SettingsRow`/`SettingsStyles` align grouped
@@ -20,9 +20,26 @@ field conflicts and invalid/future files keep the dialog open without overwritin
 data. Atomic replacement/backup stays unchanged. This protects dialogs in the one
 app process; it does not introduce a cross-process lock or a new settings schema.
 
-Slice 1 retains explicit Save/Cancel. Live persistence, localization and the
-separate UI/writing-language authorities are slice 2 work. Full account, Hello,
-analysis and learning controls remain unavailable. Existing bounded metadata/manual
+Slice 2 applies ordinary preferences only after successful persistence and replaces
+global Save/Cancel with Close. The legacy view keeps explicit drafts/Save/Cancel.
+`WindowsAppSettingsService.Changed` applies one saved snapshot to runtime and the
+primary view. `_applyingSettings` prevents recursive persistence. `SettingsText`
+installs 155 embedded Danish/English dynamic resources, independently of writing
+language/packs; the translated scope is Settings/legacy, not all older app copy.
+
+Schema 2 adds the interface preference and separate caret permission at the same
+historical file path. V1 loads upgrade in memory; first successful write retains an
+exact `.v1.bak`, then the rolling atomic `.bak`. Unsupported/corrupt data refuses
+writes and starts with external capture/content collection/caret disabled. Unknown
+properties and false preferences survive. [Recovery and evidence](qualification/WSA-UX-029_slice2.md).
+
+`RequestsCaretGeometry` combines permission and explicit placement. MainWindow
+skips local/external geometry when false and rejects obsolete in-flight results
+using a measurement generation. The overlay hides its follow choice when permission
+is off; turning permission on retains static placement. Text/selection reads for
+verified commits are separate from geometry. No new linguistic rules are added.
+
+Full account, Hello, analysis and learning controls remain unavailable. Existing bounded metadata/manual
 update behavior is preserved; App Installer still owns signed installation and
 automatic scheduling. [Slice 1 evidence](qualification/WSA-UX-029_slice1.md).
 
@@ -120,7 +137,7 @@ Existing `%LOCALAPPDATA%\WordSuggestor` is preserved:
 
 | Data | Location/policy |
 |---|---|
-| Preferences | `settings/settings-v1.json`; atomic replace, recovery `.bak`, future schema protected |
+| Preferences | Historical `settings/settings-v1.json`, schema 2; exact once-only v1 migration `.v1.bak`, atomic replace/rolling `.bak`; invalid/future data protected |
 | User words | `UserWords/local_lexicon_overlay_v2.json`; Core owns format/normalization |
 | Installed packs | `Packs`; old roaming packs stay discoverable; bundled packs remain separate/read-only |
 | Insights | `insights/error-insights.jsonl`; kinds/counts by default; word examples require explicit preference |

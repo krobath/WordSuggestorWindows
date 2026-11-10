@@ -32,8 +32,8 @@ public sealed class WindowsUpdateService : IDisposable
     public static string DisplayVersion => Assembly.GetExecutingAssembly()
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "ukendt";
     public string VersionLabel => _installed is null
-        ? $"WordSuggestor {DisplayVersion} · lokal udviklerudgave"
-        : $"WordSuggestor {DisplayVersion} · pakke {_installed.Version} · x64";
+        ? SettingsText.Format("VersionDevelopment", DisplayVersion)
+        : SettingsText.Format("VersionInstalled", DisplayVersion, _installed.Version);
     public bool IsProductionInstalled => _installed?.Name == PackageName;
 
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)

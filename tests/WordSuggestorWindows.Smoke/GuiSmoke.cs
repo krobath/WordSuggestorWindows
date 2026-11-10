@@ -15,6 +15,8 @@ internal static class GuiSmoke
     {
         var data = Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(data);
+        Directory.CreateDirectory(Path.Combine(data, "settings"));
+        File.WriteAllText(Path.Combine(data, "settings", "settings-v1.json"), "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"da-DK\"}");
         var path = Path.Combine(data, "wordsuggestor-smoke-" + Guid.NewGuid().ToString("N") + ".txt");
         File.WriteAllText(path, "Jeg vil gerne skri");
         var appExe = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_PATH") ?? Path.Combine(repo, "src", "WordSuggestorWindows.App", "bin", "Debug", "net10.0-windows", "WordSuggestorWindows.App.exe");
@@ -60,6 +62,39 @@ internal static class GuiSmoke
             Click(globalToggle!);
             await Task.Delay(300);
             var overlay = await FindWindow(app.Id, "WordSuggestor Suggestions");
+            async Task SetCaretPermission(bool enabled)
+            {
+                Click(toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "Indstillinger")));
+                var preferences = await FindWindow(app.Id, "WordSuggestor Indstillinger");
+                var general = preferences.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.AutomationIdProperty, "SettingsCategory_general"));
+                ((SelectionItemPattern)general.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+                var permission = await WaitValue(() => preferences.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.AutomationIdProperty, "SettingsControl_G03")));
+                var togglePermission = (TogglePattern)permission.GetCurrentPattern(TogglePattern.Pattern);
+                if ((togglePermission.Current.ToggleState == ToggleState.On) != enabled) Click(permission);
+                await Task.Delay(200);
+                var close = preferences.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.AutomationIdProperty, "SettingsClose"));
+                ((InvokePattern)close.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+                SetForegroundWindow(notepadHandle); await Task.Delay(500);
+                _ = await Candidate(overlay);
+            }
+            AutomationElement? FollowChoice() => overlay.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "FollowCaretPlacement"));
+            await SetCaretPermission(false);
+            Check("disabled caret permission removes overlay choice", FollowChoice() is not { Current.IsOffscreen: false });
+            var staticOrigin = overlay.Current.BoundingRectangle.TopLeft;
+            SetSelection(snapshot.Control, snapshot.Text.Length - 1, snapshot.Text.Length - 1); await Task.Delay(500);
+            _ = await Candidate(overlay);
+            Check("disabled follow keeps external overlay static across caret moves", (overlay.Current.BoundingRectangle.TopLeft - staticOrigin).Length < 1);
+            SetSelection(snapshot.Control, snapshot.Text.Length, snapshot.Text.Length); await Task.Delay(500);
+            await SetCaretPermission(true);
+            var followChoice = FollowChoice();
+            Check("enabling permission exposes choice without selecting follow", followChoice is { Current.IsOffscreen: false } && ((TogglePattern)followChoice.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.Off);
+            Click(followChoice!); await Task.Delay(500);
+            Check("explicit overlay follow choice preserves Notepad focus", GetForegroundWindow() == notepadHandle && ((TogglePattern)followChoice!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.On);
+            Check("permission and placement changes never alter target text", ReadControlText(snapshot.Control) == snapshot.Text);
             var candidate = await Candidate(overlay);
             var term = candidate.Current.Name;
             var clipboardSequence = GetClipboardSequenceNumber();

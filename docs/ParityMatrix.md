@@ -1,6 +1,6 @@
 # Windows evidence-based parity matrix
 
-Updated 2026-11-10 (Settings slice 1 shell qualified; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
+Updated 2026-11-10 (Settings slices 1–2 qualified within recorded scope; later functional slices open). Source: baseline audit at Windows `4d67106`, current source,
 real Core contract tests and real-desktop smoke. Historical "Done" labels mean code
 was delivered, not all target programs or accessibility modes were verified.
 
@@ -17,8 +17,8 @@ was delivered, not all target programs or accessibility modes were verified.
 | External Notepad | Optimistic foreground SendInput; mouse used local path | Snapshot-bound native Edit/RichEdit commit, verified resulting text/caret; real mouse/Ctrl+1/clipboard checks pass | >60,000 UTF-16 units unsupported; more Notepad versions |
 | Word/Outlook/browser commits | Generic route present without E2E qualification | Unsafe route removed; those targets fail closed for suggestion commits | Isolated qualified adapter per host; no generic injection |
 | Selection import | UIA, Word COM, automatic clipboard fallback | UIA/Word COM retained on explicit actions; no passive full-selection poll; explicit snapshot-qualified clipboard import | App-specific import matrix remains mostly untested |
-| Settings/data | Local JSON; no backup/future-schema protection | Same data location/schema, atomic replace/backup, future schema protection; restart tests pass | Signed upgrade/uninstall tests |
-| Settings UI/content against macOS beta.9 | Horizontal categories; no Profile/Learning categories, speech mixed into General; many controls missing or inactive | [Slice 1](qualification/WSA-UX-029_slice1.md): eight vertical categories, grouped rows/help and non-recursive Windows legacy; 20 state and 37 interactive checks | Full 72-control functional parity, live save/localization and human accessibility/DPI review open; Hello DeviceNotPresent and OS-update writes 0x800706F7 remain positive qualification gates |
+| Settings/data | Local JSON; no backup/future-schema protection | [Slice 2](qualification/WSA-UX-029_slice2.md): same location, schema 2, byte-exact v1 backup, rolling atomic backup, strict invalid/future protection, live authority and concurrent legacy protection | Signed upgrade/uninstall/rollback tests; no cross-process writer introduced |
+| Settings UI/content against macOS beta.9 | Horizontal categories; no Profile/Learning categories, speech mixed into General; many controls missing or inactive | Eight categories/help/legacy plus [slice 2](qualification/WSA-UX-029_slice2.md) live save, independent interface/writing language and real caret permission; 63 state/58 Settings desktop checks, actual Notepad overlay checks | Full 72-control functional parity; older non-Settings copy not fully translated; human accessibility/DPI review and positive Hello/OS-update qualification remain open |
 | User words | No Windows persistence/management | Explicit user-word UI, Core overlay format/normalization; restart/future-schema tests pass | Shared learning/profile UI parity |
 | Diagnostics/insights | Raw typed words/window titles; examples always recorded | Typed key capture replaced; stage/outcome diagnostics; stderr omitted; examples off by default; canary checks pass | Retention/rotation and opt-in usage statistics design |
 | TTS | Substantive OneCore/SAPI and highlight implementation | Preserved; sanitized diagnostics; see media/manual smoke evidence | Human hearing/highlight timing across voices |
