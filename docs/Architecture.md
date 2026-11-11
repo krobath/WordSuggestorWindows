@@ -1,5 +1,16 @@
 # WordSuggestorWindows architecture
 
+## Account boundary — 2026-11-11
+
+Retain WPF and Core/pack architecture. `AccountSessionCoordinator` owns serialized,
+cancellable backend account operations and verified refresh identity/expiry.
+`AccountBackendClient` uses the existing snake_case contracts and strict HTTPS;
+`AccountSessionVault`/`WindowsAccountCredentials` isolate local secret persistence.
+`WindowsHelloSessionKey` isolates protected native signing from app orchestration.
+`AccountSettingsView` owns profile drafts and transactions without changing common
+Settings schema or Core ranking. See [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md). Native Hello is not yet qualified
+on this host; account endpoints are tested with synthetic HTTP fixtures.
+
 ## Document analysis and learning boundary — 2026-11-11
 
 `MainWindowViewModel.Analysis` coalesces/cancels Core document requests and verifies

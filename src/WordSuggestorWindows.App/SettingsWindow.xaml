@@ -24,9 +24,9 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,10,0"/>
-                            <TextBlock Text="{DynamicResource WS.Settings.Category.profile}" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="AccountCardName" Text="{DynamicResource WS.Settings.Category.profile}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
-                        <TextBlock Text="{DynamicResource WS.Settings.Account}" Margin="24,5,0,10" FontSize="12"/>
+                        <TextBlock x:Name="AccountCardStatus" Text="{DynamicResource WS.Settings.Account}" Margin="24,5,0,10" FontSize="12"/>
                         <Separator/>
                     </StackPanel>
                 </ListBoxItem>
@@ -63,19 +63,7 @@
             <TextBlock x:Name="CategoryTitle" Text="{DynamicResource WS.Settings.Category.profile}" FontSize="23" FontWeight="SemiBold" Margin="0,0,0,16" AutomationProperties.AutomationId="SettingsCategoryTitle"/>
             <ScrollViewer x:Name="DetailScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <Grid Margin="0,0,12,0">
-                    <StackPanel x:Name="ProfilePage" Visibility="Collapsed">
-                        <GroupBox Header="{DynamicResource WS.Settings.Category.profile}" Style="{StaticResource SettingsGroup}">
-                            <StackPanel>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.P02.Title}" ControlId="P02" Description="{DynamicResource WS.Settings.P02.Help}">
-                                    <TextBlock Text="{DynamicResource WS.Settings.Unavailable}" TextWrapping="Wrap"/>
-                                </ui:SettingsRow>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.P07.Title}" ControlId="P07" Description="{DynamicResource WS.Settings.P07.Help}">
-                                    <CheckBox IsEnabled="False" Content="{DynamicResource WS.Settings.NotAvailable}"/>
-                                </ui:SettingsRow>
-                                <TextBlock Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.AccountNote}"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
+                    <StackPanel x:Name="ProfilePage" Visibility="Collapsed"/>
                     <StackPanel x:Name="GeneralPage" Visibility="Collapsed">
                         <GroupBox Header="{DynamicResource WS.Settings.LanguageGroup}" Style="{StaticResource SettingsGroup}">
                             <StackPanel>

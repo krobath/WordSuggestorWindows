@@ -1,5 +1,15 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 7 candidate — 2026-11-11
+
+P01–P21 have effective account UI/session paths using the unchanged backend API.
+Credential Manager, versioned rotating recovery, offline revocation and guarded
+Hello encryption replace the disabled account placeholder. See [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md).
+Native Hello returns unavailable on this host; positive PIN/biometric and dedicated
+live-backend acceptance remain open. No production mutation or release was made.
+Next engineering slice 8 implements General's actual OS update controls; it does
+not close the remaining slice-7 platform gate. Earlier dated statuses are history.
+
 ## WSA-UX-029 slice 6 — 2026-11-11
 
 T01–T06/L01–L04/E01–E02 now have runtime paths: actual Core word-class/diagnostic
@@ -25,7 +35,7 @@ public RC is claimed while signing/install/update qualification remains open.
 | Sprint | Delivery | Status |
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
-| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–6 implemented: sidebar, live settings/schema 5, languages, caret permission, speech, three suggestion lanes, Core analysis and local choices. See slice-6 native evidence; next slice 7 Profile/Hello. Human/hardware, account and updater gates remain open |
+| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–6 implemented: sidebar, live settings/schema 5, languages, caret permission, speech, three suggestion lanes, Core analysis and local choices. See slice-6 native evidence; slice 7 account candidate implemented; native Hello/live account and human/hardware gates remain open. Next engineering slice 8 updates |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
 | WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |

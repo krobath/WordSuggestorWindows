@@ -1,5 +1,18 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## Slice 7 implementation candidate — 2026-11-11
+
+P01–P21 are implemented with existing backend contracts and Windows-native account
+UI, secure recovery and a guarded Hello adapter. See
+[account contract](../AccountAndHello.md) and [qualification](../qualification/WSA-UX-029_slice7.md).
+Native Credential Manager and synthetic HTTP/native UI flows are tested. Hello
+availability is false on this host: positive PIN/biometric, actual cancellation/
+lockout and dedicated live-account acceptance remain open. Mock success never
+qualifies or enables persisted protection. Keep slice 7's platform gate open.
+Next engineering slice 8 builds General's real App Installer update controls;
+no production release, enrollment, shared-doc or backend mutation is included.
+Older dated entries below are historical checkpoints.
+
 ## Slice 6 delivery — 2026-11-11
 
 T01–T06, L01–L04 and E01–E02 are implemented with real Core analysis and explicit
@@ -23,7 +36,7 @@ Earlier dated statuses in this plan document prior deliveries.
 Oprettet: 2026-11-10. Opdateret: 2026-11-11. Platform/ejer: Windows.
 Status: **Slice 0-baseline og slice 1–6 implementeret; native evidens og resterende
 manuelle gates står i slice 6-kvalifikationen. Positiv Hello-/updaterkvalifikation åben.**
-Næste implementation: slice 7, Profil/konto og Windows Hello.
+Næste engineering-slice: 8, reelle App Installer-kontroller. Slice 7 er en implementeret kandidat; positiv native Hello-/kontoaccept er fortsat åben.
 
 ## Resultat sprintet skal levere
 

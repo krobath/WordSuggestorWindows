@@ -1164,6 +1164,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void Dispose()
     {
+        DisposeAccountSession();
         DisposeDocumentAnalysis();
         _settingsService.Changed -= SettingsServiceOnChanged;
         Interlocked.Increment(ref _requestRevision);

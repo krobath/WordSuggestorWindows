@@ -1,5 +1,26 @@
 # WordSuggestorWindows
 
+## Settings slice 7 account candidate — 2026-11-11
+
+The Profile category now has backend-backed login/verification-first registration,
+draft profile save, password/email changes, entitlements and separate logout flows.
+Recovery uses Credential Manager and a guarded native Hello adapter. No account is
+created automatically; local suggestions remain offline. Native Hello is unavailable
+on the current host and is **not positively qualified**. See the
+[account/privacy/recovery contract](docs/AccountAndHello.md),
+[test evidence](docs/qualification/WSA-UX-029_slice7.md) and
+[change note/file scope](docs/changes/2026-11-11_wsa_ux_029_slice7_account_hello.md).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts	est_settings_app.ps1 -Mode AccountState
+powershell -ExecutionPolicy Bypass -File scripts	est_settings_app.ps1 -Mode AccountUi -SkipBuild
+# Explicit native PIN/biometric test, excluded from unattended All; exit 3 = blocked:
+powershell -ExecutionPolicy Bypass -File scripts	est_settings_app.ps1 -Mode HelloNative -SkipBuild
+```
+
+Existing tabs/restart/release working-tree changes remain outside this slice.
+Earlier dated Settings statuses below are historical and superseded within scope.
+
 ## Settings slice 6 — 2026-11-11
 
 The internal editor now shows Core word classes and diagnostic corrections.

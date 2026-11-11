@@ -12,6 +12,7 @@ public partial class SettingsWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly SettingsFormController _form;
     private readonly SettingsHelpCoordinator _help;
+    private readonly AccountSettingsView _accountView;
     private LegacySettingsWindow? _legacy;
     private readonly Dictionary<string, StackPanel> _pages;
 
@@ -19,6 +20,14 @@ public partial class SettingsWindow : Window
     {
         _viewModel = viewModel;
         InitializeComponent();
+        var accountSession = viewModel.AccountSession;
+        _accountView = new AccountSettingsView(accountSession);
+        ProfilePage.Children.Add(_accountView);
+        _accountView.IdentityChanged += (_, _) =>
+        {
+            AccountCardName.Text = _accountView.CardIdentity;
+            AccountCardStatus.Text = accountSession.IsSignedIn ? SettingsText.Get("Account") : SettingsText.Get("AccountLogin");
+        };
         _pages = new()
         {
             ["profile"] = ProfilePage, ["general"] = GeneralPage, ["speech"] = SpeechPage,

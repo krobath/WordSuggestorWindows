@@ -23,7 +23,10 @@ internal static class Program
         {
             try
             {
-                if (args.Contains("--analysis-state")) await AnalysisSettingsSmoke.Run(FindRepo(), false);
+                if (args.Contains("--hello-native")) { if (!await AccountHelloNativeSmoke.Run()) { code = 3; return; } }
+                else if (args.Contains("--account-state")) await AccountSettingsSmoke.Run(false);
+                else if (args.Contains("--account-ui")) await AccountSettingsSmoke.Run(true);
+                else if (args.Contains("--analysis-state")) await AnalysisSettingsSmoke.Run(FindRepo(), false);
                 else if (args.Contains("--analysis-ui")) await AnalysisSettingsSmoke.Run(FindRepo(), true);
                 else if (args.Contains("--suggestion-state")) await SuggestionSettingsSmoke.Run(FindRepo(), false);
                 else if (args.Contains("--suggestion-settings")) await SuggestionSettingsSmoke.Run(FindRepo());

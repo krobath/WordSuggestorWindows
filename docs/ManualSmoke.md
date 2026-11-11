@@ -1,5 +1,35 @@
 # Windows smoke and qualification
 
+## Slice 7 account/manual qualification — 2026-11-11
+
+Use [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md) for exact automated results. `test_settings_app.ps1 -Mode AccountUi`
+uses synthetic HTTP identities and a unique real Credential Manager fixture;
+it makes no production account mutation. `All` includes it; `HelloNative` requires
+explicit interactive execution and returns exit 3 when blocked.
+
+1. In a local unlocked ordinary-user session with enrolled PIN/biometrics, run
+   `test_settings_app.ps1 -Mode HelloNative`. Verify create/reopen, passive locked
+   rejection, explicit recovery, encrypted rotation and protection-off migration.
+2. Separately test actual user cancellation, lockout/unavailable hardware, OS lock,
+   app close/reopen and packaged/unpackaged behavior. Prior data must remain intact
+   after failed/cancelled setup. API/mock success is not positive qualification.
+3. With a dedicated authorized backend test account, exercise verification-first
+   registration/resend/cooldown and browser-confirmation then fresh login. Never
+   send account passwords/PINs/tokens through chat or diagnostic logs.
+4. Save profile name/catalog values and consent; test another-client conflict and
+   second-write failure. Partial success must be explicit and drafts retained.
+5. Change email with current password; confirm original identity until server
+   acknowledgement; cancel pending request after reopening the app.
+6. Change password, then reauthenticate. Local/all-device logout are separate;
+   cancel/confirm the native all-device dialog and verify other test devices.
+7. Test offline/expired/revoked recovery, reconnecting secure revocations and no
+   stale-response adoption. Local suggestions/documents must remain usable.
+8. Test keyboard/Narrator labels, focus, resize, high contrast and multiple DPI/
+   monitors. Automated native input is not human accessibility/hardware signoff.
+
+Current host: native Hello unavailable; positive PIN/biometric roundtrip not run.
+No live-backend account acceptance is claimed. No enrollment/trust setting changed.
+
 ## Slice 6 — analysis and local word choices, 2026-11-11
 
 Run `scripts/test_settings_app.ps1 -Mode All` and existing GUI/media/Core gates on

@@ -1,5 +1,16 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Slice 7 Profile adoption — 2026-11-11
+
+Profile keeps the vertical sidebar and native Windows controls. Conditional login/
+registration, protected recovery, explicit profile drafts, password/email actions,
+entitlement and separate current/all-device logout now have real adapter paths.
+Hello, registration and email-change capabilities expose unavailable states rather
+than false effective toggles. Confirmation is native; UI copy is DA/EN, catalog IDs
+are canonical, secrets use PasswordBox and are cleared after submission/close.
+See [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md). API availability and mock crypto do not attest native Hello;
+human Narrator, high contrast and extra DPI/monitors remain independent gates.
+
 ## Slice 6 UI adoption — 2026-11-11
 
 The existing sidebar gains all six analysis controls and four Learning controls.

@@ -1,5 +1,19 @@
 # Windows evidence-based parity matrix
 
+## Slice 7 account candidate — 2026-11-11
+
+| Controls | Implementation | Evidence boundary |
+|---|---|---|
+| P01–P06 | Authoritative identity, login/flag-gated verification-first registration, resend/cooldown | Real HTTP serializer with synthetic backend; native WPF login; no live account mutation |
+| P07 | Credential Manager + guarded Hello-encrypted recovery and cancellation | Native Credential Manager PASS; key availability false; positive PIN/biometric test BLOCKED |
+| P08–P13 | Canonical ID drafts, explicit two-part save, optimistic conflict/partial status | HTTP fixtures and native UTF-8 profile save; unknown existing IDs retained |
+| P14–P18 | Authoritative email/entitlement, capability-gated email change, current-password security action | Synthetic contract tests; no payment/license behavior change |
+| P19–P21 | Separate local/all-device logout, secure offline revocation, single-flight/lock/stale guards | Native confirmation Yes/No plus recovery/error fixtures; OS lock simulated, hardware acceptance open |
+
+See [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md). This candidate does not close positive native Hello, a dedicated
+live-backend account or human accessibility/hardware gates. Older dated statuses
+below apply only to their recorded source, not current account behavior.
+
 ## Slice 6 runtime parity — 2026-11-11
 
 | Controls | Current implementation | Qualification limit |

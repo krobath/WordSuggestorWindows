@@ -1,5 +1,17 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Latest: slice 7 account implementation candidate — 2026-11-11
+
+- [Account, backend wire, credentials, Hello and recovery](AccountAndHello.md).
+- [Slice 7 evidence and manual/native boundaries](qualification/WSA-UX-029_slice7.md).
+- [Change note and changed files](changes/2026-11-11_wsa_ux_029_slice7_account_hello.md).
+
+Account controls are implemented. Native PIN/biometric positive qualification is
+blocked by this host's unavailable key service; synthetic key tests do not close
+that gate. Existing backend/Core/macOS remain unchanged. Next engineering slice
+is actual App Installer update authority, with Hello/live-account acceptance still
+open. Earlier dated statuses below record their respective checkpoints.
+
 ## Latest: slice 6 analysis and local choices — 2026-11-11
 
 - [Analysis, choice storage, privacy and recovery](AnalysisAndLearning.md).
