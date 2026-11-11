@@ -95,12 +95,33 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         CoreAnalysisOptions options, CancellationToken cancellationToken = default)
     {
         var response = await QueryAsync("analyze", text, context, options, null, null, cancellationToken);
-        if (response.Diagnostics is null || response.Diagnostics.Length > 40 || response.Diagnostics.Any(d =>
+        ValidateDiagnostics(text, response.Diagnostics);
+        return Result<IReadOnlyList<CoreDiagnostic>>(response, response.Diagnostics!);
+    }
+
+    public async Task<CoreQueryResult<CoreDocumentResult>> AnalyzeDocumentAsync(string text, CoreRequestContext context, CoreAnalysisOptions options, CancellationToken cancellationToken = default)
+    {
+        var response = await QueryAsync("document", text, context, options, null, null, cancellationToken);
+        ValidateDiagnostics(text, response.Diagnostics);
+        if (response.Document is not { SchemaVersion: 1 } document || document.Words is null || document.Words.Length > 512) throw InvalidProtocol();
+        var end = 0;
+        foreach (var word in document.Words)
+        {
+            if (word.Start < end || word.Length <= 0 || !ValidRange(text, word.Start, word.Length) || !Safe(word.WordClass, 64) ||
+                word.Readings is null || word.Readings.Length > 40 || word.Readings.Any(r => !Safe(r.Id, 4096) || !Safe(r.WordClass, 64) || r.Gram is null || r.Gram.Length > 512 || !Safe(r.Pos, 64))) throw InvalidProtocol();
+            end = word.Start + word.Length;
+        }
+        return Result(response, new CoreDocumentResult(document, response.Diagnostics!));
+    }
+
+    private static void ValidateDiagnostics(string text, CoreDiagnostic[]? diagnostics)
+    {
+        if (diagnostics is null || diagnostics.Length > 40 || diagnostics.Any(d =>
             !ValidRange(text, d.Start, d.Length) || !Safe(d.Message, 4096) || !Safe(d.IssueType, 64) || !Safe(d.Severity, 64) ||
             !double.IsFinite(d.Confidence) || d.Confidence is < 0 or > 1 || d.Edits is null || d.Edits.Length > 128 ||
             d.Edits.Any(e => !ValidRange(text, e.Start, e.Length) || e.Replacement is null || e.Replacement.Length > 512) ||
-            d.Replacements is null || d.Replacements.Length > 40 || d.Replacements.Any(s => s is null || s.Length > 512))) throw InvalidProtocol();
-        return Result<IReadOnlyList<CoreDiagnostic>>(response, response.Diagnostics);
+            d.Replacements is null || d.Replacements.Length > 40 || d.Replacements.Any(s => s is null || s.Length > 512) ||
+            (d.ExampleStart.HasValue != d.ExampleLength.HasValue) || d.ExampleStart is { } start && (!ValidRange(text, start, d.ExampleLength!.Value) || d.ExampleLength > 512))) throw InvalidProtocol();
     }
 
     private async Task<SettingsEnvelope> QueryAsync(string operation, string text, CoreRequestContext context, object? options,
@@ -137,5 +158,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document);
 }

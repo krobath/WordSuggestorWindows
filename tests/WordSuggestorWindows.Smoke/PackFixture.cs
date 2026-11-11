@@ -2,6 +2,12 @@ using System.Runtime.InteropServices;
 
 internal static class PackFixture
 {
+    public static void Execute(string path, string sql)
+    {
+        if (sqlite3_open(path, out var db) != 0) throw new Exception("Fixture database open");
+        try { if (sqlite3_exec(db, sql, IntPtr.Zero, IntPtr.Zero, out var error) != 0) { sqlite3_free(error); throw new Exception("Fixture statement failed"); } }
+        finally { sqlite3_close(db); }
+    }
     public static void Create(string path, string language, int schema = 14, string major = "1", bool missingColumn = false)
     {
         if (sqlite3_open(path, out var db) != 0) throw new Exception("Fixture database open");

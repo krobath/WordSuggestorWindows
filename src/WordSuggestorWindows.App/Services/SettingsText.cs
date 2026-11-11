@@ -30,6 +30,7 @@ public static class SettingsText
     };
 
     public static string Get(string key) => (ResolvedLocale == "da-DK" ? Danish : English)[key];
+    public static string WordClassLabel(string raw) => Get(Danish.ContainsKey("Class." + raw) ? "Class." + raw : "Class.other");
     public static string Format(string key, params object?[] values) => string.Format(CultureInfo.CurrentCulture, Get(key), values);
     public static bool CatalogsMatch => Danish.Keys.Order().SequenceEqual(English.Keys.Order()) && Danish.Values.All(v => !string.IsNullOrWhiteSpace(v)) && English.Values.All(v => !string.IsNullOrWhiteSpace(v));
 

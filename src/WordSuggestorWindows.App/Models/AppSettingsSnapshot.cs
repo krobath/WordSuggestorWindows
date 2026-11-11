@@ -31,7 +31,10 @@ public sealed class AppSettingsSnapshot
 
     public bool IsPunctuationDiagnosticsEnabled { get; set; }
 
-    public string PunctuationCommaStyle { get; set; } = "Standard";
+    public string PunctuationCommaStyle { get; set; } = "grammatical_without_start_comma";
+    public string ContextualCommaMode { get; set; } = "boundary_local_contextual_v1";
+    public bool SaveWordChoices { get; set; }
+    public bool ShareWordChoices { get; set; }
 
     public bool IsErrorTrackingEnabled { get; set; } = true;
 
@@ -79,6 +82,9 @@ public sealed class AppSettingsSnapshot
             IsSemanticDiagnosticsEnabled = IsSemanticDiagnosticsEnabled,
             IsPunctuationDiagnosticsEnabled = IsPunctuationDiagnosticsEnabled,
             PunctuationCommaStyle = PunctuationCommaStyle,
+            ContextualCommaMode = ContextualCommaMode,
+            SaveWordChoices = SaveWordChoices,
+            ShareWordChoices = ShareWordChoices,
             IsErrorTrackingEnabled = IsErrorTrackingEnabled,
             StoreSentenceExamples = StoreSentenceExamples,
             IsDomainListsEnabled = IsDomainListsEnabled,

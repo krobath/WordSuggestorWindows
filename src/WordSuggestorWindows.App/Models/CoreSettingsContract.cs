@@ -14,6 +14,7 @@ public sealed record CoreCapabilities
     public int[] ProtocolVersions { get; init; } = [];
     public string[] Operations { get; init; } = [];
     public bool SourcePreferences { get; init; }
+    public bool DocumentReadings { get; init; }
     public bool CommitPlans { get; init; }
     public bool LivePeriodAssist { get; init; }
     public bool Phonetic { get; init; }
@@ -47,9 +48,15 @@ public sealed record CoreSurfaceAnalysis([property: JsonRequired] string Id, [pr
     [property: JsonRequired] string Pos, [property: JsonRequired] string WordClass, string? Lemma);
 public sealed record CoreFamilyForm([property: JsonRequired] string Term, [property: JsonRequired] string Gram, string? Lemma, CoreCommitPlan? CommitPlan = null);
 public sealed record CoreWordInfo(IReadOnlyList<CoreSurfaceAnalysis> Analyses, IReadOnlyList<CoreFamilyForm> Families);
+public sealed record CoreDocumentWord([property: JsonRequired] int Start, [property: JsonRequired] int Length,
+    [property: JsonRequired] string WordClass, [property: JsonRequired] bool Ambiguous, [property: JsonRequired] CoreSurfaceAnalysis[] Readings);
+public sealed record CoreDocumentReadings([property: JsonRequired] int SchemaVersion,
+    [property: JsonRequired] CoreDocumentWord[] Words, [property: JsonRequired] bool Truncated);
+public sealed record CoreDocumentResult(CoreDocumentReadings Readings, IReadOnlyList<CoreDiagnostic> Diagnostics);
 public sealed record CoreDiagnosticEdit([property: JsonRequired] int Start, [property: JsonRequired] int Length,
     [property: JsonRequired] string Replacement);
 public sealed record CoreDiagnostic([property: JsonRequired] int Start, [property: JsonRequired] int Length,
     [property: JsonRequired] string IssueType, [property: JsonRequired] string Severity, string? RuleId,
     [property: JsonRequired] string Message, [property: JsonRequired] double Confidence, string? Requirement,
-    string? GroupId, [property: JsonRequired] CoreDiagnosticEdit[] Edits, [property: JsonRequired] string[] Replacements);
+    string? GroupId, [property: JsonRequired] CoreDiagnosticEdit[] Edits, [property: JsonRequired] string[] Replacements,
+    int? ExampleStart = null, int? ExampleLength = null);

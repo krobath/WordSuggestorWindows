@@ -1,5 +1,26 @@
 # Windows smoke and qualification
 
+## Slice 6 — analysis and local word choices, 2026-11-11
+
+Run `scripts/test_settings_app.ps1 -Mode All` and existing GUI/media/Core gates on
+a connected unlocked desktop, without other input during the synthetic fixture.
+
+1. Enable analysis/POS and verify real markers/counts; off clears stale work.
+2. Switch semantic/punctuation, both comma styles and contextual/graph-only mode.
+3. Right-click a Core finding, apply it, inspect caret and undo the whole group once.
+4. Change text/tab/focus during analysis or an open menu; stale actions must fail.
+5. Choose an ambiguous Core interpretation; local opt-out must not persist it.
+6. Opt in locally; inspect count/detail/Back, restart, delete one, then test Yes/No
+   for delete-all and reset. Reset must preserve documents, user words and insights.
+7. Confirm sharing starts no upload/ranking; local-off clears sharing intent.
+8. Confirm E02 stores no text by default, only bounded fragments after opt-in,
+   and E01 off stops content and metadata. Inspect separate data locations.
+9. Test oversized input, unavailable Core/pack, corrupt/future choice files and
+   save/delete failure without false success or overwritten unknown data.
+10. Complete human Narrator, contrast, extra DPI/monitors and audible quality review.
+
+[Actual results and remaining manual gates](qualification/WSA-UX-029_slice6.md).
+
 ## Slice 5 desktop gate — 2026-11-11, not yet passed
 
 Current session is disconnected/locked. On a connected unlocked desktop:

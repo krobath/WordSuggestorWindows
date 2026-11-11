@@ -1,6 +1,25 @@
 # Windows evidence-based parity matrix
 
-## Settings F01–F20 candidate — 2026-11-11
+## Slice 6 runtime parity — 2026-11-11
+
+| Controls | Current implementation | Qualification limit |
+|---|---|---|
+| T01–T04 | Real Core word classes, semantic/punctuation diagnostics, master/dependencies | Internal editor only; source/pack dependent |
+| T05–T06 | Both comma styles and contextual/graph-only Core policies; schema migration | Core fixtures; meaning-dependent native confirmation remains manual follow-up |
+| L01–L02 | Separate local capture/sharing preference; local-off also disables share | Sharing adds no upload/training |
+| L03–L04 | Saved choice detail/Back/delete-one/confirmed delete-all/reset | Native selection/detail plus state tests; confirmation cancel/confirm manual gate |
+| E01–E02 | Existing tracking master and explicit bounded local example opt-in | Content is separate from diagnostics and sharing consent |
+
+The new [analysis/learning evidence](qualification/WSA-UX-029_slice6.md) distinguishes
+native automation from human Narrator/audio/DPI signoff. No unknown-word C# guesses,
+external diagnostic edits, account or update toggle is enabled by these controls.
+
+## Historical Settings F01–F20 candidate — 2026-11-11
+
+The table below records the slice-5 candidate checkpoint. Its pending native
+checks are superseded for the newer source by the 48-check slice-6 suggestion
+gate and the general GUI gate in the linked current qualification. Human
+Narrator/audio and extra DPI/monitors remain open.
 
 | Controls | Implemented boundary | Evidence / remaining gap |
 |---|---|---|

@@ -23,7 +23,9 @@ internal static class Program
         {
             try
             {
-                if (args.Contains("--suggestion-state")) await SuggestionSettingsSmoke.Run(FindRepo(), false);
+                if (args.Contains("--analysis-state")) await AnalysisSettingsSmoke.Run(FindRepo(), false);
+                else if (args.Contains("--analysis-ui")) await AnalysisSettingsSmoke.Run(FindRepo(), true);
+                else if (args.Contains("--suggestion-state")) await SuggestionSettingsSmoke.Run(FindRepo(), false);
                 else if (args.Contains("--suggestion-settings")) await SuggestionSettingsSmoke.Run(FindRepo());
                 else if (args.Contains("--speech-ui")) await SpeechUiSmoke.Run(FindRepo());
                 else if (args.Contains("--speech-settings")) await SpeechSettingsSmoke.Run(FindRepo());

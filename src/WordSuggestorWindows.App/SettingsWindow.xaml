@@ -217,35 +217,17 @@
                             </StackPanel>
                         </GroupBox>
                     </StackPanel>
-                    <StackPanel x:Name="AnalysisPage" Visibility="Collapsed">
-                        <GroupBox Header="{DynamicResource WS.Settings.Category.textAnalysis}" Style="{StaticResource SettingsGroup}">
-                            <StackPanel>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.T01.Title}" ControlId="T01" Description="{DynamicResource WS.Settings.T01.Help}">
-                                    <CheckBox x:Name="TextAnalyzerEnabledCheckBox" IsEnabled="False"/>
-                                </ui:SettingsRow>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.T02.Title}" ControlId="T02" Description="{DynamicResource WS.Settings.T02.Help}">
-                                    <CheckBox x:Name="TextAnalyzerColoringCheckBox" IsEnabled="False"/>
-                                </ui:SettingsRow>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.T03.Title}" ControlId="T03" Description="{DynamicResource WS.Settings.T03.Help}">
-                                    <CheckBox x:Name="SemanticDiagnosticsCheckBox" IsEnabled="False"/>
-                                </ui:SettingsRow>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.T04.Title}" ControlId="T04" Description="{DynamicResource WS.Settings.T04.Help}">
-                                    <CheckBox x:Name="PunctuationDiagnosticsCheckBox" IsEnabled="False"/>
-                                </ui:SettingsRow>
-                                <TextBlock Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.AnalysisNote}"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
-                    <StackPanel x:Name="LearningPage" Visibility="Collapsed">
-                        <GroupBox Header="{DynamicResource WS.Settings.Category.learning}" Style="{StaticResource SettingsGroup}">
-                            <StackPanel>
-                                <ui:SettingsRow Header="{DynamicResource WS.Settings.L03.Title}" ControlId="L03" Description="{DynamicResource WS.Settings.L03.Help}">
-                                    <TextBlock Text="{DynamicResource WS.Settings.Unavailable}" TextWrapping="Wrap"/>
-                                </ui:SettingsRow>
-                                <TextBlock Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.LearningNote}"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </StackPanel>
+<StackPanel x:Name="AnalysisPage" Visibility="Collapsed"><GroupBox Header="{DynamicResource WS.Settings.Category.textAnalysis}" Style="{StaticResource SettingsGroup}"><StackPanel><ui:SettingsRow Header="{DynamicResource WS.Settings.T01.Title}" ControlId="T01" Description="{DynamicResource WS.Settings.T01.Help}"><CheckBox x:Name="TextAnalyzerEnabledCheckBox" IsEnabled="False"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.T02.Title}" ControlId="T02" Description="{DynamicResource WS.Settings.T02.Help}"><CheckBox x:Name="TextAnalyzerColoringCheckBox" IsEnabled="False"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.T03.Title}" ControlId="T03" Description="{DynamicResource WS.Settings.T03.Help}"><CheckBox x:Name="SemanticDiagnosticsCheckBox" IsEnabled="False"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.T04.Title}" ControlId="T04" Description="{DynamicResource WS.Settings.T04.Help}"><CheckBox x:Name="PunctuationDiagnosticsCheckBox" IsEnabled="False"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.T05.Title}" ControlId="T05" Description="{DynamicResource WS.Settings.T05.Help}"><ComboBox x:Name="CommaStyleComboBox" DisplayMemberPath="Label" SelectedValuePath="Value"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.T06.Title}" ControlId="T06" Description="{DynamicResource WS.Settings.T06.Help}"><CheckBox x:Name="ContextualCommaCheckBox"/></ui:SettingsRow><TextBlock x:Name="AnalysisCapabilityStatus" Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.AnalysisNote}"/></StackPanel></GroupBox></StackPanel>
+<StackPanel x:Name="LearningPage" Visibility="Collapsed"><GroupBox x:Name="LearningPreferencesPanel" Header="{DynamicResource WS.Settings.Category.learning}" Style="{StaticResource SettingsGroup}"><StackPanel><ui:SettingsRow Header="{DynamicResource WS.Settings.L01.Title}" ControlId="L01" Description="{DynamicResource WS.Settings.L01.Help}"><CheckBox x:Name="SaveWordChoicesCheckBox"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.L02.Title}" ControlId="L02" Description="{DynamicResource WS.Settings.L02.Help}"><CheckBox x:Name="ShareWordChoicesCheckBox"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.L03.Title}" ControlId="L03" Description="{DynamicResource WS.Settings.L03.Help}"><Button x:Name="SavedChoicesButton" Click="SavedChoices_OnClick" AutomationProperties.AutomationId="SavedChoicesOpen"/></ui:SettingsRow><ui:SettingsRow Header="{DynamicResource WS.Settings.L04.Title}" ControlId="L04" Description="{DynamicResource WS.Settings.L04.Help}"><Button Content="{DynamicResource WS.Settings.ResetLearning}" Click="ResetLearning_OnClick" AutomationProperties.AutomationId="ResetLearning"/></ui:SettingsRow><TextBlock Style="{StaticResource SettingsNote}" Text="{DynamicResource WS.Settings.LearningNote}"/></StackPanel></GroupBox><StackPanel x:Name="SavedChoicesPanel" Visibility="Collapsed">
+<Button Content="{DynamicResource WS.Settings.ChoicesBack}" Click="SavedChoicesBack_OnClick" HorizontalAlignment="Left" AutomationProperties.AutomationId="SavedChoicesBack"/>
+<TextBlock x:Name="SavedChoicesStatus" TextWrapping="Wrap" Margin="0,10" AutomationProperties.LiveSetting="Polite"/>
+<ItemsControl x:Name="SavedChoicesList" AutomationProperties.AutomationId="SavedChoicesList"><ItemsControl.ItemTemplate><DataTemplate>
+<Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" BorderThickness="0,0,0,1" Padding="6,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel>
+<TextBlock Text="{Binding Word}" FontWeight="SemiBold"/><TextBlock Text="{Binding Interpretation}"/><TextBlock Text="{DynamicResource WS.Settings.LocalOnly}"/><TextBlock Text="{Binding CreatedAt}"/>
+</StackPanel><Button Grid.Column="1" Content="{DynamicResource WS.Settings.DeleteChoice}" Click="DeleteChoice_OnClick" AutomationProperties.AutomationId="DeleteSavedChoice" Margin="10,0,0,0"/></Grid></Border>
+</DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+<Button x:Name="DeleteAllChoicesButton" Content="{DynamicResource WS.Settings.DeleteAllChoices}" Click="DeleteAllChoices_OnClick" HorizontalAlignment="Left" Margin="0,12,0,0" AutomationProperties.AutomationId="DeleteAllChoices"/>
+</StackPanel></StackPanel>
                     <StackPanel x:Name="ErrorsPage" Visibility="Collapsed">
                         <GroupBox Header="{DynamicResource WS.Settings.Category.errorTracking}" Style="{StaticResource SettingsGroup}">
                             <StackPanel>
@@ -253,7 +235,7 @@
                                     <CheckBox x:Name="ErrorTrackingEnabledCheckBox"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.E02.Title}" ControlId="E02" Description="{DynamicResource WS.Settings.E02.Help}">
-                                    <CheckBox x:Name="StoreSentenceExamplesCheckBox" IsEnabled="False"/>
+                                    <CheckBox x:Name="StoreSentenceExamplesCheckBox"/>
                                 </ui:SettingsRow>
                             </StackPanel>
                         </GroupBox>

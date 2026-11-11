@@ -1,5 +1,16 @@
 # Core CLI contracts — v1 compatibility and negotiated v2
 
+## Current document boundary — 2026-11-11, slice 6
+
+Pinned Core `defa19bdc6a3fcb990948caa1982631ced420dbf` negotiates documentReadings
+and the v2 `document` operation. Windows validates original UTF-16 word/reading/
+diagnostic ranges and preserves Core class, ambiguity, identity and group edits.
+Example ranges are bounded and persist only under local example opt-in. Core's
+choicePersistence/adaptiveLearning flags remain false; the Windows consented
+evaluation-choice store is a separate host responsibility, not an engine learner.
+See [Windows scope/privacy contract](AnalysisAndLearning.md) and the Core-owned
+`docs/140_suggest_cli_settings_bridge_contract.md`. Earlier slice sections are history.
+
 ## Current live Settings boundary — 2026-11-11, slice 5
 
 Pinned Core is `7491a0b748ac87d5286b50f4c0c93d1b90c6a84d`. Live suggestions now

@@ -1,5 +1,16 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Slice 6 UI adoption — 2026-11-11
+
+The existing sidebar gains all six analysis controls and four Learning controls.
+Saved choices open inside Learning with Back and explicit deletion/reset actions.
+Native pickers/checkboxes retain semantic dependencies and unavailable intentions.
+Core markers/readings/corrections are accessible through native context-menu items;
+the overlay is hidden while that menu is open. Existing edit commands are retained.
+[Native qualification](qualification/WSA-UX-029_slice6.md) covers mouse correction,
+undo, explicit interpretation choice and picker Escape. Human Narrator, contrast
+and extra monitor/DPI comparisons remain separate; no pixel-identical Mac claim.
+
 ## Slice 5 UI implementation — 2026-11-11
 
 The Ordforslag category now contains F01–F20 in canonical order, with native WPF
@@ -7,8 +18,9 @@ controls, labels/help, live persistence and capability-dependent states. The
 sidebar/category architecture stays. Rows use fixed density; ordinary/primary/
 secondary lists retain separate page limits and a shared commit authority.
 Pack-dependent controls preserve unavailable saved intentions. The Core seed is
-not installed automatically. [Desktop qualification](qualification/WSA-UX-029_slice5.md)
-is pending; screenshot/Narrator/DPI signoff is not inferred from successful builds.
+not installed automatically. [Native follow-up](qualification/WSA-UX-029_slice5.md)
+records mouse/keyboard/Notepad qualification on the slice-6 source. Human
+screenshot/Narrator/DPI signoff remains open.
 
 The April 17 WSA-UX-012 handoff and the supplied November macOS recordings supersede
 the expanded-toolbar descriptions retained below for history. The implementation

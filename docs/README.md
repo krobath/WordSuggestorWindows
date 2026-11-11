@@ -1,12 +1,24 @@
 # WordSuggestorWindows — dokumentationsindeks
 
-## Latest: slice 5 implementation candidate, 2026-11-11
+## Latest: slice 6 analysis and local choices — 2026-11-11
+
+- [Analysis, choice storage, privacy and recovery](AnalysisAndLearning.md).
+- [Slice 6 test evidence and native/manual matrix](qualification/WSA-UX-029_slice6.md).
+- [Change note and file scope](changes/2026-11-11_wsa_ux_029_slice6_analysis_learning.md).
+
+The desktop is now connected; new native tests supersede the earlier locked-
+session block for the tested flows. Human Narrator/audio and extra DPI/monitors
+remain unqualified. Profile/Hello is the next feature slice; no backend learning.
+Earlier dated slice descriptions below are historical evidence.
+
+## Historical: slice 5 implementation candidate, 2026-11-11
 
 - [Suggestion runtime/data contract](Suggestions.md).
 - [Slice 5 evidence and outstanding desktop tests](qualification/WSA-UX-029_slice5.md).
 - [Change note and exact file scope](changes/2026-11-11_wsa_ux_029_slice5_suggestion_settings.md).
 
-Slice 5 is implemented but not yet functionally qualified on the locked desktop.
+At that candidate checkpoint, native qualification was blocked by a locked
+desktop. See the current slice-6 evidence above for the tested replacement source.
 Earlier dated slice statuses below remain historical evidence only.
 
 Opdateret 2026-11-10. Dette er den lokale dokumentation for **Windows**.

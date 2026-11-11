@@ -1,5 +1,16 @@
 # WSA-UX-029 slice 5 — suggestion settings qualification
 
+## Follow-up on slice 6 source — 2026-11-11
+
+The session is now connected. Re-running the old slice-5 candidate reached the
+Notepad check and exposed current-key-state sampling after key-up. The slice-6
+fix consumes WM_HOTKEY modifier metadata, retaining exact modifiers/target checks.
+The updated working tree passes all 48 suggestion checks, including physical
+mouse/digits, three lanes, Smart followup, fading and real Notepad insertion.
+This is evidence for the new source, not a retrospective PASS for `18a1f6b`.
+See [final exact-source slice-6 qualification](WSA-UX-029_slice6.md). Human
+Narrator/audio and extra DPI/monitors remain open.
+
 Date: 2026-11-11. Windows base `2a5cac49`; Core
 `7491a0b748ac87d5286b50f4c0c93d1b90c6a84d`; canonical Mac `ba18b45`.
 Status: **implementation candidate; desktop qualification pending**.

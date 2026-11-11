@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -11,6 +11,14 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if ($Mode -eq 'AnalysisState') {
+    & $runner --analysis-state
+    if ($LASTEXITCODE -ne 0) { throw "Analysis state smoke failed ($LASTEXITCODE)." }
+}
+if ($Mode -in @('AnalysisUi', 'All')) {
+    & $runner --analysis-ui
+    if ($LASTEXITCODE -ne 0) { throw "Analysis desktop smoke failed ($LASTEXITCODE)." }
+}
 if ($Mode -eq 'SuggestionState') {
     & $runner --suggestion-state
     if ($LASTEXITCODE -ne 0) { throw "Suggestion state smoke failed ($LASTEXITCODE)." }

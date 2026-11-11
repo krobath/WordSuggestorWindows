@@ -1,5 +1,17 @@
 # WordSuggestorWindows architecture
 
+## Document analysis and learning boundary — 2026-11-11
+
+`MainWindowViewModel.Analysis` coalesces/cancels Core document requests and verifies
+original text, language and generation. `AnalysisRangeAdorner` paints without
+editing formatting or selection. `DiagnosticEditPlanner` validates ranges/groups;
+the editor applies one native undo transaction only to its verified original target.
+Menus suppress the overlay and return focus only from the verified owned action.
+`WindowsWordChoiceStore` atomically stores opt-in interpretation choices separately
+from user words/insights, with no ranking or upload. Schema 5 preserves prior data.
+See [full data/failure/engine contract](AnalysisAndLearning.md) and
+[qualification](qualification/WSA-UX-029_slice6.md).
+
 ## Suggestion settings boundary — 2026-11-11
 
 Retain the existing WPF shell, activating editor, nonactivating overlay and CLI.
@@ -9,7 +21,9 @@ Mouse/keyboard/family selection share one commit; external requests retain the
 original control/window/PID/process-start/text/selection snapshot. Native exact
 edits reverify it rather than retargeting a newer field in the same window.
 No C# ranking/punctuation heuristics, clipboard fallback or extra backend flow.
-Desktop qualification is [still pending](qualification/WSA-UX-029_slice5.md).
+The [slice-5 follow-up](qualification/WSA-UX-029_slice5.md) records native
+qualification on the newer slice-6 source, including three lanes and Notepad;
+human/hardware signoff remains open.
 
 Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)

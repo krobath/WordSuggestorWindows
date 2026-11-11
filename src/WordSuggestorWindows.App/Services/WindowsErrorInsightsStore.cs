@@ -20,6 +20,9 @@ public sealed class WindowsErrorInsightsStore
 
     public string StorePath => _storePath;
     public bool StoreTextExamples { get; set; }
+    public void RecordDiagnosticCorrection(string language, string issueType, string? example) =>
+        Append(new ErrorInsightEvent(DateTimeOffset.UtcNow, "diagnostic-correction", language,
+            StoreTextExamples ? example : null, null, issueType, null, null, null));
 
     public void RecordAcceptedSuggestion(
         string typedText,

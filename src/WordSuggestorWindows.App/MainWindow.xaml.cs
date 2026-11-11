@@ -123,6 +123,7 @@ public partial class MainWindow : Window
         LocationChanged += OnWindowLocationOrSizeChanged;
         SizeChanged += OnWindowLocationOrSizeChanged;
         _viewModel.PropertyChanged += ViewModelOnPropertyChanged;
+        _viewModel.AnalysisCommitRequested = CommitAnalysisEdits;
         _viewModel.SettingsChanged += SuggestionSettingsOnChanged;
         _viewModel.LocalSuggestionCommitted += LocalSuggestionOnCommitted;
         _editorWindow.Deactivated += SuggestionEditorDeactivated;
@@ -167,6 +168,7 @@ public partial class MainWindow : Window
     {
         DisposeSpeechLifecycle();
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
+        ShutdownAnalysisPresentation();
         _viewModel.SettingsChanged -= SuggestionSettingsOnChanged;
         _viewModel.LocalSuggestionCommitted -= LocalSuggestionOnCommitted;
         _editorWindow.Deactivated -= SuggestionEditorDeactivated;
@@ -311,7 +313,7 @@ public partial class MainWindow : Window
             return IntPtr.Zero;
         }
 
-        if (msg == WmHotKey && TryHandleSuggestionLaneHotKey(wParam.ToInt32())) { handled = true; return IntPtr.Zero; }
+        if (msg == WmHotKey && TryHandleSuggestionLaneHotKey(wParam.ToInt32(), (uint)lParam.ToInt64() & 0xffff)) { handled = true; return IntPtr.Zero; }
 
         return IntPtr.Zero;
     }
@@ -341,6 +343,7 @@ public partial class MainWindow : Window
             case nameof(MainWindowViewModel.EditorText):
                 SyncEditorDocumentFromViewModel();
                 break;
+            case nameof(MainWindowViewModel.AnalysisDocument):
             case nameof(MainWindowViewModel.IsAnalyzerColoringEnabled):
                 ApplyEditorColoring();
                 break;
@@ -1492,14 +1495,15 @@ public partial class MainWindow : Window
 
     private int GetEditorCaretIndex()
     {
-        var text = new TextRange(EditorTextBox.Document.ContentStart, EditorTextBox.CaretPosition).Text;
-        return text.Length;
+        return GetTextOffset(EditorTextBox.CaretPosition);
     }
 
     private int GetTextOffset(TextPointer pointer)
     {
         var text = new TextRange(EditorTextBox.Document.ContentStart, pointer).Text;
-        return text.Length;
+        // Select-all includes WPF's final paragraph terminator, which is absent
+        // from the plain-text/Core buffer. All offsets use that buffer's bounds.
+        return Math.Clamp(text.Length, 0, GetEditorPlainText().Length);
     }
 
     private void SetEditorCaretIndex(int index)
@@ -1524,11 +1528,7 @@ public partial class MainWindow : Window
         EditorTextBox.CaretPosition = endPointer;
     }
 
-    private void ApplyEditorColoring()
-    {
-        // The former C# suffix classifier fabricated POS/spelling results. Preserve
-        // preferences, but render neutral text until Core exposes document analysis.
-    }
+    private void ApplyEditorColoring() => RenderDocumentAnalysis();
 
     private void PreparePreciseSpeechHighlight(int baseOffset)
     {
@@ -1791,6 +1791,7 @@ public partial class MainWindow : Window
 
     private void SyncOverlayVisibility()
     {
+        if (_analysisMenu?.IsOpen == true) { HideOverlayWindow(); return; }
         if (!_viewModel.ShouldShowSuggestionOverlay)
         {
             HideOverlayWindow();

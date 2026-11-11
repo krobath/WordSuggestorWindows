@@ -1,5 +1,19 @@
 # WordSuggestorWindows
 
+## Settings slice 6 — 2026-11-11
+
+The internal editor now shows Core word classes and diagnostic corrections.
+Right-click to review a correction/interpretation; grouped corrections preserve
+native undo. Learning offers separate local opt-in, saved choices, deletion and
+reset. Choices are not user words and are not uploaded or used for ranking.
+See [runtime/data contract](docs/AnalysisAndLearning.md),
+[qualification](docs/qualification/WSA-UX-029_slice6.md) and
+[changed files](docs/changes/2026-11-11_wsa_ux_029_slice6_analysis_learning.md).
+
+Run `scripts/test_settings_app.ps1 -Mode AnalysisState` without desktop input;
+`-Mode AnalysisUi` or `-Mode All` requires an unlocked desktop and uses synthetic
+mouse/keyboard input. Existing Core/app/GUI/media gates remain. No secrets needed.
+
 ## Settings slice 5 — 2026-11-11
 
 Suggestion preferences now have implementation paths for density, Core insertion
@@ -82,9 +96,9 @@ UIA/Word-COM selection import remains separate. Clipboard copy is an explicit im
 menu action with verification, not an automatic commit fallback. Unknown caret geometry
 uses static placement. Real mixed-DPI/multi-monitor and human screen-reader tests remain open.
 
-Core-backed document analysis, correction popovers, domain lists and account/backend
-sync are not yet implemented. Local C# word-class guesses were removed; corresponding
-preferences are retained and controls disabled. Existing TTS, STT, OCR, settings and
+Core-backed internal document analysis, reviewed corrections and domain lanes are
+implemented. Account/backend sync remains a later slice. Unknown words are not
+classified by C# guesses; missing pack/capability states stay explicit. Existing TTS, STT, OCR, settings and
 insights adapters remain; see the smoke matrix for the scope actually exercised.
 
 MSIX packaging bundles .NET, Swift, Core and Danish data. Unsigned artifacts are clearly
@@ -103,11 +117,12 @@ language. The Settings and legacy surfaces are translated; older app surfaces
 still contain Danish copy. Disabling Follow caret permission forces static
 placement; enabling permission does not itself choose Follow caret.
 
-Schema 3 keeps the historical `settings/settings-v1.json` location. Migration
-preserves exact once-only `.v1.bak`/`.v2.bak` originals and the rolling `.bak`. Future/corrupt data
+Schema 5 keeps the historical `settings/settings-v1.json` location. Migration
+preserves exact once-only `.v1.bak`–`.v4.bak` originals (as applicable) and the rolling `.bak`. Future/corrupt data
 is retained and blocks writes; failed changes are not applied. See
 [data recovery and qualification](docs/qualification/WSA-UX-029_slice2.md).
-Full functional parity and account/Hello/analysis/learning remain later work.
+Full release parity and account/Hello remain later work; analysis/local choices
+are described in the current slice-6 contract.
 
 From this repository, run the new state and interactive-window tests:
 

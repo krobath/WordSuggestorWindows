@@ -55,12 +55,12 @@ public partial class MainWindow
         foreach (var id in _laneHotKeys.Keys) UnregisterHotKey(_windowHandle, id);
         _laneHotKeys.Clear(); _laneHotKeyConfiguration = null; _areExternalSuggestionHotKeysRegistered = false;
     }
-    private bool TryHandleSuggestionLaneHotKey(int id)
+    private bool TryHandleSuggestionLaneHotKey(int id, uint eventModifiers)
     {
         if (!_laneHotKeys.TryGetValue(id, out var key)) return false;
         if (!_viewModel.IsExternalSuggestionSessionActive || !_viewModel.IsSuggestionInteractionEnabled || _overlayWindow?.IsVisible != true) return true;
-        if (key.Lane < 0) { if (Keyboard.Modifiers == ModifierKeys.Control) _viewModel.ChangeSuggestionPage(key.Index); return true; }
-        if (Keyboard.Modifiers != Services.SuggestionShortcutPolicy.Modifiers(LaneSchemes()[key.Lane])) return true;
+        if (key.Lane < 0) { if (eventModifiers == (uint)ModifierKeys.Control) _viewModel.ChangeSuggestionPage(key.Index); return true; }
+        if (eventModifiers != (uint)Services.SuggestionShortcutPolicy.Modifiers(LaneSchemes()[key.Lane])) return true;
         _viewModel.AcceptLaneAtIndex(key.Lane, key.Index); return true;
     }
     private bool TryHandleSuggestionDigit(KeyEventArgs e)

@@ -1,6 +1,17 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
-## Slice 5 candidate — 2026-11-11
+## Slice 6 delivery — 2026-11-11
+
+T01–T06, L01–L04 and E01–E02 are implemented with real Core analysis and explicit
+local evaluation-choice storage. The desktop is now open; native mouse/undo/choice
+tests and the earlier slice-5 Notepad flow have actual evidence on the new source.
+See [slice 6 qualification](../qualification/WSA-UX-029_slice6.md) and
+[runtime/privacy contract](../AnalysisAndLearning.md). Human accessibility/DPI/audio
+and later release gates remain. Slice 7 next gives users Profile/account actions
+and secure Windows Hello sessions; no account/backend learning is activated here.
+Older dated statuses below record prior deliveries and are superseded by this entry.
+
+## Historical slice 5 candidate — 2026-11-11
 
 F01–F20 UI/runtime implementation is present; Core `7491a0b` supplies portable
 insertion/punctuation decisions. Noninteractive gates pass; **desktop qualification
@@ -9,9 +20,10 @@ infer native focus/acceptance signoff. See [qualification](../qualification/WSA-
 and [runtime contract](../Suggestions.md). Slice 6 remains the next feature slice.
 Earlier dated statuses in this plan document prior deliveries.
 
-Oprettet/opdateret: 2026-11-10. Platform/ejer: Windows. Status: **Slice 0-værktøjer
-og baseline leveret; slice 1–4 implementeret og testet; positiv Hello-/updaterkvalifikation åben**.
-Næste implementation: slice 5, ordforslagsindstillinger og tre genvejelanes.
+Oprettet: 2026-11-10. Opdateret: 2026-11-11. Platform/ejer: Windows.
+Status: **Slice 0-baseline og slice 1–6 implementeret; native evidens og resterende
+manuelle gates står i slice 6-kvalifikationen. Positiv Hello-/updaterkvalifikation åben.**
+Næste implementation: slice 7, Profil/konto og Windows Hello.
 
 ## Resultat sprintet skal levere
 
@@ -135,8 +147,8 @@ Se [slice 1-evidens](../qualification/WSA-UX-029_slice1.md) og
 [Slice 2-evidens og gendannelse](../qualification/WSA-UX-029_slice2.md) beskriver
 den nye data-/runtimeautoritet. [Slice 3](../qualification/WSA-UX-029_slice3.md)
 leverer Core-grænsen; [slice 4](../qualification/WSA-UX-029_slice4.md) leverer
-oplæsning/strategi/markering; slice 5–9 er ikke implementeret; konto-/Hello-/OS-toggle
-aktiveres ikke af denne leverance.
+oplæsning/strategi/markering. Slice 5–6 er nu implementeret som beskrevet øverst;
+slice 7–9 og positiv konto-/Hello-/OS-updatekvalifikation er fortsat åbne.
 
 ### Slice 0 — konkret risikokvalifikation
 
@@ -316,14 +328,9 @@ Kandidatlyd bruger samme valgte stemme/tempo og samme afbrydelige service. Tidli
 system-/sprogmodes bevares i legacy; primære voice-/tempoændringer vælger eksplicit
 appstyring. Se [slice 4-kvalifikation](../qualification/WSA-UX-029_slice4.md).
 
-Næste arbejde er slice 5: indstillingerne skal styre forslagets kilder, fagordslister,
-detaljer, responsivitet, fade og tre konfliktkontrollerede genvejelanes. Brugeren
-skal kunne vælge og høre forslag med samme sikre accept-/cancelsti. Analyse,
-lokale læringsvalg, konto og updaterstyring forbliver senere leverancer.
-Kilde-/domæne-/analysevalg forbindes til rigtige effekter i slice 5–6; de aktiveres
-ikke alene, fordi transporten nu kan levere data. Ingen C#-sproglig fork tilføjes.
-Parallelt i kvalifikationsrækkefølgen kræves en Hello-provisioneret testsession
-med en konkret sikker adapter samt et vellykket OS-update-roundtrip på relevante
-understøttede miljøer. Den registrerede hostfejl omdefinerer ikke G05 til en falsk
-lokal toggle. Layout, live gemning og de afgrænsede Generelt-funktioner er nu
-tilgængelige; konto, deling, analyse og udvidede kilder forbliver gated.
+Næste arbejde er slice 7: Profil/konto og sikker Windows Hello-sessionbeskyttelse
+mod eksisterende backendkontrakter. Slice 5–6 har nu reelle kilde-/domæne-/analyse-
+og lokale ordvalgsfunktioner med afgrænset native evidens; ingen C#-sproglig fork,
+automatisk læring eller backenddeling er tilføjet. Menneskelig Narrator-/lyd-/DPI-
+kvalifikation er fortsat åben. Positiv Hello- og OS-updatekvalifikation skal ske
+mod relevante understøttede miljøer; tidligere hostfejl giver ingen OS-autoritet.

@@ -82,6 +82,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         Suggestions.CollectionChanged += SuggestionsOnCollectionChanged;
         _acceptSelectedSuggestionCommand = new RelayCommand(ExecuteAcceptSelectedSuggestion, CanAcceptSelectedSuggestion);
         _settingsService.Changed += SettingsServiceOnChanged;
+        InitializeDocumentAnalysis();
 
         if (!string.IsNullOrWhiteSpace(_editorText))
         {
@@ -144,23 +145,23 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         new("Aa", "Tegn", CharacterCount.ToString()),
         new("≡", "Ord", WordCount.ToString()),
         new("!", "Stavefejl", "—"),
-        new("●", "Grammatik/tegnsætning", "—")
+        new("●", "Grammatik/tegnsætning", AnalysisDocument is null ? "—" : GrammarCount.ToString())
     ];
 
     public IReadOnlyList<AnalyzerLegendMetric> AnalyzerLegendMetrics =>
     [
-        new("Substantiver", 0, "#C26AF7"),
-        new("Egennavne", 0, "#F45A85"),
-        new("Verber", 0, "#2CBCCB"),
-        new("Tillægsord", 0, "#F5A14E"),
-        new("Biord", 0, "#758BFF"),
-        new("Pronomen", 0, "#5BC878"),
-        new("Determiner", 0, "#A97B58"),
-        new("Præpositioner", 0, "#4BB6E8"),
-        new("Konjunktioner", 0, "#48C7B3"),
-        new("Staveforslag", 0, "#E24A4A", true),
-        new("Semantik", 0, "#4A7DF0", true),
-        new("Tegnsætning", 0, "#4A7DF0", true)
+        new("Substantiver", CountWordClass("noun"), "#C26AF7"),
+        new("Egennavne", CountWordClass("properNoun"), "#F45A85"),
+        new("Verber", CountWordClass("verb"), "#2CBCCB"),
+        new("Tillægsord", CountWordClass("adjective"), "#F5A14E"),
+        new("Biord", CountWordClass("adverb"), "#758BFF"),
+        new("Pronomen", CountWordClass("pronoun"), "#5BC878"),
+        new("Determiner", CountWordClass("determiner"), "#A97B58"),
+        new("Præpositioner", CountWordClass("preposition"), "#4BB6E8"),
+        new("Konjunktioner", CountWordClass("conjunction"), "#48C7B3"),
+        new("Staveforslag", CountDiagnostic("spelling"), "#E24A4A", true),
+        new("Semantik", CountDiagnostic("semantic_word"), "#4A7DF0", true),
+        new("Tegnsætning", CountDiagnostic("punctuation"), "#4A7DF0", true)
     ];
 
     public string EditorText
@@ -371,9 +372,9 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         .Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)
         .Length;
 
-    public int SpellingCount => 0;
+    public int SpellingCount => CountDiagnostic("spelling");
 
-    public int GrammarCount => 0;
+    public int GrammarCount => AnalysisDocument?.Result.Diagnostics.Count ?? 0;
 
     public SuggestionPlacementMode SuggestionPlacementMode
     {
@@ -398,9 +399,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ? "Follow-caret aktiv"
         : "Statisk placering aktiv";
 
-    public string EditorReadinessSummary => IsAnalyzerColoringEnabled
-        ? "Farvekodning og analysepanel er synlige i Windows-baseline."
-        : "Farvekodning er slået fra i Windows-baseline.";
+    public string EditorReadinessSummary => AnalysisStatus;
 
     public string AnalyzerToggleSummary =>
         $"Farver: {(IsAnalyzerColoringEnabled ? "til" : "fra")} · Semantik: {(IsSemanticDiagnosticsEnabled ? "til" : "fra")} · Tegnsætning: {(IsPunctuationDiagnosticsEnabled ? "til" : "fra")}";
@@ -708,6 +707,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ApplySavedSettings(settings);
         ClearSuggestionSession(keepOverlayVisible: false);
         if (_isLocalEditorActive) ScheduleSuggestionsRefresh();
+        else if (_isExternalSuggestionSessionActive && !string.IsNullOrWhiteSpace(_externalSuggestionToken))
+            ScheduleSuggestionsRefresh(_externalSuggestionToken, delayMs: 75);
         SettingsChanged?.Invoke(this, settings.Clone());
     }
 
@@ -1163,6 +1164,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void Dispose()
     {
+        DisposeDocumentAnalysis();
         _settingsService.Changed -= SettingsServiceOnChanged;
         Interlocked.Increment(ref _requestRevision);
         _suggestionDocumentId = Guid.NewGuid();

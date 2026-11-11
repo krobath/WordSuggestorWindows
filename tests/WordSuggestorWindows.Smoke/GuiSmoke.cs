@@ -91,8 +91,11 @@ internal static class GuiSmoke
             SetSelection(snapshot.Control, snapshot.Text.Length, snapshot.Text.Length); await Task.Delay(500);
             await SetCaretPermission(true);
             var followChoice = FollowChoice();
+            Check("overlay has usable native width", overlay.Current.BoundingRectangle.Width >= 292);
             Check("enabling permission exposes choice without selecting follow", followChoice is { Current.IsOffscreen: false } && ((TogglePattern)followChoice.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.Off);
             Click(followChoice!); await Task.Delay(500);
+            var placementSnapshot = new WindowsAppSettingsService(Path.Combine(data, "settings", "settings-v1.json")).Load();
+            Console.WriteLine($"DIAGNOSTIC follow foregroundMatches={GetForegroundWindow() == notepadHandle} toggle={((TogglePattern)followChoice!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState} savedMode={placementSnapshot.SuggestionPlacementMode} permission={placementSnapshot.FollowCaretOptionEnabled}");
             Check("explicit overlay follow choice preserves Notepad focus", GetForegroundWindow() == notepadHandle && ((TogglePattern)followChoice!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.On);
             Check("permission and placement changes never alter target text", ReadControlText(snapshot.Control) == snapshot.Text);
             var candidate = await Candidate(overlay);

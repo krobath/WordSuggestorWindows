@@ -46,6 +46,7 @@ public partial class SettingsWindow : Window
     {
         if (_pages is null || CategoryNavigation.SelectedItem is not ListBoxItem { Tag: string id } item) return;
         _help.Close(false);
+        if (id != "learning") _form.CloseSavedChoices();
         foreach (var page in _pages) page.Value.Visibility = page.Key == id ? Visibility.Visible : Visibility.Collapsed;
         CategoryTitle.Text = System.Windows.Automation.AutomationProperties.GetName(item);
         DetailScroll.ScrollToTop();
@@ -55,9 +56,15 @@ public partial class SettingsWindow : Window
     {
         if (e.Key != Key.Escape) return;
         if (_help.IsOpen) { _help.Close(true); e.Handled = true; return; }
-        if (new[] { InterfaceLanguageComboBox, LanguageComboBox, SpeechLanguageModeComboBox,
-            SystemVoiceComboBox, ReadingStrategyComboBox, ReadingHighlightModeComboBox }.Any(c => c.IsDropDownOpen)) return;
+        if (HasOpenPicker(this)) return;
         Close(); e.Handled = true;
+    }
+    private static bool HasOpenPicker(DependencyObject target)
+    {
+        if (target is ComboBox { IsDropDownOpen: true }) return true;
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(target); i++)
+            if (HasOpenPicker(System.Windows.Media.VisualTreeHelper.GetChild(target, i))) return true;
+        return false;
     }
 
     private void OpenLegacy_OnClick(object sender, RoutedEventArgs e)
@@ -70,6 +77,11 @@ public partial class SettingsWindow : Window
     }
 
     private void CloseButton_OnClick(object sender, RoutedEventArgs e) => Close();
+    private void SavedChoices_OnClick(object sender, RoutedEventArgs e) { _help.Close(false); _form.SavedChoices_OnClick(sender, e); }
+    private void SavedChoicesBack_OnClick(object sender, RoutedEventArgs e) => _form.SavedChoicesBack_OnClick(sender, e);
+    private void DeleteChoice_OnClick(object sender, RoutedEventArgs e) => _form.DeleteChoice_OnClick(sender, e);
+    private void DeleteAllChoices_OnClick(object sender, RoutedEventArgs e) => _form.DeleteAllChoices_OnClick(sender, e);
+    private void ResetLearning_OnClick(object sender, RoutedEventArgs e) => _form.ResetLearning_OnClick(sender, e);
     private void CheckUpdates_OnClick(object sender, RoutedEventArgs e) => _form.CheckUpdates_OnClick(sender, e);
     private void OpenUpdate_OnClick(object sender, RoutedEventArgs e) => _form.OpenUpdate_OnClick(sender, e);
     private void OpenSpeechSettingsButton_OnClick(object sender, RoutedEventArgs e) => _form.OpenSpeechSettingsButton_OnClick(sender, e);

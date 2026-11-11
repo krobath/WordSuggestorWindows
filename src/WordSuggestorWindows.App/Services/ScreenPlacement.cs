@@ -25,15 +25,21 @@ public static class ScreenPlacement
 
     public static Point Place(Window window, Point physicalAnchor, bool followCaret)
     {
+        // Create the HWND before reading bound dimensions. Creation can resolve
+        // WPF's deferred bindings; NaN must never reach native pixel dimensions.
+        var handle = new WindowInteropHelper(window).EnsureHandle();
         var monitor = MonitorFromPoint(new POINT { X = (int)physicalAnchor.X, Y = (int)physicalAnchor.Y }, 2);
         var info = new MONITORINFO { Size = Marshal.SizeOf<MONITORINFO>() };
         if (!GetMonitorInfoW(monitor, ref info)) return physicalAnchor;
         uint dpiX = 96, dpiY = 96;
         if (GetDpiForMonitor(monitor, 0, out var x, out var y) == 0) { dpiX = x; dpiY = y; }
-        var size = new Size(window.Width * dpiX / 96.0, window.Height * dpiY / 96.0);
+        var width = double.IsFinite(window.Width) ? window.Width : window.ActualWidth;
+        var height = double.IsFinite(window.Height) ? window.Height : window.ActualHeight;
+        if (!(width > 0) || !(height > 0)) return physicalAnchor;
+        var size = new Size(Math.Max(window.MinWidth, width) * dpiX / 96.0,
+            Math.Max(window.MinHeight, height) * dpiY / 96.0);
         var work = new Rect(info.Work.Left, info.Work.Top, info.Work.Right - info.Work.Left, info.Work.Bottom - info.Work.Top);
         var position = Compute(work, physicalAnchor, size, followCaret);
-        var handle = new WindowInteropHelper(window).EnsureHandle();
         SetWindowPos(handle, IntPtr.Zero, (int)Math.Round(position.X), (int)Math.Round(position.Y),
             (int)Math.Round(size.Width), (int)Math.Round(size.Height), 0x0010 | 0x0004);
         return position;

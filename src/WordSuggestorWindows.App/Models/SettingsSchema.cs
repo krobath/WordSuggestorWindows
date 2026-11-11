@@ -4,7 +4,7 @@ namespace WordSuggestorWindows.App.Models;
 // consent are not inferred or created by this migration.
 public static class SettingsSchema
 {
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     public static AppSettingsSnapshot Upgrade(AppSettingsSnapshot source)
     {
@@ -23,6 +23,12 @@ public static class SettingsSchema
             result.FollowCaretOptionEnabled = true;
         }
         result.SchemaVersion = CurrentVersion;
+        if (source.SchemaVersion < 5 && result.PunctuationCommaStyle == "Standard")
+            result.PunctuationCommaStyle = "grammatical_without_start_comma";
+        if (result.PunctuationCommaStyle is not ("grammatical_without_start_comma" or "grammatical_with_start_comma"))
+            throw new InvalidOperationException("Invalid comma style.");
+        if (result.ContextualCommaMode is not ("boundary_local_contextual_v1" or "legacy_graph_only")) result.ContextualCommaMode = "legacy_graph_only";
+        if (!result.SaveWordChoices) result.ShareWordChoices = false;
         if (result.InterfaceLocalePreference is not ("system_default" or "da-DK" or "en-GB"))
             throw new InvalidOperationException("Unsupported interface preference.");
         result.ReadingSpeedDelta = source.SchemaVersion < 3

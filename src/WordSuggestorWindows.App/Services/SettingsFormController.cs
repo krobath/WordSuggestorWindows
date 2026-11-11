@@ -31,6 +31,7 @@ internal sealed partial class SettingsFormController : IDisposable
         InitializeOptionSources(); LoadControls(); RenderStatus();
         _loading = false;
         AttachSuggestionControls();
+        AttachAnalysisControls();
         Language.SelectionChanged += OnLanguageChanged;
         Voice.SelectionChanged += OnVoiceChanged;
         SystemSpeech.Checked += OnSpeechChanged; SystemSpeech.Unchecked += OnSpeechChanged;
@@ -103,11 +104,13 @@ internal sealed partial class SettingsFormController : IDisposable
         PanelDebug.IsChecked = _settings.IsPlacementDebugLoggingEnabled; CoreDebug.IsChecked = _settings.IsCoreDebugLoggingEnabled;
         RefreshSpeechControls();
         LoadSuggestionControls();
+        LoadAnalysisControls();
     }
 
     private void ReadControls()
     {
         ReadSuggestionControls();
+        ReadAnalysisControls();
         _settings.SelectedLanguageCode = Language.SelectedValue as string ?? _settings.SelectedLanguageCode;
         if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui) _settings.InterfaceLocalePreference = ui.SelectedValue as string ?? _settings.InterfaceLocalePreference;
         if (Optional<CheckBox>("FollowCaretOptionCheckBox") is { } allowed) _settings.FollowCaretOptionEnabled = allowed.IsChecked == true;
