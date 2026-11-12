@@ -1,5 +1,15 @@
 # Current Windows beta track — 2026-11-10
 
+## Beta tooling cleanup — 2026-11-12
+
+WSA-RT-017 records the existing Windows x64 MSIX/App Installer and backend O-052
+uploader as one reviewable delivery. See the [release runbook](Release.md),
+[qualification evidence](qualification/WSA-RT-017_release_cleanup.md) and
+[change note](changes/2026-11-12_wsa_rt_017_beta_publication_tooling.md).
+Production signing, trusted install/update and live SSH/publication remain open.
+No release is published and Windows Hello acceptance stays user-deferred.
+
+
 ## Editor tabs closeout — 2026-11-12
 
 WSA-UX-013 retains WPF/Core and adds independent native document tabs with guarded

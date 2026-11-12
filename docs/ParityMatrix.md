@@ -115,3 +115,11 @@ was delivered, not all target programs or accessibility modes were verified.
 Read `ReleaseAudit.md` for preserve/refactor/restart comparison, `BridgeContract.md`
 for pack/wire details, `Release.md` for secure delivery and `ManualSmoke.md` for
 test scope. No source or runtime behavior was removed merely for aesthetic reasons.
+
+## Release tooling status — 2026-11-12
+
+Windows x64 package/manifest/feed validation and private O-052 uploader are
+implemented; fixture and standalone payload results are tracked in
+[WSA-RT-017 qualification](qualification/WSA-RT-017_release_cleanup.md).
+This is not signed-install, update, public download or Mac Sparkle qualification.
+Read [Release.md](Release.md) for the exact remaining gates and safe workflow.

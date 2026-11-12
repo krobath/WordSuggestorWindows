@@ -306,3 +306,21 @@ right-click correction integration is the explicit migration plan.
 Installer, signing, update trust, rollout/rollback and operator gates are in
 [Release.md](Release.md). Current verification and limitations are in
 [ManualSmoke.md](ManualSmoke.md) and the dated delivery note.
+
+## Beta publication tooling boundary — WSA-RT-017
+
+`release_common.ps1` owns bounded manifest/feed/package/signature validation;
+`release_transport.ps1` owns strict pinned ED25519 SSH/SFTP, native argument quoting,
+bounded process output/deadlines and private staging. `publish_beta_release.ps1`
+orchestrates the existing O-052 server publisher, never public-directory writes.
+Production identity/publisher/version/hash attestation is distinct from isolated
+LocalTest identities and native qualification. The backend contract is unchanged.
+
+Installed payloads resolve bundled Core only. Explicit installed QA arguments
+are processed before normal app startup: ReleaseQualificationProbe validates the
+package's data-root boundary and can only create reserved, new diagnostics result
+files. LocalTest package/data/single-instance identities are isolated from normal
+user data. The ordinary app does not execute probes without those explicit flags.
+Native MSIX qualification is opt-in and cannot uninstall preexisting packages or
+overwrite nonempty test data. See [Release.md](Release.md) for signing, App Installer,
+pending/active publication, trust mutation boundaries and rollback.

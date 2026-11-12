@@ -14,6 +14,7 @@ internal static class GuiSmoke
 
     public static async Task Run(string repo, bool editorOnly = false)
     {
+        var appId = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_ID");
         var data = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_DATA_ROOT") ?? Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(data);
         Directory.CreateDirectory(Path.Combine(data, "settings"));
@@ -32,7 +33,8 @@ internal static class GuiSmoke
             var systemRoot = Environment.GetEnvironmentVariable("SystemRoot")!;
             info.Environment["PATH"] = Path.Combine(systemRoot, "System32") + ";" + systemRoot + ";" + Path.Combine(systemRoot, "System32", "WindowsPowerShell", "v1.0");
         }
-        Process Launch() => Process.Start(info)!;
+        Process Launch() => appId is null ? Process.Start(info)! : PackageActivation.Start(appId,
+            "--sample-text \"Jeg vil gerne skri\" --qualification-root \"" + data + "\"");
         using var app = Launch();
         Process? recoveredApp = null;
         IntPtr notepadHandle = IntPtr.Zero;
@@ -280,6 +282,9 @@ internal static class GuiSmoke
             var version = settings.FindFirst(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.AutomationIdProperty, "AppVersion"));
             Check("version available to accessibility", version is not null && version.Current.Name.Contains("WordSuggestor"));
+            var expectedPackage = Environment.GetEnvironmentVariable("WORDSUGGESTOR_EXPECT_PACKAGE_VERSION");
+            if (expectedPackage is not null)
+                Check("installed process has actual MSIX identity", version!.Current.Name.Contains("pakke " + expectedPackage));
             var checkUpdates = settings.FindFirst(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.NameProperty, "Søg efter opdateringer"));
             Check("manual update action accessible", checkUpdates is not null);
@@ -304,8 +309,18 @@ internal static class GuiSmoke
             ((WindowPattern)editor.GetCurrentPattern(WindowPattern.Pattern)).Close();
             await Task.Delay(200);
             Check("closing editor keeps toolbar", toolbar.Current.IsEnabled && !app.HasExited);
-            using (var duplicate = Launch())
+            if (appId is null)
+            {
+                using var duplicate = Launch();
                 Check("second launch exits without duplicate toolbar", duplicate.WaitForExit(5000) && duplicate.ExitCode == 0 && !app.HasExited);
+            }
+            else
+            {
+                _ = PackageActivation.Activate(appId, "--sample-text \"Jeg vil gerne skri\" --qualification-root \"" + data + "\"");
+                await Task.Delay(500);
+                Check("second package activation preserves one toolbar", !app.HasExited &&
+                    Windows(app.Id).Count(w => w.Current.Name == "WordSuggestor Windows") == 1);
+            }
             Click(toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "OpenEditor")));
             editor = await FindWindow(app.Id, "WordSuggestor – Editor");
             document = await ActiveDocument(editor);

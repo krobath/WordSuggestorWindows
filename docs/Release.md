@@ -1,121 +1,275 @@
 # Windows beta packaging and release
 
-## Settings/manual update integration — 2026-11-12
+Updated 2026-11-12, WSA-RT-017_windows_beta_publication_tooling.
+This runbook describes implemented local tooling. Production signing, native
+installation/update and public publication are not qualified by the cleanup.
+See [measured results and remaining gates](qualification/WSA-RT-017_release_cleanup.md).
 
-The existing MSIX/App Installer release model is retained. Settings now validates
-canonical feed metadata and OS association/availability before offering a separate
-confirmed normal-close handoff to `ms-appinstaller`. Signing, publisher stability,
-HTTPS publication and N→N+1 remain release gates. This slice does not publish,
-change backend O-052, add an updater or qualify a signed beta.
+## Architecture and platform
 
-In-app policy editing is source-gated read-only until native packaged change/read/
-restore passes. Windows' existing configured automatic updates still run. Default
-App Installer policy overrides can be replaced by the next App Installer update;
-they are not a durable promise across releases. See
-[Windows update contract and native fixture procedure](WindowsUpdates.md) and
-[slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+Retain .NET 10 WPF, the versioned JSON Core CLI and unchanged SQLite packs. MSIX +
+App Installer remains the selected distribution model: Windows owns signature
+trust, transactional installation and update lifecycle. Direct distribution with
+Velopack would require separate updater qualification; no concrete MSIX failure
+justifies that migration. No custom unsigned production updater is introduced.
 
-Updated 2026-11-08, WSA-DX-004. Current output is a signing-ready MSIX test artifact;
-it is not a signed public release. The user has confirmed that no signing service
-is currently configured. A service is optional, but trusted package signing is
-required for normal distribution. No private key or password belongs in this repo.
+The x64 package declares Windows Desktop >=10.0.19041 (Windows 10 2004), with
+Windows 11 also targeted. This is a technical manifest minimum, not a claim that
+all those OS versions received hardware/manual acceptance. Publish is self-contained
+win-x64 .NET 10; recipients do not install Swift or a .NET SDK. Build prerequisites
+and pinned dependencies remain in README/global.json/dependencies.lock.json.
+Installation is per-user. Normal app use and trusted installation need no admin;
+enterprise sideloading/App Installer policy may require an administrator to enable
+distribution. Never run the editor elevated to work around an unsupported target.
 
-## Decision
+## Identity, versioning and data
 
-| Model | Assessment |
-|---|---|
-| MSIX + App Installer | Selected: OS-owned signed package verification, installation transaction, repair/uninstall, protocol registration, separate beta identity, HTTPS metadata and background/on-launch checks. |
-| Velopack direct distribution | Viable alternative where MSIX policy blocks deployment; needs its own signing, updater lifecycle and qualification. Current full-trust WPF/child-process requirements do not yet justify that additional flow. |
+- Beta identity: `WordSuggestor.Windows.Beta`; application ID `App`.
+- Publisher: exact certificate Subject supplied to `-Publisher`. The template
+  `CN=WordSuggestor` is not evidence of a provisioned production identity. Select
+  and retain the approved publisher before the first public package.
+- Separate display version, e.g. `0.2.0-beta.1`, build number `2001`, and four-part
+  numeric package version `0.2.0.1`. Every published update/rollback increases the
+  latter; do not reuse or overwrite historical packages.
+- `%LOCALAPPDATA%\WordSuggestor`: settings/settings-v1.json (current schema 6),
+  editor/workspace-v1.json (drafts/schema 1 + backup), Packs (installed packs),
+  UserWords (Core-owned overlay), learning and diagnostics. Bundled Core/Packs stay
+  inside the read-only payload; installed packs and user changes stay outside it.
+- Existing atomic settings migrations/backups and future-schema protections remain.
+  Credentials stay in the existing Windows secure credential mechanism; no tokens
+  or keys are in release metadata. Drafts are local content, not diagnostic logs.
+- MSIX unvirtualizedResources/filesystem exclusions retain established local data
+  over upgrades/uninstall; verify this on an actual signed install. Text files
+  remain at user-chosen paths. Installed LocalTest identities use their own
+  LocalTests/<nonce> root and package-scoped single-instance coordination.
 
-No homemade updater or unsigned production channel is implemented. This follows
-[Microsoft's App Installer settings](https://learn.microsoft.com/en-us/windows/msix/app-installer/update-settings)
-and [Velopack's signing requirements](https://docs.velopack.io/packaging/signing).
+## Build, signing and package verification
 
-## Build an artifact
-
-From the Windows repo:
+Run from `WordSuggestorWindows`. No production secrets are needed for development:
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_core_cli.ps1 -SettingsContract
+powershell -ExecutionPolicy Bypass -File scripts\test_app.ps1 -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_gui.ps1 -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_media.ps1 -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_qualification.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_run_scripts.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_release_scripts.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_clean_checkout.ps1
 powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1
 ```
 
-The existing bootstrap builds optimized Core; publish produces an x64
-self-contained .NET 10 app, bundles Core/Swift runtime DLLs and resources plus the
-Danish pack, derives tile assets from the existing product icon, and validates the
-manifest/package with Windows SDK MakeAppx. Unique output directories are under
-`.artifacts/release`. Generated binaries are ignored. `build-info.json` records
-Core/pack SHA-256 identities; `makeappx.log` records SDK validation.
-
-For a previously verified binary, use `-SkipCoreBuild -CoreCliPath <absolute-exe>`.
-`-FrameworkDependent` is a development option, not the qualified standalone output.
+The last command builds an **unsigned** staging MSIX and emits neither feed nor
+manifest. `-SkipCoreBuild -CoreCliPath <verified-cli>` reuses a verified Core;
+`-FrameworkDependent` is development-only. Unique ignored `.artifacts/release`
+directories contain payload, MakeAppx log and build-info.json with Core/pack hashes.
+Never commit binaries. Isolated payload smoke:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\test_package.ps1 -AppDirectory <artifact-app-directory>
+powershell -ExecutionPolicy Bypass -File scripts\test_package.ps1 -AppDirectory <output-app-directory>
 ```
 
-This copies the payload outside the source workspace and runs desktop smoke with
-Swift/.NET SDK paths removed from the app environment. It tests the payload, not
-MSIX installation, signature trust or updates. Keep these results distinct.
+This copies outside the workspace and removes source/SDK discovery from the app
+environment. It proves payload execution, not installed identity/trust/update.
+Installed apps now resolve only bundled Core, never a sibling source checkout.
 
-## Signing and channels
-
-`WordSuggestor.Windows.Beta` is the beta package identity. A stable channel must use
-a separate identity/feed and be qualified separately. Publisher must exactly match
-the signing certificate subject. Signing uses a certificate already present in
-the signing user's Windows certificate store, never an exported private key:
+Provision the approved non-exportable code-signing identity with private-key
+access in the signing user's Windows Certificate Store through the organization's
+secure process. Keep passwords/PFX/private keys out of chat, source and logs. The
+current script uses SignTool `/sha1` against CurrentUser\My; a remote signing
+service needs a reviewed adapter rather than pretending a local certificate exists.
+The chain must be trusted on recipients, and the Subject must match the stable
+publisher. Example, replacing placeholders locally:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1 -Version 0.2.0.1 -Publisher '<certificate subject>' -CertificateThumbprint '<thumbprint>' -FeedBaseUri 'https://<release-host>/windows/beta/'
+powershell -ExecutionPolicy Bypass -File scripts\package_app.ps1 -PackageVersion 0.2.0.1 -DisplayVersion 0.2.0-beta.1 -BuildNumber 2001 -Publisher '<approved Subject>' -CertificateThumbprint '<store thumbprint>'
 ```
 
-The script signs with SHA-256 and HTTPS timestamping, then runs SignTool trust
-verification. It generates `.appinstaller` only after successful trusted signing.
-Unsigned staging emits an explicit `.unsigned.msix` and no feed. HTTP, credentialed
-URLs, query/fragment feed URLs and feed-without-signature requests are rejected.
-No feed is published by these scripts.
+SignTool signs SHA-256 with HTTPS timestamping, then `verify /pa /all /v` and Windows
+Authenticode trust must both pass. Publisher equality and certificate SHA-256 are
+recorded as the authorized publisher attestation. Linux does not revalidate the
+Windows trust chain. Only trusted signing produces the three-file bundle. Wrong
+identity/publisher, invalid trust, hashes or feed policy abort before upload.
 
-Signed immutable versioned packages must be uploaded before atomically replacing
-the feed. Protect release-host write access. Windows checks signatures and package
-block hashes; a SHA file alone is not update authentication. Feed checks are
-non-blocking on launch (six-hour interval) plus OS background checks. Start-menu
-package activation participates; directly launching a loose exe bypasses that
-installed-app lifecycle. Manual update:
+## App Installer and backend contract
+
+Authoritative server contract is read-only O-052 in WordSuggestorBackend at
+`2f67ddc6f5382b286e3039677a05677fe4d7d16f` and its Windows x64 example.
+No alternate endpoint/schema/catalog is introduced.
+
+Canonical feed:
+`https://wordsuggestor.com/beta-artifacts/windows/x64/beta/WordSuggestor.Beta.appinstaller`
+
+Package example:
+`https://wordsuggestor.com/beta-artifacts/windows/x64/beta/WordSuggestor.Beta_0.2.0.1_x64.msix`
+
+App Installer 2018 has one MainPackage and UpdateSettings, matching identity,
+publisher/x64/package version and exact canonical HTTPS paths. OnLaunch checks
+every six hours (`ShowPrompt=true`, `UpdateBlocksActivation=false`), plus
+AutomaticBackgroundTask; ForceUpdateFromAnyVersion=false. Extra/duplicate policy
+or dependency elements are rejected. OS scheduling/network policy affects timing.
+Start-menu activation participates in installation/update lifecycle; loose exe
+launch is not automatic-update evidence.
+
+Settings manual check validates feed/association before a confirmed normal-close
+handoff to `ms-appinstaller`. Save/cancel is preserved. Offline errors are calm.
+The G05 in-app policy editor remains read-only until its separate trusted fixture
+qualification passes; existing OS automatic scheduling is unaffected. See
+[WindowsUpdates.md](WindowsUpdates.md). Direct operator check:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\check_update.ps1 -AppInstallerUri 'https://<release-host>/windows/beta/WordSuggestor.Beta.appinstaller'
+powershell -ExecutionPolicy Bypass -File scripts\check_update.ps1 -AppInstallerUri 'https://wordsuggestor.com/beta-artifacts/windows/x64/beta/WordSuggestor.Beta.appinstaller'
 ```
 
-Do not force-close an editing session. Save documents, exit, update, then relaunch
-from the Start menu. App Installer owns installation; user data is outside payload.
+`release-manifest.json` uses schema_version=1 and a nested release containing
+platform/windows, architecture/x64, channel/beta, version, build_number,
+package_version, package_type/msix, status, minimum_os, status_message,
+release_notes, known_issues, artifact/update_feed filename/size_bytes/sha256 and
+signing publisher/identity/signature_verified/verification_result/verified_at/
+verification_tool. No URLs, server paths or secrets are chosen in this manifest.
+Exactly three files belong in the bundle: manifest, versioned MSIX, canonical
+App Installer filename. The backend's original portable validator is SHA-256
+pinned in `tests/verify_backend_manifest.py`; Python 3 and the pinned backend blob
+are test prerequisites. Tests export it read-only from the sibling backend repo
+if no cache exists. Offline: place that exact blob at
+`.artifacts/backend-reference/2f67ddc/scripts/beta_release_publish.py`; a different
+hash fails, and missing reference fails rather than silently skipping validation.
 
-## Data, uninstall and rollback
+## Native test qualification without production credentials
 
-Keep `%LOCALAPPDATA%\WordSuggestor` across upgrades. The manifest declares
-`unvirtualizedResources` and filesystem virtualization rules so settings, packs and
-Core user words remain at the established location and survive uninstall. On
-Windows 11 the exclusion is scoped to that app-data folder; Windows 10 uses the
-older filesystem declaration. Registry virtualization remains enabled; the OCR
-protocol is also declared in the package manifest. Verify on a signed install.
-See [Microsoft's virtualization contract](https://learn.microsoft.com/en-us/windows/msix/desktop/flexible-virtualization).
+Use a disposable ordinary-user test account/VM with an active unlocked desktop.
+Without trusted signing, the explicit local fixture procedure is:
 
-Settings remain schema 1 with atomic replacement/recovery backup. Older code must
-not overwrite a future settings schema. Core protects unknown user-word schemas.
-Never bundle user data in an MSIX. Saved text files remain where the user chose.
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -LocalTestIdentity -AllowTemporaryMachineTrust
+```
 
-Stop a defective rollout by reverting/withdrawing its feed entry. Preferred
-rollback is the last known-good payload republished with a higher four-part
-package version and the same publisher/identity. Automatic downgrades are disabled
-(`ForceUpdateFromAnyVersion=false`). Keep N-1 signed package/source hashes and data
-backups; avoid destructive data migrations. Reinstalling an old version or merely
-changing a download URL is not a tested rollback procedure.
+Default invocation exits **3 BLOCKED** without touching certificates/packages.
+The explicit switch authorizes the local harness to create a non-exportable
+seven-day test signing key, elevate only a leaf-trust helper and temporarily add
+its public non-CA code-signing certificate to LocalMachine\TrustedPeople.
+It never adds a root. Helper TTL/cleanup removes only trust it added; the caller
+removes its own test key. Record/check cleanup even on interruption. Do not run
+this on an ordinary development machine merely to clean Git status.
 
-## Required release-owner tests
+Identity `WordSuggestor.Windows.LocalTest.<12 lowercase hex>` and exact matching
+`CN=WordSuggestor Local Test <same nonce>` use local file feeds, isolated user data,
+and cannot pass the production uploader. Existing installations/nonempty fixture
+data are rejected; cleanup uninstalls only a package this run actually installed.
+Qualification probes write only new reserved diagnostics/qualification-<guid>.json
+files. No raw exceptions/document text enter qualification records.
 
-On a disposable VM/test account with a trusted signing identity: install signed
-N, save settings/add user word/save a document, install N+1, reopen and verify
-data/shortcuts/OCR callback, close and relaunch, reject a tampered/untrusted package,
-withdraw the feed release, republish known-good payload as N+2, verify data again,
-uninstall and confirm intentional user-data retention. Also test offline feed,
-interrupted installation, standard-user privileges and real 125/150/200% mixed-DPI
-monitors. These gates are pending until a signing identity/feed and those test
-environments are available. No signing trust store was modified during development.
+For trusted production-identity bundles in a clean test account:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreviousBundleDirectory <signed-N-bundle> -CandidateBundleDirectory <signed-N1-bundle>
+```
+
+The harness attempts clean ordinary-user install, packaged Core/DA + user word,
+automatic and manual N-to-N+1 update, settings/pack/user-word hash retention,
+installed relaunch/desktop smoke, offline/invalid/wrong identity/publisher,
+tamper/older-version rejection, same-version unchanged and uninstall retention.
+Same-version reinstall is not described as a Windows rejection. Native evidence
+is the ignored msix-qualification.json, not mocks. Additionally qualify editor
+draft/session retention across the actual update, unknown signer rejection,
+interrupted update and supported OS/DPI/accessibility hardware manually. A signed
+candidate's payload can be rechecked with `test_release_candidate.ps1`.
+Hello PIN/biometric acceptance stays user-deferred; software mocks do not close it.
+
+## Private staging, pending registration and activation
+
+Configure the approved SSH host/user, key filename, server backend checkout path,
+dedicated known_hosts file and independently verified ED25519 SHA256 fingerprint
+in the operator session/secure configuration. No guessed host key, TOFU, passwords
+or embedded server deployment paths. Example configuration uses local variables:
+
+```powershell
+$transport = @{
+    HostName = $env:WS_RELEASE_HOST
+    UserName = $env:WS_RELEASE_USER
+    KnownHostsFile = $env:WS_RELEASE_KNOWN_HOSTS
+    HostKeyFingerprint = $env:WS_RELEASE_ED25519_PIN
+    IdentityFile = $env:WS_RELEASE_SSH_KEY_PATH
+    BackendDirectory = $env:WS_RELEASE_BACKEND_DIRECTORY
+}
+& .\scripts\publish_beta_release.ps1 @transport -BundleDirectory $bundle -WhatIf
+& .\scripts\publish_beta_release.ps1 @transport -BundleDirectory $bundle -Action Validate
+& .\scripts\publish_beta_release.ps1 @transport -BundleDirectory $bundle -Action RegisterPending
+```
+
+`$bundle` is the reviewed three-file signed pending bundle directory. WhatIf checks
+structure, hashes and pin configuration, previews exactly three files and a fresh
+ID, and makes no network connection/signature claim. Real actions always verify
+SignTool/trust, identity, feed, hashes and bounded metadata before SSH. Strict
+ED25519 host-key checking, BatchMode, no forwarding/password prompts, direct
+process arguments, bounded output/deadlines and sanitized failures are enforced.
+
+Every attempt creates a new UUID staging ID under
+`/data/docker_data/volumes/wordsuggestorbackend_beta_staging/<id>.uploading`, uploads
+exactly the three files, atomically renames to `<id>`, then runs the existing
+`./scripts/publish_beta_release_on_docker01.sh validate --staging-id '<id>'` and
+optionally `register` or `publish`. No direct public-directory writes. A pending
+row has no public download link. Exit codes 2–9 are checked against structured
+server JSON; SSH 255, malformed/contradictory replies and wrong targets stop.
+Partial/failed staging remains private and is never reused. After timeout inspect
+server state before retry; an already dispatched remote operation may finish.
+
+Only after exact candidate qualification and content review, change that bundle's
+manifest status to active (retain the signed MSIX/feed bytes), then:
+
+```powershell
+& .\scripts\publish_beta_release.ps1 @transport -BundleDirectory $bundle -Action Publish -QualificationPath $qualification
+```
+
+The attested report must match exact identity/publisher/version/package/feed hashes
+and all required true gates. The uploader rechecks the actual extracted payload,
+requires increasing public version, and tests Mac beta DMG links/signed appcast
+before/after. `-FirstRelease` permits only HTTP 404 for a nonexistent Windows feed,
+never an unavailable server or mismatched existing feed. Publish uses a fresh ID
+and the server owns package-first/feed-second/catalog-last. It verifies canonical
+result URLs and downloads/hashes both public artifacts afterward. Review /beta
+Windows x64 link and actual App Installer activation as final human acceptance.
+No public upload/publication or live Mac regression was performed in this cleanup.
+
+## Withdrawal, feed stop and rollback
+
+Through the existing approved server deployment/SSH process, in its backend
+checkout (these are server commands, not a new Windows transport path):
+
+```sh
+./scripts/publish_beta_release_on_docker01.sh set-status --platform windows --architecture x64 --channel beta --status withdrawn --status-message 'Release withdrawn while incident is reviewed.'
+./scripts/publish_beta_release_on_docker01.sh disable-feed --platform windows --architecture x64 --channel beta
+./scripts/publish_beta_release_on_docker01.sh restore-feed --platform windows --architecture x64 --channel beta --backup-id '<reviewed feed backup id>'
+```
+
+Withdrawal removes the page link but does not stop already-associated Windows
+clients. Disable-feed is separate. Review server history before restore. Preserve
+immutable packages, user data and other targets. Binary rollback builds known-good
+code with a higher numeric version and the same identity/publisher, then repeats
+qualification and normal publication. Never force a downgrade/delete history.
+Backend deployment/rollback stays in the macOS/backend runbook and is unchanged.
+
+## Troubleshooting and release limitations
+
+Use a short checkout path for self-contained packaging. A deeply nested QA export
+can exceed Windows/NuGet extraction path limits for runtime satellite DLLs and
+then fail publish with MSB3030. Package the identical reviewed source at a shorter
+checkout path; do not omit runtime resources or accept a partial publish. The
+cleanup observed this failure, then verified the complete payload from the normal
+repository path with the same source and already built optimized Core.
+
+Manifest/hash/policy failures stop locally; rebuild/review metadata rather than
+bypassing validators. Signature failures require the approved signer and trusted
+chain, not a new publisher or an unsigned feed. Host-key failures require an
+out-of-band pin review. Failed staging needs a fresh ID; retain sanitized result
+code for the server owner. A post-publication hash/Mac failure requires feed stop
+and withdrawal through the existing server controls.
+
+Only Notepad external insertion is currently end-to-end qualified. Word/Outlook,
+browser fields/Google Docs, elevated targets, mixed-DPI hardware and human screen
+reader review retain their documented limits. Release gates still require native
+signed installation/update, real trusted identity and approved SSH configuration.
+No payment/licensing changes or macOS/Core/backend source edits are part of this
+Windows cleanup. Development has not changed certificate trust or published a feed.

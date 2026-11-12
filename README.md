@@ -310,3 +310,19 @@ records exact source scope and all remaining gates.
 - [Plan](docs/Plan.md), [parity matrix](docs/ParityMatrix.md), [UI parity](docs/UiParityPlan.md)
 - [Desktop/manual smoke](docs/ManualSmoke.md), [selection compatibility](docs/SelectionImportCompatibilityMatrix.md)
 - [Changes](docs/changes/)
+
+## Windows beta release tools — WSA-RT-017
+
+The existing `package_app.ps1` now creates the O-052 three-file release bundle
+after trusted signing. `publish_beta_release.ps1` validates, uploads to private
+UUID staging, registers pending or publishes a qualified active candidate through
+the existing server publisher. Start with `-WhatIf` and the
+[Windows release runbook](docs/Release.md); every real operation requires approved
+signing/trust and pinned SSH configuration. No secrets belong in the repository.
+`test_release_scripts.ps1` exercises fixtures/mocked transport plus the immutable
+backend validator. Python 3 and the pinned backend reference are required for that
+contract gate. `test_clean_checkout.ps1 -IncludeWorkingTree` additionally supports
+a source-only uncommitted snapshot; its default still tests committed revisions.
+`test_msix.ps1` does not mutate trust by default: temporary LocalTest trust requires
+explicit `-AllowTemporaryMachineTrust` in a disposable test environment.
+See [actual results and open native/public gates](docs/qualification/WSA-RT-017_release_cleanup.md).

@@ -188,9 +188,10 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
 
     private string? ResolveCli()
     {
+        var bundled = Path.Combine(_baseDirectory, "Core", "WordSuggestorSuggestCLI.exe");
+        if (WindowsUpdateService.ReadInstalledRelease() is not null) return File.Exists(bundled) ? bundled : null;
         var configured = Environment.GetEnvironmentVariable("WORDSUGGESTOR_SUGGEST_CLI_PATH");
         if (!string.IsNullOrWhiteSpace(configured)) return Path.GetFullPath(configured);
-        var bundled = Path.Combine(_baseDirectory, "Core", "WordSuggestorSuggestCLI.exe");
         if (File.Exists(bundled)) return bundled;
         if (_workspaceRoot is null) return null;
         return new[] { Path.Combine(_workspaceRoot, "WordSuggestorCore", ".build", "debug", "WordSuggestorSuggestCLI.exe"),

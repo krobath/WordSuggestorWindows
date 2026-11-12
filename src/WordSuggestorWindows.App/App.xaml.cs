@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using WordSuggestorWindows.App.Services;
 using WordSuggestorWindows.App.ViewModels;
@@ -17,6 +18,13 @@ public partial class App : Application
 
         base.OnStartup(e);
         if (await WindowsUpdateQualification.TryRunAsync(e.Args) is { } updateCode) { Shutdown(updateCode); return; }
+
+        try
+        {
+            ReleaseQualificationProbe.ConfigureRoot(e.Args);
+            if (await ReleaseQualificationProbe.TryRunAsync(e.Args) is { } probeCode) { Shutdown(probeCode); return; }
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException) { Shutdown(2); return; }
 
         _singleInstance = new SingleInstance();
         if (!_singleInstance.IsPrimary) { Shutdown(0); return; }

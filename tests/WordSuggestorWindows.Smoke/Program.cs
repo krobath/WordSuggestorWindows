@@ -17,6 +17,19 @@ internal static class Program
         if (args.Contains("--tts-fake-worker")) return SpeechSettingsSmoke.FakeWorker();
         if (CoreSettingsSmoke.IsBridgeChild(args)) return CoreSettingsSmoke.FakeBridge();
         if (args.Contains("--stdio-json-v1")) return FakeCore();
+        if (args.FirstOrDefault() == "--activate-app")
+        {
+            try
+            {
+                var pid = PackageActivation.Activate(args[1], args[2]);
+                Process activated;
+                try { activated = Process.GetProcessById(pid); } catch (ArgumentException) { return 0; }
+                using var process = activated;
+                if (!activated.WaitForExit(20000)) return 3;
+                return activated.ExitCode;
+            }
+            catch (Exception ex) { Console.Error.WriteLine("FAIL package activation: " + ex.GetType().Name); return 1; }
+        }
         if (args.FirstOrDefault() == "--activate-update-fixture") return args.Length == 3 ? UpdatePackageActivation.Start(args[1], args[2]) : 2;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var code = 1;
@@ -76,6 +89,14 @@ internal static class Program
         _testRoot = Path.Combine(repo, ".artifacts", "tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
         Environment.SetEnvironmentVariable("WORDSUGGESTOR_DATA_ROOT", _testRoot);
+        var probeResult = Path.Combine(_testRoot, "diagnostics", "qualification-" + Guid.NewGuid().ToString("N") + ".json");
+        Check("qualification result uses reserved diagnostics name", ReleaseQualificationProbe.IsReservedResultPath(_testRoot, probeResult));
+        Check("qualification cannot overwrite settings or documents", !ReleaseQualificationProbe.IsReservedResultPath(_testRoot, Path.Combine(_testRoot, "settings", "settings-v1.json")) &&
+            !ReleaseQualificationProbe.IsReservedResultPath(_testRoot, Path.Combine(_testRoot, "diagnostics", "notes.txt")));
+        Check("qualification cannot escape its data root", !ReleaseQualificationProbe.IsReservedResultPath(_testRoot, Path.Combine(_testRoot, "..", "diagnostics", Path.GetFileName(probeResult))));
+        Directory.CreateDirectory(Path.GetDirectoryName(probeResult)!);
+        File.WriteAllText(probeResult, "existing");
+        Check("qualification cannot overwrite an existing result", !ReleaseQualificationProbe.IsReservedResultPath(_testRoot, probeResult));
         _passed += EditorTabsSmoke.Run(_testRoot);
         var pack = Path.Combine(Directory.GetParent(repo)!.FullName, "WordSuggestorCore", "Ressources", "da_lexicon.sqlite");
         Check("legacy Danish pack", LanguagePackValidator.Validate(pack, "da_DK", true) is { Compatible: true, Legacy: true });

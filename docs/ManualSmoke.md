@@ -360,3 +360,15 @@ diagnostics. Raw Core/TTS/OCR process errors are deliberately omitted. Test runs
 use their own data root. Existing old logs may contain pre-hardening details and
 are left intact; do not treat old log text as current behavior. Speech/OCR depend
 on Windows languages/devices/privacy settings and remain separate manual gates.
+
+## Release tooling cleanup — 2026-11-12
+
+Run `scripts/test_release_scripts.ps1` for fixture manifest/hash/identity/feed,
+ED25519 pin, WhatIf, server exit-code and mocked private staging tests. This makes
+no SSH connection and changes no trust. See [the measured cleanup matrix](qualification/WSA-RT-017_release_cleanup.md).
+Use [Release.md](Release.md) for a separately authorized disposable signed N-to-N+1
+test, including automatic/manual checks, invalid packages, retention and uninstall.
+The cleanup does not close any native installation/update or public HTTPS gate.
+The default local MSIX harness returns BLOCKED until temporary trust is explicitly
+opted into. Human accessibility/DPI, actual cross-update editor draft retention,
+production trust and live server/Mac regression remain separate acceptance.

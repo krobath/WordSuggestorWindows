@@ -1,5 +1,10 @@
-param(
-    [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = '0.2.0.0',
+﻿param(
+    [Alias('Version')][string]$PackageVersion = '0.2.0.1',
+    [string]$DisplayVersion = '0.2.0-beta.1',
+    [string]$BuildNumber = '2001',
+    [ValidateSet('pending','active')][string]$ReleaseStatus = 'pending',
+    [string[]]$ReleaseNotes = @('Native Windows editor and WordSuggestorCore-based Danish suggestions.'),
+    [string[]]$KnownIssues = @('External insertion is currently qualified for Notepad only.'),
     [string]$Publisher = 'CN=WordSuggestor',
     [string]$CoreCliPath = $env:WORDSUGGESTOR_SUGGEST_CLI_PATH,
     [string]$SwiftRuntimeDirectory,
@@ -8,14 +13,41 @@ param(
     [uri]$FeedBaseUri,
     [uri]$TimestampUri = 'https://timestamp.digicert.com',
     [switch]$SkipCoreBuild,
-    [switch]$FrameworkDependent
+    [switch]$FrameworkDependent,
+    [switch]$LocalTestIdentity,
+    [string]$TestPackageName,
+    [string]$LocalTestFeedDirectory
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'dotnet_env.ps1')
-if ($FeedBaseUri -and ($FeedBaseUri.Scheme -ne 'https' -or -not [string]::IsNullOrEmpty($FeedBaseUri.UserInfo) -or $FeedBaseUri.Query -or $FeedBaseUri.Fragment)) {
-    throw 'Release feed must use HTTPS without credentials, query or fragment.'
+. (Join-Path $PSScriptRoot 'release_common.ps1')
+$Version = $PackageVersion
+Assert-PackageVersion $PackageVersion
+Assert-ReleaseText $DisplayVersion 128
+Assert-ReleaseText $BuildNumber 128
+$packageName = $script:ProductionPackageName
+if ($LocalTestIdentity) {
+    if ($TestPackageName -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
+        $Publisher -cne ('CN=WordSuggestor Local Test ' + $TestPackageName.Split('.')[-1]) -or -not $LocalTestFeedDirectory -or -not $CertificateThumbprint) {
+        throw 'Local testing requires a separate test package, test publisher, local feed directory and certificate.'
+    }
+    $packageName = $TestPackageName
+    $testFeedPath = [IO.Path]::GetFullPath($LocalTestFeedDirectory)
+    if (-not $testFeedPath.StartsWith(($windowsRepo + '\.artifacts\'),[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Local test feed must remain under this repository .artifacts directory.'
+    }
+    $FeedBaseUri = [uri]($testFeedPath.TrimEnd('\') + '\')
+} elseif ($TestPackageName -or $LocalTestFeedDirectory) { throw 'Test parameters require LocalTestIdentity.' }
+elseif ($CertificateThumbprint) {
+    if (-not $FeedBaseUri) { $FeedBaseUri = [uri]$script:CanonicalBetaBase }
+    if ($FeedBaseUri.AbsoluteUri -cne $script:CanonicalBetaBase -or $Publisher -match 'Local.?Test|Development|Test Only') {
+        throw 'Production builds require the canonical feed and a production publisher.'
+    }
 }
 if ($FeedBaseUri -and -not $CertificateThumbprint) { throw 'A signed package is required before generating update metadata.' }
+if ($ReleaseStatus -eq 'active' -and (-not $CertificateThumbprint -or $FrameworkDependent -or $LocalTestIdentity)) {
+    throw 'Only a signed self-contained production package can be active.'
+}
 if ($TimestampUri.Scheme -ne 'https') { throw 'Timestamp endpoint must use HTTPS.' }
 if (-not $SkipCoreBuild) { & (Join-Path $PSScriptRoot 'bootstrap_core_cli.ps1') -Configuration release; $CoreCliPath = $env:WORDSUGGESTOR_SUGGEST_CLI_PATH }
 if (-not $CoreCliPath) {
@@ -38,10 +70,12 @@ $makeAppx = Join-Path $sdkBin.FullName 'x64\makeappx.exe'
 $signTool = Join-Path $sdkBin.FullName 'x64\signtool.exe'
 $releaseRoot = Join-Path $windowsRepo ('.artifacts\release\' + $Version + '-' + [guid]::NewGuid().ToString('N'))
 $stage = Join-Path $releaseRoot 'app'
+$bundle = Join-Path $releaseRoot 'bundle'
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
+New-Item -ItemType Directory -Path $bundle -Force | Out-Null
 $project = Join-Path $windowsRepo 'src\WordSuggestorWindows.App\WordSuggestorWindows.App.csproj'
 $selfContained = if ($FrameworkDependent) { 'false' } else { 'true' }
-dotnet publish $project -c Release -r win-x64 --self-contained $selfContained -o $stage -p:DebugType=None -p:DebugSymbols=false -p:Version=$Version
+dotnet publish $project -c Release -r win-x64 --self-contained $selfContained -o $stage -p:DebugType=None -p:DebugSymbols=false -p:Version=$DisplayVersion -p:AssemblyVersion=$PackageVersion -p:FileVersion=$PackageVersion
 if ($LASTEXITCODE -ne 0) { throw "Publish failed ($LASTEXITCODE)." }
 $coreStage = Join-Path $stage 'Core'
 $packStage = Join-Path $stage 'Packs'
@@ -65,23 +99,25 @@ try {
 } finally { $icon.Dispose() }
 $manifest = [xml](Get-Content -LiteralPath (Join-Path $windowsRepo 'packaging\AppxManifest.xml') -Raw -Encoding UTF8)
 $manifest.Package.Identity.Version = $Version
+$manifest.Package.Identity.Name = $packageName
 $manifest.Package.Identity.Publisher = $Publisher
 $manifest.Save((Join-Path $stage 'AppxManifest.xml'))
 # Record reproducible input identities without absolute machine paths or content.
 $coreRepo = Join-Path (Split-Path $windowsRepo -Parent) 'WordSuggestorCore'
 $coreCommit = if (Test-Path -LiteralPath (Join-Path $coreRepo '.git')) { git -C $coreRepo rev-parse HEAD } else { 'provided-binary' }
-@{ version=$Version; coreCommit=$coreCommit; coreSha256=(Get-FileHash -LiteralPath $CoreCliPath -Algorithm SHA256).Hash;
+@{ version=$Version; displayVersion=$DisplayVersion; buildNumber=$BuildNumber; packageName=$packageName; localTestIdentity=[bool]$LocalTestIdentity; coreCommit=$coreCommit; coreSha256=(Get-FileHash -LiteralPath $CoreCliPath -Algorithm SHA256).Hash;
    danishPackSha256=(Get-FileHash -LiteralPath $DanishPackPath -Algorithm SHA256).Hash;
    frameworkDependent=[bool]$FrameworkDependent } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stage 'build-info.json') -Encoding UTF8
 $suffix = if ($CertificateThumbprint) { '' } else { '.unsigned' }
-$package = Join-Path $releaseRoot ("WordSuggestor.Beta.$Version$suffix.msix")
+$package = Join-Path $bundle ("WordSuggestor.Beta_$($Version)_x64$suffix.msix")
 & $makeAppx pack /d $stage /p $package /o /v 2>&1 | Set-Content -LiteralPath (Join-Path $releaseRoot 'makeappx.log')
 if ($LASTEXITCODE -ne 0) { throw "MSIX validation/pack failed ($LASTEXITCODE)." }
 if ($CertificateThumbprint) {
-    & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUri.AbsoluteUri /td SHA256 $package
+    if ($CertificateThumbprint -notmatch '^[a-fA-F0-9]{40}$') { throw 'Invalid certificate thumbprint.' }
+    if ($LocalTestIdentity) { & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 $package }
+    else { & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUri.AbsoluteUri /td SHA256 $package }
     if ($LASTEXITCODE -ne 0) { throw 'Package signing failed.' }
-    & $signTool verify /pa /all $package
-    if ($LASTEXITCODE -ne 0) { throw 'Signed package trust verification failed; feed not generated.' }
+    $attestation = Test-MsixSignature $package $Publisher
     if ($FeedBaseUri) {
         $feed = $FeedBaseUri.AbsoluteUri.TrimEnd('/')
         $escapedPublisher = [System.Security.SecurityElement]::Escape($Publisher)
@@ -90,13 +126,25 @@ if ($CertificateThumbprint) {
         $appInstaller = @"
 <?xml version="1.0" encoding="utf-8"?>
 <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2018" Version="$Version" Uri="$escapedFeed/WordSuggestor.Beta.appinstaller">
- <MainPackage Name="WordSuggestor.Windows.Beta" Publisher="$escapedPublisher" Version="$Version" ProcessorArchitecture="x64" Uri="$escapedFeed/$packageName" />
+ <MainPackage Name="$($manifest.Package.Identity.Name)" Publisher="$escapedPublisher" Version="$Version" ProcessorArchitecture="x64" Uri="$escapedFeed/$packageName" />
  <UpdateSettings><OnLaunch HoursBetweenUpdateChecks="6" ShowPrompt="true" UpdateBlocksActivation="false" /><AutomaticBackgroundTask /><ForceUpdateFromAnyVersion>false</ForceUpdateFromAnyVersion></UpdateSettings>
 </AppInstaller>
 "@
-        [System.IO.File]::WriteAllText((Join-Path $releaseRoot 'WordSuggestor.Beta.appinstaller'), $appInstaller, [System.Text.UTF8Encoding]::new($false))
+        if ($LocalTestIdentity) { $appInstaller = $appInstaller.Replace('HoursBetweenUpdateChecks="6"','HoursBetweenUpdateChecks="0"') }
+        $feedPath = Join-Path $bundle 'WordSuggestor.Beta.appinstaller'
+        [System.IO.File]::WriteAllText($feedPath, $appInstaller, [System.Text.UTF8Encoding]::new($false))
+        $release = [ordered]@{ schema_version=1; release=[ordered]@{
+            platform='windows'; architecture='x64'; channel='beta'; version=$DisplayVersion; build_number=$BuildNumber;
+            package_version=$PackageVersion; package_type='msix'; status=$ReleaseStatus;
+            minimum_os='Windows 10 version 2004 or later, x64'; status_message='';
+            release_notes=@($ReleaseNotes); known_issues=@($KnownIssues);
+            artifact=(Get-ReleaseFileContract $package); update_feed=(Get-ReleaseFileContract $feedPath); signing=$attestation } }
+        [IO.File]::WriteAllText((Join-Path $bundle 'release-manifest.json'),($release | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+        $null = Test-ReleaseBundle $bundle -LocalTest:$LocalTestIdentity -VerifySignature
     }
 }
 Get-FileHash -LiteralPath $package -Algorithm SHA256 | Select-Object Hash
 Write-Output "Package: $package"
+Write-Output "Bundle: $bundle"
 if (-not $CertificateThumbprint) { Write-Output 'SIGNING PREPARATION ONLY: unsigned MSIX; no update feed generated.' }
+[pscustomobject]@{ ReleaseDirectory=$releaseRoot; BundleDirectory=$bundle; AppDirectory=$stage; PackagePath=$package; LocalTestIdentity=[bool]$LocalTestIdentity }
