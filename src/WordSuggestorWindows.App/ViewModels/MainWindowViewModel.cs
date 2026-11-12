@@ -103,6 +103,19 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     public Func<ExternalSuggestionCommitRequest, bool>? ExternalCommitRequested { get; set; }
     public bool IsLocalEditorActive => _isLocalEditorActive;
 
+    public void SwitchEditorDocument(string text, int start, int end, int caret)
+    {
+        EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+        ClearSuggestionSession(keepOverlayVisible: false); // invalidate even when two tabs contain identical text
+        _editorText = text;
+        _selectionStart = Math.Clamp(start, 0, text.Length);
+        _selectionEnd = Math.Clamp(end, _selectionStart, text.Length);
+        _caretIndex = Math.Clamp(caret, _selectionStart, _selectionEnd);
+        OnPropertyChanged(nameof(EditorText)); OnPropertyChanged(nameof(CaretIndex));
+        NotifyEditorSurfaceStateChanged();
+        if (_isLocalEditorActive) ScheduleSuggestionsRefresh();
+    }
+
     public void SetLocalEditorActive(bool active)
     {
         if (_isLocalEditorActive == active) return;

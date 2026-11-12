@@ -83,9 +83,13 @@ Unknown caret geometry uses stable static placement, not mouse position.
 Reference review: frames from `start_wordsuggestor_click_through_menubarView.mov`,
 `Skrivning i intern editor.mov`, `Features i den interne editor.mov`, `SettingsPanel.mov`
 confirm independent editor/toolbar, dense separate candidate panel, command order
-and grouped settings. Current recordings also show newer macOS document tabs,
-analysis and account surfaces absent from the older handoffs; those are recorded as
-parity gaps, not invented Windows implementations. Reference media stays untracked.
+and grouped settings. Current macOS source (`AppState` tab/session lifecycle) also
+defines separate drafts and open-file activation. WSA-UX-013 implements these with
+native WPF tabs, named close buttons, dirty titles and local session recovery.
+Windows shortcuts are Ctrl+T/N, Ctrl+Tab/Shift+Tab, Ctrl+W and Ctrl+Shift+S; suggestion
+Ctrl+digits are preserved. There is always at least one tab. Selection and undo are
+independent; switch invalidates old Core work. Hiding the editor keeps all documents.
+Analysis and account surfaces remain parity gaps. Reference media stays untracked.
 
 See `ManualSmoke.md` and `ParityMatrix.md` for evidence and open accessibility/DPI gates.
 

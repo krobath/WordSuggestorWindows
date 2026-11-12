@@ -9,6 +9,7 @@ public sealed class WindowsGlobalSuggestionCaptureService : IDisposable
     private readonly WindowsNativeTextAdapter _adapter = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(150) };
     private ExternalTextSnapshot? _last;
+    private bool _hasPolled;
     private DateTimeOffset _suppressUntil;
     public WindowsGlobalSuggestionCaptureService() => _timer.Tick += Poll;
     public event EventHandler<SelectionImportDiagnostic>? DiagnosticEmitted;
@@ -16,14 +17,15 @@ public sealed class WindowsGlobalSuggestionCaptureService : IDisposable
     public bool IsRunning => _timer.IsEnabled;
     public ExternalTextSnapshot? CurrentSnapshot => _last;
     public void Start(IntPtr ignoredWindowHandle) => _timer.Start();
-    public void Stop() { _timer.Stop(); _last = null; }
+    public void Stop() { _timer.Stop(); _last = null; _hasPolled = false; }
     public void SuppressSyntheticInput(TimeSpan duration) => _suppressUntil = DateTimeOffset.UtcNow.Add(duration);
     public void ClearTokenAfterCommittedSuggestion() => _last = null;
     private void Poll(object? sender, EventArgs e)
     {
         if (DateTimeOffset.UtcNow < _suppressUntil) return;
         var snapshot = _adapter.ReadFocused();
-        if (snapshot == _last) return;
+        if (_hasPolled && snapshot == _last) return;
+        _hasPolled = true;
         _last = snapshot;
         DiagnosticEmitted?.Invoke(this, new SelectionImportDiagnostic(DateTimeOffset.Now,
             "ExternalCapture", snapshot is null ? "UnsupportedOrUnfocused" : "NativeEdit", "No text recorded."));

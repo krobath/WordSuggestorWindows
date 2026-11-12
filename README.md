@@ -162,7 +162,17 @@ Network access is needed for first dependency restore/download, not for suggesti
 The app starts as a non-activating toolbar. Open the separate editor using its
 right-hand button. Type an unfinished Danish word. Accept with Ctrl+1…Ctrl+0, Tab
 or a candidate click; Ctrl+Left/Right pages candidates. Use Ctrl+O/Ctrl+S for UTF-8
-text files. Closing the editor preserves the buffer while the toolbar remains.
+text files. The editor supports multiple native document tabs: Ctrl+T (or Ctrl+N)
+creates a tab, Ctrl+Tab/Ctrl+Shift+Tab switches tabs, Ctrl+W closes the current tab,
+and Ctrl+Shift+S saves it under a different name. The + action and each tab's close
+button provide the same mouse paths. Unsaved tabs show an asterisk and ask before
+closing. Opening an already open file activates its existing buffer.
+Closing the editor preserves all tabs while the toolbar remains. Tabs, active
+document, caret and unsaved drafts are restored on restart; undo history lasts
+for the current app session. Draft text is stored locally in
+`%LOCALAPPDATA%\WordSuggestor\editor\workspace-v1.json` (with a recovery backup),
+separately from diagnostics; it is not uploaded. See the
+[tab delivery note](docs/changes/2026-11-09_wsa_ux_013_editor_tabs.md).
 Use Filer > Afslut or the toolbar context menu to exit; unsaved changes are guarded.
 Reopening the app signals the existing instance instead of creating another toolbar.
 
@@ -180,6 +190,23 @@ GUI smoke uses its own synthetic Notepad document and isolated settings. It move
 focus/mouse during the test. Close other WordSuggestor instances first. Tests use
 `WORDSUGGESTOR_DATA_ROOT` for isolation; normal use keeps existing LocalAppData.
 Clean-checkout smoke exports committed Windows/Core revisions without build output.
+
+To test only the editor while another WordSuggestor instance stays open, use
+`scripts\test_gui.ps1 -EditorOnly`. This uses a separate data profile and skips
+external Notepad/global-hotkey checks. Human screen-reader and mixed-DPI checks
+remain separate.
+
+An independent development build can be created without overwriting an open app:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1 -ArtifactsPath .artifacts\editor-tabs
+powershell -ExecutionPolicy Bypass -File scripts\run_app.ps1 -SkipBuild -SkipBootstrap -AppPath .artifacts\editor-tabs\bin\WordSuggestorWindows.App\debug\WordSuggestorWindows.App.exe
+```
+
+Exit the old normal instance through **Afslut WordSuggestor**, or add `-Restart`
+to the launch command before trying the new build with your normal data.
+`test_app.ps1 -RunnerPath <smoke-exe>` and `test_gui.ps1 -RunnerPath <smoke-exe>
+-AppPath <app-exe> -FrameworkDependentApp` can exercise this independent build.
 
 For a built Core, `test_core_cli.ps1 -SkipBootstrap` and
 `run_app.ps1 -SkipBuild -SkipBootstrap` avoid rebuilding. `WORDSUGGESTOR_SUGGEST_CLI_PATH`

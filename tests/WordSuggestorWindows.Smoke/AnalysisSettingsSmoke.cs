@@ -106,9 +106,13 @@ internal static class AnalysisSettingsSmoke
                 vm.CaretIndex = 11; vm.EditorText = "test,verden"; Editor().CaretPosition = Editor().Document.ContentEnd;
                 await Until(() => vm.AnalysisDocument is not null && Field<object?>(main, "_analysisAdorner") is not null);
                 Check("native analysis paints without moving caret/selection", Editor().Selection.IsEmpty && vm.EditorText == "test,verden" && Editor().IsKeyboardFocusWithin);
+                await Application.Current.Dispatcher.InvokeAsync(() => Editor().UpdateLayout(), System.Windows.Threading.DispatcherPriority.ContextIdle);
                 var point = (TextPointer)typeof(MainWindow).GetMethod("GetTextPointerAtCharOffset", Private)!.Invoke(main, [4])!;
                 var rectangle = point.GetCharacterRect(LogicalDirection.Forward); var screen = Editor().PointToScreen(new Point(rectangle.Left + 2, rectangle.Top + rectangle.Height / 2));
-                SetCursorPos((int)screen.X, (int)screen.Y); mouse_event(8, 0, 0, 0, UIntPtr.Zero); mouse_event(16, 0, 0, 0, UIntPtr.Zero); await Task.Delay(200);
+                SetCursorPos((int)screen.X, (int)screen.Y);
+                await Until(() => Editor().IsMouseOver && GetForegroundWindow() == new WindowInteropHelper(editorWindow).Handle);
+                mouse_event(8, 0, 0, 0, UIntPtr.Zero); mouse_event(16, 0, 0, 0, UIntPtr.Zero); await Task.Delay(200);
+                await Until(() => Editor().ContextMenu is { IsOpen: true });
                 var menu = Editor().ContextMenu;
                 Check("native right click exposes Core correction", menu is { IsOpen: true } && menu.Items.OfType<MenuItem>().Any(i => i.IsEnabled && i.Header?.ToString()?.StartsWith(SettingsText.Get("ApplyCorrection")) == true));
                 var apply = menu!.Items.OfType<MenuItem>().First(i => i.IsEnabled && i.Header?.ToString()?.StartsWith(SettingsText.Get("ApplyCorrection")) == true);
@@ -120,9 +124,14 @@ internal static class AnalysisSettingsSmoke
                 Check("whole correction is one native undo", vm.EditorText == "test,verden");
                 await Until(() => vm.AnalysisDocument is not null);
                 snapshot = store.Load(); snapshot.SaveWordChoices = true; store.Save(snapshot);
+                await Until(() => vm.AnalysisDocument is not null && Field<object?>(main, "_analysisAdorner") is not null);
+                await Application.Current.Dispatcher.InvokeAsync(() => Editor().UpdateLayout(), System.Windows.Threading.DispatcherPriority.ContextIdle);
                 point = (TextPointer)typeof(MainWindow).GetMethod("GetTextPointerAtCharOffset", Private)!.Invoke(main, [1])!;
                 rectangle = point.GetCharacterRect(LogicalDirection.Forward); screen = Editor().PointToScreen(new Point(rectangle.Left + 2, rectangle.Top + rectangle.Height / 2));
-                SetCursorPos((int)screen.X, (int)screen.Y); mouse_event(8, 0, 0, 0, UIntPtr.Zero); mouse_event(16, 0, 0, 0, UIntPtr.Zero); await Task.Delay(100);
+                SetCursorPos((int)screen.X, (int)screen.Y);
+                await Until(() => Editor().IsMouseOver && GetForegroundWindow() == new WindowInteropHelper(editorWindow).Handle);
+                mouse_event(8, 0, 0, 0, UIntPtr.Zero); mouse_event(16, 0, 0, 0, UIntPtr.Zero); await Task.Delay(100);
+                await Until(() => Editor().ContextMenu is { IsOpen: true } currentMenu && currentMenu.Items.OfType<MenuItem>().Any(i => System.Windows.Automation.AutomationProperties.GetAutomationId(i) == "ChooseCoreReading"));
                 var choose = Editor().ContextMenu!.Items.OfType<MenuItem>().Last(i => System.Windows.Automation.AutomationProperties.GetAutomationId(i) == "ChooseCoreReading");
                 await Click(choose); await Until(() => vm.LoadSavedChoices().Count == 1);
                 Check("native interpretation click records only explicit choice", vm.LoadSavedChoices().Single().Word == "test");
@@ -150,7 +159,14 @@ internal static class AnalysisSettingsSmoke
     }
     private static async Task Until(Func<bool> condition) { var watch = Stopwatch.StartNew(); while (!condition()) { if (watch.ElapsedMilliseconds > 15000) throw new Exception("Analysis condition timed out."); await Task.Delay(20); } }
     private static T Field<T>(object obj, string name) => (T)obj.GetType().GetField(name, Private)!.GetValue(obj)!;
-    private static async Task Click(FrameworkElement element) { var p = element.PointToScreen(new Point(element.ActualWidth / 2, element.ActualHeight / 2)); SetCursorPos((int)p.X, (int)p.Y); mouse_event(2, 0, 0, 0, UIntPtr.Zero); mouse_event(4, 0, 0, 0, UIntPtr.Zero); await Task.Delay(100); }
+    private static async Task Click(FrameworkElement element)
+    {
+        await Application.Current.Dispatcher.InvokeAsync(() => element.UpdateLayout(), System.Windows.Threading.DispatcherPriority.ContextIdle);
+        var p = element.PointToScreen(new Point(element.ActualWidth / 2, element.ActualHeight / 2));
+        SetCursorPos((int)p.X, (int)p.Y);
+        await Until(() => element.IsMouseOver); // Process native pointer movement before pressing; never click another target.
+        mouse_event(2, 0, 0, 0, UIntPtr.Zero); mouse_event(4, 0, 0, 0, UIntPtr.Zero); await Task.Delay(100);
+    }
     private static void Chord(IntPtr target, params byte[] keys) { if (GetForegroundWindow() != target) throw new Exception("Input target changed."); try { foreach (var key in keys) keybd_event(key, 0, 0, UIntPtr.Zero); } finally { foreach (var key in keys.Reverse()) keybd_event(key, 0, 2, UIntPtr.Zero); } }
     [StructLayout(LayoutKind.Sequential)] private struct Cursor { public int X, Y; }
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();

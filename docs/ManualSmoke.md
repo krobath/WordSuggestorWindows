@@ -140,7 +140,7 @@ Current session is disconnected/locked. On a connected unlocked desktop:
 
 Record actual results in [slice 5 evidence](qualification/WSA-UX-029_slice5.md).
 
-Updated 2026-11-08. Automated desktop observation is distinct from a human manual
+Updated 2026-11-09 (editor tabs). Automated desktop observation is distinct from a human manual
 audio/accessibility/hardware session. No full manual sign-off is claimed.
 
 ## Settings slice 4 — 2026-11-10
@@ -248,6 +248,17 @@ synthetic Notepad document, launches the real app, and drives mouse/keyboard/UIA
 Close other WordSuggestor instances and keep the desktop unlocked. Do not interact
 with mouse/keyboard while that test runs. Data/results stay in `.artifacts/tests`.
 
+`test_gui.ps1 -EditorOnly` uses an isolated profile with external capture disabled,
+so an existing user instance can remain open. For an independent build add
+`-SkipBuild -FrameworkDependentApp -RunnerPath <smoke-exe> -AppPath <app-exe>`.
+This mode deliberately skips Notepad/global-hotkey integration checks.
+
+November 12 cleanup qualification: clean-source build and 94 app checks pass,
+including 25 tab/storage checks. Full Core/Settings and actual desktop results,
+including initial failures and their follow-up, are in
+[WSA-UX-013 qualification](qualification/WSA-UX-013_editor_tabs.md).
+Automated desktop evidence remains separate from human manual sign-off.
+
 For packaging use `scripts/package_app.ps1`, then
 `scripts/test_package.ps1 -AppDirectory <artifact-app-directory>`. This verifies a
 copied payload without source/SDK discovery. Signed install/update qualification is
@@ -281,6 +292,7 @@ Test package, private test key and temporary leaf trust were removed and checked
 | Unicode and paragraph offsets | PASS actual RichTextBox with æ/ø/å, emoji and CRLF |
 | User selection preservation/replacement | PASS actual RichTextBox selection scenario |
 | Native file save/open/quit guards | Native Open and Save PASS through actual keyboard with Unicode round-trips; manual cancel/overwrite/quit paths still required |
+| Tabs and recovery | PASS automated model/storage cases and actual desktop new/switch/undo/selection/dirty-close/Unicode-restart checks; future/corrupt session data retained |
 | External clipboard retention/stale snapshot rejection | PASS Notepad; targeted commit never touches clipboard |
 | Per-monitor placement math | PASS negative-origin/oversized-overlay cases; physical mixed-DPI hardware not tested |
 | Screen-reader semantics | UIA names/TextPattern checked; human Narrator/NVDA walkthrough NOT RUN |
@@ -311,6 +323,13 @@ Test package, private test key and temporary leaf trust were removed and checked
    restore; dictation with microphone and installed DA recognizer; OCR visible text,
    cancellation, clipboard concurrency and callback under the installed package.
 7. Execute the signed installation/update/rollback/uninstall sequence in `Release.md`.
+8. Create several tabs using +, Ctrl+T and Filer; switch with mouse and Ctrl+Tab /
+   Ctrl+Shift+Tab. Edit different text and selections, use undo/redo, and verify
+   suggestions always insert in the active document. Test Save/Save As, reopening
+   the same file with unsaved edits, close Yes/No/Cancel, closing an inactive tab,
+   and closing the final tab. At app exit, cancel a later prompt and verify earlier
+   tabs remain. Hide/reopen, then restart to check drafts/caret/file paths. Compare
+   many tabs, high contrast, Narrator and speech switching with macOS semantics.
 
 ## Troubleshooting
 
@@ -329,7 +348,6 @@ offers the independent `-ArtifactsPath` alternative.
 exact-path selection, wrong-target rejection, normal close and cancelled-close
 retention against an invisible synthetic window. Fourteen checks passed on November 12, including relative paths, child-only startup
 text and parent environment restoration. No user app was closed by that test.
-
 
 Run Core smoke first if suggestions are empty. Build/bootstrap now fail on nonzero
 native exit; a stale CLI cannot make a failed build pass. Missing `_complex` or

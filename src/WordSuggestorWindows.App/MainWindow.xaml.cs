@@ -87,8 +87,12 @@ public partial class MainWindow : Window
     private bool _isResolvingExternalSelection;
     private bool _isUpdatingExternalSuggestionAnchor;
     private long _caretMeasurementGeneration;
-    private string? _documentPath;
-    private string _savedDocumentText = string.Empty;
+    private readonly EditorWorkspace _workspace;
+    private readonly EditorWorkspaceStore _workspaceStore;
+    private readonly DispatcherTimer _workspaceSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private long _workspaceSaveRevision;
+    private bool _switchingEditorTab;
+    private Guid? _dictationTabId;
 
     public MainWindow(MainWindowViewModel viewModel)
     {
@@ -113,12 +117,20 @@ public partial class MainWindow : Window
         _globalSuggestionCaptureService.TokenChanged += GlobalSuggestionCaptureServiceOnTokenChanged;
         InitializeComponent();
         DataContext = _viewModel;
-        _editorWindow = new InternalEditorWindow(this, viewModel);
+        _workspaceStore = new EditorWorkspaceStore();
+        _workspace = _workspaceStore.Load(viewModel.EditorText);
+        var document = _workspace.Active;
+        viewModel.SwitchEditorDocument(document.Text, document.SelectionStart, document.SelectionEnd, document.CaretIndex);
+        _editorWindow = new InternalEditorWindow(this, viewModel, _workspace);
+        foreach (var tab in _workspace.Tabs) tab.PropertyChanged += EditorDocumentOnPropertyChanged;
+        _workspace.Tabs.CollectionChanged += EditorTabsOnCollectionChanged;
+        _workspaceSaveTimer.Tick += WorkspaceSaveTimerOnTick;
+        if (_workspaceStore.LoadWarning is { } warning) viewModel.SetStatusMessage(warning);
         NonActivatingWindow.Apply(this);
         _viewModel.CanCommitLocally = () => _editorWindow.IsActive && EditorTextBox.IsKeyboardFocusWithin;
         _viewModel.ExternalCommitRequested = TryCommitExternalSuggestion;
         Loaded += OnLoaded;
-        Closing += (_, e) => { if (!ConfirmDocumentChanges()) e.Cancel = true; };
+        Closing += (_, e) => { if (!ConfirmWorkspaceExit()) e.Cancel = true; };
         Closed += OnClosed;
         LocationChanged += OnWindowLocationOrSizeChanged;
         SizeChanged += OnWindowLocationOrSizeChanged;
@@ -154,7 +166,8 @@ public partial class MainWindow : Window
         }
 
         SyncOverlayVisibility();
-        SyncEditorDocumentFromViewModel(force: true);
+        SyncEditorDocumentFromViewModel();
+        RestoreDocumentSelection();
         EditorTextBox.SelectionBrush = SpeechHighlightBrush;
         EditorTextBox.SelectionOpacity = 0.52;
 
@@ -167,6 +180,10 @@ public partial class MainWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         DisposeSpeechLifecycle();
+        _workspaceSaveTimer.Stop();
+        _workspaceSaveTimer.Tick -= WorkspaceSaveTimerOnTick;
+        _workspace.Tabs.CollectionChanged -= EditorTabsOnCollectionChanged;
+        foreach (var tab in _workspace.Tabs) tab.PropertyChanged -= EditorDocumentOnPropertyChanged;
         _viewModel.PropertyChanged -= ViewModelOnPropertyChanged;
         ShutdownAnalysisPresentation();
         _viewModel.SettingsChanged -= SuggestionSettingsOnChanged;
@@ -327,7 +344,7 @@ public partial class MainWindow : Window
                 if (_viewModel.IsEditorExpanded)
                 {
                     _editorWindow.ShowEditor();
-                    SyncEditorDocumentFromViewModel(force: true);
+                    SyncEditorDocumentFromViewModel();
                     Dispatcher.BeginInvoke(RefocusEditor);
                 }
                 else
@@ -338,9 +355,15 @@ public partial class MainWindow : Window
                 SyncOverlayVisibility();
                 break;
             case nameof(MainWindowViewModel.CaretIndex):
-                if (!_isSynchronizingEditorDocument && !_isUpdatingEditorSelection) SetEditorCaretIndex(_viewModel.CaretIndex);
+                if (!_switchingEditorTab && !_isSynchronizingEditorDocument && !_isUpdatingEditorSelection)
+                {
+                    SetEditorCaretIndex(_viewModel.CaretIndex);
+                    _workspace.Active.SetSelection(_viewModel.CaretIndex, _viewModel.CaretIndex, _viewModel.CaretIndex);
+                }
                 break;
             case nameof(MainWindowViewModel.EditorText):
+                if (_switchingEditorTab) break;
+                _workspace.Active.UpdateText(_viewModel.EditorText);
                 SyncEditorDocumentFromViewModel();
                 break;
             case nameof(MainWindowViewModel.AnalysisDocument):
@@ -386,6 +409,8 @@ public partial class MainWindow : Window
             if (e.WindowHandle == IntPtr.Zero)
             {
                 _viewModel.EndExternalSuggestionSession(hideOverlayWhenPossible: true);
+                if (!_editorWindow.IsActive && _viewModel.IsGlobalCaptureEnabled)
+                    _viewModel.SetStatusMessage("Ekstern indsættelse er ikke tilgængelig her. Brug Notepad eller WordSuggestors editor.");
                 SyncOverlayVisibility();
                 return;
             }
@@ -638,8 +663,9 @@ public partial class MainWindow : Window
         try
         {
             _viewModel.EnsureEditorExpanded();
-            SyncEditorDocumentFromViewModel(force: true);
+            SyncEditorDocumentFromViewModel();
             var status = _speechToTextService.Start(_viewModel.SelectedLanguageOption);
+            _dictationTabId = _workspace.Active.Id;
             _viewModel.SetSpeechToTextListening(true, status);
             RefocusEditor();
         }
@@ -651,8 +677,10 @@ public partial class MainWindow : Window
 
     private void SpeechToTextServiceOnTranscriptReceived(object? sender, SpeechToTextTranscript transcript)
     {
+        var documentId = _dictationTabId;
         Dispatcher.BeginInvoke(() =>
         {
+            if (documentId is null || documentId != _workspace.Active.Id || !_viewModel.IsSpeechToTextListening) return;
             if (!transcript.IsFinal)
             {
                 _viewModel.SetStatusMessage($"Lytter: {transcript.Text}");
@@ -711,7 +739,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(_viewModel.EditorText))
         {
             _viewModel.EnsureEditorExpanded();
-            SyncEditorDocumentFromViewModel(force: true);
+            SyncEditorDocumentFromViewModel();
             WriteTtsFlowDiagnostic($"UI TTS action using staged internal editor text: chars={_viewModel.EditorText.Length}.");
             SpeakText(_viewModel.EditorText, "intern editor-tekst", 0);
             RefocusEditor();
@@ -1109,9 +1137,12 @@ public partial class MainWindow : Window
 
         switch (action)
         {
+            case "newDocument": NewEditorTab(); break;
+            case "closeDocument": CloseEditorTab(_workspace.Active); break;
             case "openDocument":
             case "saveDocument":
-                HandleDocumentAction(action == "saveDocument");
+            case "saveDocumentAs":
+                HandleDocumentAction(action != "openDocument", action == "saveDocumentAs");
                 break;
             case "cut":
                 ApplicationCommands.Cut.Execute(null, EditorTextBox);
@@ -1142,54 +1173,169 @@ public partial class MainWindow : Window
         RefocusEditor();
     }
 
-    private bool HandleDocumentAction(bool save)
+    private bool HandleDocumentAction(bool save, bool saveAs = false)
     {
-        if (!save && !ConfirmDocumentChanges()) return false;
+        CaptureActiveEditorState();
+        if (save) return SaveEditorDocument(_workspace.Active, saveAs);
         try
         {
-            if (save)
-            {
-                _viewModel.SetStatusMessage("Vælg hvor dokumentet skal gemmes.");
-                var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Gem WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt", DefaultExt = ".txt", FileName = _documentPath is null ? "Dokument.txt" : Path.GetFileName(_documentPath) };
-                if (dialog.ShowDialog(_editorWindow) != true) return false;
-                var temp = dialog.FileName + "." + Guid.NewGuid().ToString("N") + ".tmp";
-                try
-                {
-                    File.WriteAllText(temp, _viewModel.EditorText, new System.Text.UTF8Encoding(false));
-                    File.Move(temp, dialog.FileName, overwrite: true);
-                }
-                finally { if (File.Exists(temp)) File.Delete(temp); }
-                _documentPath = dialog.FileName;
-                _savedDocumentText = _viewModel.EditorText;
-                _viewModel.SetStatusMessage("Dokumentet er gemt.");
-            }
-            else
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Åbn WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt|Alle filer (*.*)|*.*" };
-                if (dialog.ShowDialog(_editorWindow) != true) return false;
-                if (new FileInfo(dialog.FileName).Length > 2_000_000) { _viewModel.SetStatusMessage("Dokumentet er for stort til denne beta."); return false; }
-                _viewModel.ImportTextIntoEditor(File.ReadAllText(dialog.FileName), "tekstfil");
-                _documentPath = dialog.FileName;
-                _savedDocumentText = _viewModel.EditorText;
-            }
+            var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Åbn WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt|Alle filer (*.*)|*.*" };
+            if (dialog.ShowDialog(_editorWindow) != true) return false;
+            var document = _workspace.Open(dialog.FileName);
+            SwitchEditorDocument(document, captureCurrent: false);
+            _viewModel.SetStatusMessage("Dokumentet er åbnet i sin egen fane.");
             return true;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        { _viewModel.SetStatusMessage("Dokumentet kunne ikke åbnes eller gemmes. Kontrollér filadgangen."); return false; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        { _viewModel.SetStatusMessage("Dokumentet kunne ikke åbnes. Kontrollér filen og dens størrelse."); return false; }
     }
 
-    private bool ConfirmDocumentChanges()
+    private bool SaveEditorDocument(EditorDocumentTab document, bool saveAs = false)
     {
-        if (_viewModel.EditorText == _savedDocumentText) return true;
-        var result = MessageBox.Show(_editorWindow.IsVisible ? _editorWindow : this,
-            "Vil du gemme ændringerne i dokumentet?", "WordSuggestor", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-        return result == MessageBoxResult.No || (result == MessageBoxResult.Yes && HandleDocumentAction(true));
+        try
+        {
+            var path = document.FilePath;
+            if (path is null || saveAs)
+            {
+                var dialog = new Microsoft.Win32.SaveFileDialog { Title = "Gem WordSuggestor-tekst", Filter = "Tekstfiler (*.txt)|*.txt", DefaultExt = ".txt", FileName = path is null ? document.Title + ".txt" : Path.GetFileName(path) };
+                if (dialog.ShowDialog(_editorWindow.IsVisible ? _editorWindow : this) != true) return false;
+                path = dialog.FileName;
+            }
+            _workspace.Save(document, path);
+            _viewModel.SetStatusMessage("Dokumentet er gemt.");
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        { _viewModel.SetStatusMessage("Dokumentet kunne ikke gemmes. Kontrollér filadgangen, og om filen allerede er åben i en anden fane."); return false; }
+    }
+
+    private MessageBoxResult AskToSave(EditorDocumentTab document) => MessageBox.Show(_editorWindow.IsVisible ? _editorWindow : this,
+        $"Vil du gemme ændringerne i '{document.Title}'?", "WordSuggestor", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+
+    internal void NewEditorTab()
+    {
+        CaptureActiveEditorState();
+        try { SwitchEditorDocument(_workspace.New(), captureCurrent: false); }
+        catch (InvalidOperationException) { _viewModel.SetStatusMessage("Luk en fane, før du åbner flere."); }
+    }
+
+    internal void ActivateEditorTab(EditorDocumentTab document)
+    {
+        if (_editorWindow.DisplayedDocument == document) return;
+        SwitchEditorDocument(document);
+    }
+
+    internal void CloseEditorTab(EditorDocumentTab document)
+    {
+        CaptureActiveEditorState();
+        if (!_workspace.Close(document, tab =>
+        {
+            if (!tab.IsDirty) return true;
+            var result = AskToSave(tab);
+            return result == MessageBoxResult.No || result == MessageBoxResult.Yes && SaveEditorDocument(tab);
+        })) return;
+        if (_editorWindow.DisplayedDocument != _workspace.Active) SwitchEditorDocument(_workspace.Active, captureCurrent: false);
+        else { _editorWindow.SynchronizeTabs(); ScheduleWorkspaceSave(); }
+    }
+
+    private void SwitchEditorDocument(EditorDocumentTab document, bool captureCurrent = true)
+    {
+        _dictationTabId = null;
+        _speechToTextService.Stop();
+        _viewModel.SetSpeechToTextListening(false, "Fane skiftet.");
+        _textToSpeechService.Stop();
+        StopSpeechHighlight(restoreEditorSelection: true);
+        if (captureCurrent) CaptureActiveEditorState();
+        _switchingEditorTab = true;
+        try
+        {
+            _viewModel.SetLocalEditorActive(false);
+            _workspace.Activate(document);
+            _editorWindow.SelectDocument(document);
+            _viewModel.SwitchEditorDocument(document.Text, document.SelectionStart, document.SelectionEnd, document.CaretIndex);
+            RestoreDocumentSelection();
+        }
+        finally { _switchingEditorTab = false; }
+        ScheduleWorkspaceSave();
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_workspace.Active == document && _editorWindow.IsActive) RefocusEditor();
+        }, DispatcherPriority.Input);
+    }
+
+    private void CaptureActiveEditorState()
+    {
+        if (_switchingEditorTab) return;
+        var document = _editorWindow.DisplayedDocument;
+        document.UpdateText(_viewModel.EditorText);
+        document.SetSelection(GetTextOffset(EditorTextBox.Selection.Start), GetTextOffset(EditorTextBox.Selection.End), GetEditorCaretIndex());
+    }
+
+    private void RestoreDocumentSelection()
+    {
+        var document = _workspace.Active;
+        var start = GetTextPointerAtCharOffset(document.SelectionStart);
+        var end = GetTextPointerAtCharOffset(document.SelectionEnd);
+        _isUpdatingEditorSelection = true;
+        try
+        {
+            if (document.CaretIndex == document.SelectionStart) EditorTextBox.Selection.Select(end, start);
+            else EditorTextBox.Selection.Select(start, end);
+        }
+        finally { _isUpdatingEditorSelection = false; }
+    }
+
+    private void EditorDocumentOnPropertyChanged(object? sender, PropertyChangedEventArgs e) => ScheduleWorkspaceSave();
+    private void EditorTabsOnCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null) foreach (EditorDocumentTab tab in e.OldItems) tab.PropertyChanged -= EditorDocumentOnPropertyChanged;
+        if (e.NewItems is not null) foreach (EditorDocumentTab tab in e.NewItems) tab.PropertyChanged += EditorDocumentOnPropertyChanged;
+        ScheduleWorkspaceSave();
+    }
+    private void ScheduleWorkspaceSave() { _workspaceSaveTimer.Stop(); _workspaceSaveTimer.Start(); }
+    private async void WorkspaceSaveTimerOnTick(object? sender, EventArgs e)
+    {
+        _workspaceSaveTimer.Stop();
+        var snapshot = _workspace.Snapshot();
+        var revision = ++_workspaceSaveRevision;
+        try { await Task.Run(() => _workspaceStore.Save(snapshot, revision)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        { _viewModel.SetStatusMessage("Fanerne kunne ikke gemmes lokalt. Gem vigtige tekster som tekstfiler."); }
+    }
+
+    internal void EditorWindowHidden()
+    {
+        CaptureActiveEditorState();
+        _workspaceSaveTimer.Stop();
+        try { _workspaceStore.Save(_workspace.Snapshot(), ++_workspaceSaveRevision); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        { _viewModel.SetStatusMessage("Fanerne er stadig åbne, men kunne ikke gemmes lokalt. Gem vigtige tekster som tekstfiler."); }
+    }
+
+    private bool ConfirmWorkspaceExit()
+    {
+        CaptureActiveEditorState();
+        var discard = new HashSet<Guid>();
+        foreach (var tab in _workspace.Tabs.Where(t => t.IsDirty).ToArray())
+        {
+            var result = AskToSave(tab);
+            if (result == MessageBoxResult.Cancel || result == MessageBoxResult.Yes && !SaveEditorDocument(tab)) return false;
+            if (result == MessageBoxResult.No) discard.Add(tab.Id);
+        }
+        _workspaceSaveTimer.Stop();
+        try { _workspaceStore.Save(_workspace.Snapshot(discard), ++_workspaceSaveRevision); return true; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return MessageBox.Show(_editorWindow.IsVisible ? _editorWindow : this,
+                "Fanerne kunne ikke gemmes lokalt. Vil du afslutte alligevel?", "WordSuggestor", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
+        }
     }
 
     private void Exit_OnClick(object sender, RoutedEventArgs e) => Close();
 
     internal void EditorTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
     {
+        if (_switchingEditorTab || !ReferenceEquals(sender, EditorTextBox)) return;
         if (!_isSynchronizingEditorDocument)
         {
             _isUpdatingEditorSelection = true;
@@ -1201,6 +1347,9 @@ public partial class MainWindow : Window
             finally { _isUpdatingEditorSelection = false; }
         }
 
+        CaptureActiveEditorState();
+        ScheduleWorkspaceSave();
+
         OnEditorSpeechTextChanged();
         ObserveSuggestionEditorInput();
         UpdateOverlayPosition();
@@ -1208,7 +1357,7 @@ public partial class MainWindow : Window
 
     internal void EditorTextBox_OnSelectionChanged(object sender, RoutedEventArgs e)
     {
-        if (_isSynchronizingEditorDocument || _isUpdatingEditorSelection)
+        if (_switchingEditorTab || !ReferenceEquals(sender, EditorTextBox) || _isSynchronizingEditorDocument || _isUpdatingEditorSelection)
         {
             return;
         }
@@ -1217,6 +1366,8 @@ public partial class MainWindow : Window
         _isUpdatingEditorSelection = true;
         try { _viewModel.UpdateEditorSelection(GetTextOffset(EditorTextBox.Selection.Start), GetTextOffset(EditorTextBox.Selection.End)); }
         finally { _isUpdatingEditorSelection = false; }
+        CaptureActiveEditorState();
+        ScheduleWorkspaceSave();
         UpdateOverlayPosition();
     }
 
@@ -1239,9 +1390,21 @@ public partial class MainWindow : Window
 
     internal void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && (Keyboard.Modifiers & ModifierKeys.Alt) == 0)
+        {
+            switch (e.Key)
+            {
+                case Key.N:
+                case Key.T: NewEditorTab(); e.Handled = true; return;
+                case Key.W: CloseEditorTab(_workspace.Active); e.Handled = true; return;
+                case Key.Tab:
+                    ActivateEditorTab(_workspace.Adjacent((Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1));
+                    e.Handled = true; return;
+            }
+        }
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && e.Key is Key.O or Key.S)
         {
-            HandleDocumentAction(e.Key == Key.S);
+            HandleDocumentAction(e.Key == Key.S, e.Key == Key.S && (Keyboard.Modifiers & ModifierKeys.Shift) != 0);
             e.Handled = true;
             return;
         }
@@ -1313,13 +1476,13 @@ public partial class MainWindow : Window
         _editorWindow.Activate();
         EditorTextBox.Focus();
         _viewModel.SetLocalEditorActive(_editorWindow.IsActive && EditorTextBox.IsKeyboardFocusWithin);
-        SetEditorCaretIndex(_viewModel.CaretIndex);
+        RestoreDocumentSelection();
         UpdateOverlayPosition();
     }
 
     private void SyncEditorDocumentFromViewModel(bool force = false)
     {
-        if (_isSynchronizingEditorDocument)
+        if (_switchingEditorTab || _isSynchronizingEditorDocument)
         {
             return;
         }

@@ -63,7 +63,7 @@
                             <ToggleButton Margin="0,0,10,0"
                                           IsChecked="{Binding IsGlobalCaptureEnabled, Mode=TwoWay}"
                                           Style="{StaticResource SwitchToggleButtonStyle}"
-                                          AutomationProperties.Name="Aktiver eller deaktiver globale forslag" ToolTip="Aktiver eller deaktiver globale forslag" />
+                                          AutomationProperties.Name="Aktiver eller deaktiver globale forslag" ToolTip="{Binding StatusMessage}" />
 
                             <ComboBox Width="58"
                                       Margin="0,0,12,0"

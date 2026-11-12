@@ -1,5 +1,14 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Editor tabs closeout — 2026-11-12
+
+WSA-UX-013 retains WPF/Core and adds independent native document tabs with guarded
+save/close and local draft recovery. See the [change note](changes/2026-11-09_wsa_ux_013_editor_tabs.md)
+and [software/desktop evidence](qualification/WSA-UX-013_editor_tabs.md).
+Human accessibility/DPI, speech-switching and signed-update draft retention remain
+open. Windows changes do not modify the macOS app, Core or backend.
+
+
 ## Developer restart closeout — 2026-11-12
 
 WSA-DX-005 is implemented and qualified with 14 owned-fixture checks. Builds fail

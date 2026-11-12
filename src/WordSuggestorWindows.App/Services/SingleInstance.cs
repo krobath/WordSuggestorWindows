@@ -13,7 +13,13 @@ internal sealed class SingleInstance : IDisposable
     public SingleInstance()
     {
         var identity = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
-        var name = @"Local\WordSuggestor.Windows.Beta." + identity;
+        var packageName = WindowsUpdateService.ReadInstalledRelease()?.Name ?? "WordSuggestor.Windows.Beta";
+        if (Environment.GetEnvironmentVariable("WORDSUGGESTOR_DATA_ROOT") is { Length: > 0 } root)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(root).ToUpperInvariant());
+            packageName += ".Profile." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))[..24];
+        }
+        var name = @"Local\" + packageName + "." + identity;
         _mutex = new Mutex(true, name, out var primary);
         IsPrimary = primary;
         _open = new EventWaitHandle(false, EventResetMode.AutoReset, name + ".OpenEditor");

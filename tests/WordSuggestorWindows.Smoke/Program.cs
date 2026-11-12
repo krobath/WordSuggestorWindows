@@ -41,7 +41,7 @@ internal static class Program
                 else if (args.Contains("--core-settings")) await CoreSettingsSmoke.Run(FindRepo());
                 else if (args.Contains("--settings-state")) SettingsStateSmoke.Run(Path.Combine(FindRepo(), ".artifacts", "tests", "settings-state-" + Guid.NewGuid().ToString("N")));
                 else if (args.Contains("--settings-ui")) await SettingsUiSmoke.Run(FindRepo());
-                else if (args.Contains("--gui")) await GuiSmoke.Run(FindRepo());
+                else if (args.Contains("--gui") || args.Contains("--tabs-gui")) await GuiSmoke.Run(FindRepo(), args.Contains("--tabs-gui"));
                 else if (args.Contains("--media")) await MediaSmoke.Run(FindRepo());
                 else await RunTests();
                 code = 0;
@@ -76,6 +76,7 @@ internal static class Program
         _testRoot = Path.Combine(repo, ".artifacts", "tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
         Environment.SetEnvironmentVariable("WORDSUGGESTOR_DATA_ROOT", _testRoot);
+        _passed += EditorTabsSmoke.Run(_testRoot);
         var pack = Path.Combine(Directory.GetParent(repo)!.FullName, "WordSuggestorCore", "Ressources", "da_lexicon.sqlite");
         Check("legacy Danish pack", LanguagePackValidator.Validate(pack, "da_DK", true) is { Compatible: true, Legacy: true });
         Check("legacy requires explicit compatibility", !LanguagePackValidator.Validate(pack, "da_DK").Compatible);
@@ -194,6 +195,20 @@ internal static class Program
         var localBefore = vm.EditorText;
         Check("mouse/external uses same route", vm.AcceptSuggestion(vm.Suggestions[0]) && commits == 1 && vm.EditorText == localBefore);
         Check("external duplicate rejected", !vm.AcceptSuggestionAtIndex(0));
+        var tabProvider = new ControlledProvider(provider.SelectedLanguage);
+        using var tabVm = new MainWindowViewModel(tabProvider, insights, settings, "skri");
+        tabVm.CanCommitLocally = () => true;
+        tabVm.EnsureEditorExpanded(); tabVm.SetLocalEditorActive(true);
+        await Until(() => tabProvider.Requests.Count == 1);
+        tabVm.SwitchEditorDocument("skri", 4, 4, 4);
+        await Until(() => tabProvider.Requests.Count == 2);
+        tabProvider.Requests[0].SetResult([new("stale-tab", 1, "prefix", "word", null, null)]);
+        await Task.Delay(100);
+        Check("same-text tab switch rejects old Core completion", tabVm.Suggestions.Count == 0);
+        tabProvider.Requests[1].SetResult([new("skrive", 1, "prefix", "word", null, null)]);
+        await Until(() => tabVm.Suggestions.Count == 1);
+        tabVm.SwitchEditorDocument("", 0, 0, 0);
+        Check("tab switch clears candidates before commit", !tabVm.AcceptSuggestionAtIndex(0) && tabVm.EditorText == "" && !tabVm.ShouldShowSuggestionOverlay);
         Console.WriteLine($"PASS {_passed} checks. Test data: .artifacts/tests/{Path.GetFileName(_testRoot)}");
     }
 

@@ -7,8 +7,11 @@
  <DockPanel>
   <Menu DockPanel.Dock="Top">
    <MenuItem Header="_Filer">
+    <MenuItem Header="_Ny fane" Tag="newDocument" InputGestureText="Ctrl+T" Click="EditorCommand_OnClick" />
     <MenuItem Header="_Åbn…" Tag="openDocument" InputGestureText="Ctrl+O" Click="EditorCommand_OnClick" />
     <MenuItem Header="_Gem…" Tag="saveDocument" InputGestureText="Ctrl+S" Click="EditorCommand_OnClick" />
+    <MenuItem Header="Gem _som…" Tag="saveDocumentAs" InputGestureText="Ctrl+Shift+S" Click="EditorCommand_OnClick" />
+    <MenuItem Header="_Luk fane" Tag="closeDocument" InputGestureText="Ctrl+W" Click="EditorCommand_OnClick" />
     <Separator />
     <MenuItem Header="_Afslut WordSuggestor" Click="Quit_OnClick" />
    </MenuItem>
@@ -47,6 +50,7 @@
 
                                 <StackPanel Orientation="Horizontal"
                                             VerticalAlignment="Center">
+                                    <Button Tag="newDocument" Style="{StaticResource CommandButtonStyle}" ToolTip="Ny fane (Ctrl+T)" AutomationProperties.Name="Ny fane" Click="EditorCommand_OnClick"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE710;" /></Button>
                                     <Button Tag="openDocument" Style="{StaticResource CommandButtonStyle}" ToolTip="Åbn tekstfil" AutomationProperties.Name="Åbn tekstfil" Click="EditorCommand_OnClick"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE8E5;" /></Button>
                                     <Button Tag="saveDocument" Style="{StaticResource CommandButtonStyle}" ToolTip="Gem tekstfil" AutomationProperties.Name="Gem tekstfil" Click="EditorCommand_OnClick"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE74E;" /></Button>
                                     <Button Tag="cut" Style="{StaticResource CommandButtonStyle}" ToolTip="Klip" Click="EditorCommand_OnClick">
@@ -128,21 +132,9 @@
                                 </Grid.RowDefinitions>
 
                                 <Border Grid.Row="0" CornerRadius="10" Background="White" BorderBrush="#E3E7EF" BorderThickness="1">
-                                    <RichTextBox x:Name="EditorTextBox" AutomationProperties.AutomationId="InternalEditor" AutomationProperties.Name="Dokumenttekst"
-                                                 Padding="14"
-                                                 BorderThickness="0"
-                                                 Background="Transparent"
-                                                 FontSize="20"
-                                                 AcceptsTab="False"
-                                                 VerticalScrollBarVisibility="Auto"
-                                                 HorizontalScrollBarVisibility="Disabled"
-                                                 TextChanged="EditorTextBox_OnTextChanged"
-                                                 SelectionChanged="EditorTextBox_OnSelectionChanged"
-                                                 PreviewKeyDown="EditorTextBox_OnPreviewKeyDown">
-                                        <FlowDocument PagePadding="0">
-                                            <Paragraph Margin="0" />
-                                        </FlowDocument>
-                                    </RichTextBox>
+                                    <TabControl x:Name="DocumentTabs" SelectionChanged="DocumentTabs_OnSelectionChanged"
+                                                AutomationProperties.Name="Editorfaner" AutomationProperties.AutomationId="EditorTabs"
+                                                Background="Transparent" BorderThickness="0" />
                                 </Border>
 
                             </Grid>

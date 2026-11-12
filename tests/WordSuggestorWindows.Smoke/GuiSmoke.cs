@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
@@ -11,26 +12,29 @@ internal static class GuiSmoke
     private static int _checks;
     private static readonly WindowsNativeTextAdapter Adapter = new();
 
-    public static async Task Run(string repo)
+    public static async Task Run(string repo, bool editorOnly = false)
     {
-        var data = Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
+        var data = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_DATA_ROOT") ?? Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(data);
         Directory.CreateDirectory(Path.Combine(data, "settings"));
         File.WriteAllText(Path.Combine(data, "settings", "settings-v1.json"), "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"da-DK\",\"isPanelParityLoggingEnabled\":true,\"isPlacementDebugLoggingEnabled\":true,\"isCoreDebugLoggingEnabled\":true,\"isPerformanceInstrumentationEnabled\":true}");
+        if (editorOnly) File.WriteAllText(Path.Combine(data, "settings", "settings-v1.json"), "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"da-DK\",\"isGlobalCaptureEnabled\":false}");
         var path = Path.Combine(data, "wordsuggestor-smoke-" + Guid.NewGuid().ToString("N") + ".txt");
         File.WriteAllText(path, "Jeg vil gerne skri");
         var appExe = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_PATH") ?? Path.Combine(repo, "src", "WordSuggestorWindows.App", "bin", "Debug", "net10.0-windows", "WordSuggestorWindows.App.exe");
         var info = new ProcessStartInfo(appExe) { UseShellExecute = false };
         info.Environment["WORDSUGGESTOR_DATA_ROOT"] = data;
         info.Environment["WORDSUGGESTOR_WINDOWS_STARTUP_TEXT"] = "Jeg vil gerne skri";
-        if (Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_PATH") is not null)
+        if (Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_PATH") is not null && Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_KEEP_SDK") != "1")
         {
             info.Environment.Remove("WORDSUGGESTOR_SUGGEST_CLI_PATH");
             info.Environment.Remove("DOTNET_ROOT");
             var systemRoot = Environment.GetEnvironmentVariable("SystemRoot")!;
             info.Environment["PATH"] = Path.Combine(systemRoot, "System32") + ";" + systemRoot + ";" + Path.Combine(systemRoot, "System32", "WindowsPowerShell", "v1.0");
         }
-        using var app = Process.Start(info)!;
+        Process Launch() => Process.Start(info)!;
+        using var app = Launch();
+        Process? recoveredApp = null;
         IntPtr notepadHandle = IntPtr.Zero;
         var originalForeground = GetForegroundWindow();
         GetCursorPos(out var originalCursor);
@@ -38,6 +42,10 @@ internal static class GuiSmoke
         {
             var toolbar = await FindWindow(app.Id, "WordSuggestor Windows");
             Check("toolbar-only startup", !Windows(app.Id).Any(w => w.Current.Name.Contains("Editor")));
+            ExternalTextSnapshot? snapshot = null;
+            AutomationElement? overlay = null;
+            if (!editorOnly)
+            {
             using var launcher = Process.Start(new ProcessStartInfo("notepad.exe") { UseShellExecute = true, ArgumentList = { path } });
             var notepad = await WaitValue(() => DesktopWindows().FirstOrDefault(w =>
                 w.Current.Name.Contains(Path.GetFileNameWithoutExtension(path), StringComparison.OrdinalIgnoreCase)));
@@ -47,7 +55,7 @@ internal static class GuiSmoke
                 .Cast<AutomationElement>().FirstOrDefault(e => !e.Current.IsOffscreen);
             edit?.SetFocus();
             await Task.Delay(400);
-            var snapshot = Adapter.ReadFocused();
+            snapshot = Adapter.ReadFocused();
             Check("Notepad native adapter available", snapshot is not null);
             Console.WriteLine($"Notepad version: {FileVersionInfo.GetVersionInfo(Process.GetProcessById((int)snapshot!.ProcessId).MainModule!.FileName!).FileVersion}");
             SetSelection(snapshot.Control, snapshot.Text.Length, snapshot.Text.Length);
@@ -61,7 +69,7 @@ internal static class GuiSmoke
             Check("toolbar click preserves Notepad foreground", GetForegroundWindow() == notepadHandle);
             Click(globalToggle!);
             await Task.Delay(300);
-            var overlay = await FindWindow(app.Id, "WordSuggestor Suggestions");
+            overlay = await FindWindow(app.Id, "WordSuggestor Suggestions");
             async Task SetCaretPermission(bool enabled)
             {
                 Click(toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, "Indstillinger")));
@@ -98,38 +106,41 @@ internal static class GuiSmoke
             Console.WriteLine($"DIAGNOSTIC follow foregroundMatches={GetForegroundWindow() == notepadHandle} toggle={((TogglePattern)followChoice!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState} savedMode={placementSnapshot.SuggestionPlacementMode} permission={placementSnapshot.FollowCaretOptionEnabled}");
             Check("explicit overlay follow choice preserves Notepad focus", GetForegroundWindow() == notepadHandle && ((TogglePattern)followChoice!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.On);
             Check("permission and placement changes never alter target text", ReadControlText(snapshot.Control) == snapshot.Text);
-            var candidate = await Candidate(overlay);
-            var term = candidate.Current.Name;
+            var externalCandidate = await Candidate(overlay);
+            var externalTerm = externalCandidate.Current.Name;
             var clipboardSequence = GetClipboardSequenceNumber();
-            Click(candidate);
+            Click(externalCandidate);
             await Task.Delay(500);
             snapshot = Adapter.ReadFocused();
-            Check("Notepad mouse accept and caret", snapshot is not null && snapshot.Text == "Jeg vil gerne " + term + " " && snapshot.Start == snapshot.Text.Length && snapshot.End == snapshot.Start);
+            Check("Notepad mouse accept and caret", snapshot is not null && snapshot.Text == "Jeg vil gerne " + externalTerm + " " && snapshot.Start == snapshot.Text.Length && snapshot.End == snapshot.Start);
             Check("external commit preserves clipboard", GetClipboardSequenceNumber() == clipboardSequence);
             var oldSnapshot = snapshot!;
             SetText(snapshot!.Control, "Jeg vil gerne skri");
             SetSelection(snapshot.Control, 18, 18);
             await Task.Delay(500);
-            candidate = await Candidate(overlay);
-            term = candidate.Current.Name;
+            externalCandidate = await Candidate(overlay);
+            externalTerm = externalCandidate.Current.Name;
             Key(0x11, false); Key(0x31, false); Key(0x31, true); Key(0x11, true);
             await Task.Delay(500);
             snapshot = Adapter.ReadFocused();
-            Check("Notepad Ctrl+1 same commit result", snapshot is not null && snapshot.Text == "Jeg vil gerne " + term + " ");
+            Check("Notepad Ctrl+1 same commit result", snapshot is not null && snapshot.Text == "Jeg vil gerne " + externalTerm + " ");
             Check("stale external snapshot rejected", !Adapter.TryCommit(oldSnapshot, "anything", "WRONG", out _));
+
+            }
 
             // Actual mouse click while a real external app is foreground.
             var open = toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "OpenEditor"));
             Click(open);
             var editor = await FindWindow(app.Id, "WordSuggestor – Editor");
             var editorHandle = new IntPtr(editor.Current.NativeWindowHandle);
-            Check("normal editor becomes foreground over Notepad", GetForegroundWindow() == editorHandle);
+            Check(editorOnly ? "normal editor becomes foreground" : "normal editor becomes foreground over Notepad", GetForegroundWindow() == editorHandle);
             var document = editor.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "InternalEditor"));
             Check("editor accessibility name", document is not null && document.Current.Name == "Dokumenttekst");
             var docPattern = (TextPattern)document!.GetCurrentPattern(TextPattern.Pattern);
             Check("editor text available to accessibility", docPattern.DocumentRange.GetText(-1).StartsWith("Jeg vil gerne skri", StringComparison.Ordinal));
-            candidate = await Candidate(overlay);
-            term = candidate.Current.Name;
+            overlay ??= await FindWindow(app.Id, "WordSuggestor Suggestions");
+            var candidate = await Candidate(overlay);
+            var term = candidate.Current.Name;
             Click(candidate);
             await Task.Delay(350);
             Check("local mouse accept preserves editor focus", GetForegroundWindow() == editorHandle);
@@ -157,7 +168,14 @@ internal static class GuiSmoke
             selection.Select();
             await Task.Delay(300);
             Check("actual editor selection preserved", docPattern.GetSelection().Single().GetText(-1) == "gammel");
-            candidate = await Candidate(overlay);
+            try { candidate = await Candidate(overlay); }
+            catch
+            {
+                var status = editor.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.AutomationIdProperty, "EditorStatus"));
+                Console.WriteLine($"Synthetic selection fixture: foreground={GetForegroundWindow()}, editor={editor.Current.NativeWindowHandle}, focused={document.Current.HasKeyboardFocus}, status={status?.Current.Name}");
+                throw;
+            }
             term = candidate.Current.Name;
             Click(candidate);
             await Task.Delay(300);
@@ -192,19 +210,134 @@ internal static class GuiSmoke
             Key(0x11, false); Key(0x41, false); Key(0x41, true); Key(0x11, true);
             Type(openPath);
             Key(0x0D, false); Key(0x0D, true);
+            document = await WaitValue(() => editor.FindAll(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "InternalEditor"))
+                .Cast<AutomationElement>().FirstOrDefault(e => !e.Current.IsOffscreen &&
+                    ((TextPattern)e.GetCurrentPattern(TextPattern.Pattern)).DocumentRange.GetText(-1).TrimEnd('\r', '\n') == "Åbnet tekst med æøå og 😀"));
+            docPattern = (TextPattern)document.GetCurrentPattern(TextPattern.Pattern);
             await WaitValue(() => docPattern.DocumentRange.GetText(-1).TrimEnd('\r', '\n') == "Åbnet tekst med æøå og 😀" ? "opened" : null);
             Check("native document open preserves Unicode", true);
+            var tabs = editor.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "EditorTabs"));
+            Check("opening file keeps previous saved document in separate tab", EditorTabs(tabs).Length == 2);
+            Click(EditorTabs(tabs)[0]);
+            document = await ActiveDocument(editor, selectedResult);
+            Check("mouse tab selection restores first document", ReadDocument(document) == selectedResult);
+            Click(EditorTabs(tabs)[1]);
+            document = await ActiveDocument(editor, "Åbnet tekst med æøå og 😀");
+            Check("mouse tab selection restores second document", ReadDocument(document) == "Åbnet tekst med æøå og 😀");
+            document.SetFocus();
+            Shortcut(0x54); // Ctrl+T
+            document = await ActiveDocument(editor, ""); document.SetFocus();
+            Type("Fane A æøå 😀");
+            await Task.Delay(200);
+            var firstDraftText = "Fane A æøå 😀";
+            Check("new tab starts with its own document", ReadDocument(document) == firstDraftText && EditorTabs(tabs).Length == 3);
+            var newTabButton = editor.FindFirst(TreeScope.Descendants, new AndCondition(
+                new PropertyCondition(AutomationElement.NameProperty, "Ny fane"), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)));
+            Click(newTabButton);
+            document = await ActiveDocument(editor, ""); document.SetFocus();
+            Type("Fane B");
+            await Task.Delay(200);
+            Check("mouse new-tab action creates independent buffer", ReadDocument(document) == "Fane B" && EditorTabs(tabs).Length == 4);
+            Shortcut(0x09, shift: true); // Ctrl+Shift+Tab
+            document = await ActiveDocument(editor, firstDraftText);
+            Shortcut(0x5A); // Ctrl+Z; only the first tab's typing is undone
+            await Task.Delay(200);
+            Check("undo history survives tab switch", ReadDocument(document) == "");
+            Shortcut(0x59); // Ctrl+Y
+            document = await ActiveDocument(editor, firstDraftText);
+            var selectionRange = ((TextPattern)document.GetCurrentPattern(TextPattern.Pattern)).DocumentRange.Clone();
+            selectionRange.MoveEndpointByRange(TextPatternRangeEndpoint.End, selectionRange, TextPatternRangeEndpoint.Start);
+            selectionRange.MoveEndpointByUnit(TextPatternRangeEndpoint.End, TextUnit.Character, 4);
+            selectionRange.Select();
+            Shortcut(0x09); // next tab
+            document = await ActiveDocument(editor, "Fane B");
+            Check("other tab unaffected by undo and redo", ReadDocument(document) == "Fane B");
+            Shortcut(0x09, shift: true);
+            document = await ActiveDocument(editor, firstDraftText);
+            Check("tab selection and caret restored", ((TextPattern)document.GetCurrentPattern(TextPattern.Pattern)).GetSelection().Single().GetText(-1) == "Fane");
+            Shortcut(0x57); // cancel closing dirty A
+            var closePrompt = await FindWindow(app.Id, "WordSuggestor");
+            InvokeDialogButton(closePrompt, "2"); // Cancel
+            Check("cancel close keeps dirty tab and text", EditorTabs(tabs).Length == 4 && ReadDocument(document) == firstDraftText);
+            var selectedTab = EditorTabs(tabs).Single(t => ((SelectionItemPattern)t.GetCurrentPattern(SelectionItemPattern.Pattern)).Current.IsSelected);
+            Click(selectedTab.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)));
+            InvokeDialogButton(await FindWindow(app.Id, "WordSuggestor"), "7"); // No
+            document = await ActiveDocument(editor, "Fane B");
+            Check("closing active tab selects adjacent document", EditorTabs(tabs).Length == 3);
+            document.SetFocus();
+            Shortcut(0x57);
+            InvokeDialogButton(await FindWindow(app.Id, "WordSuggestor"), "7");
+            document = await ActiveDocument(editor, "Åbnet tekst med æøå og 😀");
+            Check("closing drafts preserves both saved tabs", EditorTabs(tabs).Length == 2);
+            var settingsAction = toolbar.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.NameProperty, "Indstillinger"));
+            Click(settingsAction);
+            var settings = await FindWindow(app.Id, "WordSuggestor Indstillinger");
+            var updateTab = settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "SettingsCategory_general"));
+            ((SelectionItemPattern)updateTab.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            var version = settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "AppVersion"));
+            Check("version available to accessibility", version is not null && version.Current.Name.Contains("WordSuggestor"));
+            var checkUpdates = settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.NameProperty, "Søg efter opdateringer"));
+            Check("manual update action accessible", checkUpdates is not null);
+            ((InvokePattern)checkUpdates!.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+            await WaitValue(() => settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "UpdateStatus")) is { } state &&
+                !state.Current.Name.StartsWith("Kontrollerer") ? state : null);
+            Check("update check reaches calm status", true);
+            var cancelSettings = settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.AutomationIdProperty, "SettingsClose"));
+            ((InvokePattern)cancelSettings.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+            document.SetFocus();
+            if (!editorOnly)
+            {
             Check("local commit leaves Notepad unchanged", ReadControlText(snapshot!.Control) == snapshot.Text);
             // Losing focus must invalidate a pending commit rather than type elsewhere.
             var guarded = Adapter.ReadFocused();
             SetForegroundWindow(notepadHandle);
             await Task.Delay(250);
             Check("editor and external target isolated", GetForegroundWindow() == notepadHandle);
+            }
             ((WindowPattern)editor.GetCurrentPattern(WindowPattern.Pattern)).Close();
             await Task.Delay(200);
             Check("closing editor keeps toolbar", toolbar.Current.IsEnabled && !app.HasExited);
-            using var duplicate = Process.Start(info)!;
-            Check("second launch exits without duplicate toolbar", duplicate.WaitForExit(5000) && duplicate.ExitCode == 0 && !app.HasExited);
+            using (var duplicate = Launch())
+                Check("second launch exits without duplicate toolbar", duplicate.WaitForExit(5000) && duplicate.ExitCode == 0 && !app.HasExited);
+            Click(toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "OpenEditor")));
+            editor = await FindWindow(app.Id, "WordSuggestor – Editor");
+            document = await ActiveDocument(editor);
+            document.SetFocus(); Shortcut(0x54);
+            document = await ActiveDocument(editor, ""); document.SetFocus();
+            const string recoveryText = "Gendannet kladde æøå 😀";
+            Type(recoveryText);
+            var sessionPath = Path.Combine(data, "editor", "workspace-v1.json");
+            await WaitValue(() =>
+            {
+                if (!File.Exists(sessionPath)) return null;
+                try
+                {
+                    using var file = new FileStream(sessionPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    using var payload = JsonDocument.Parse(file);
+                    return payload.RootElement.GetProperty("tabs").EnumerateArray().Any(t => t.GetProperty("text").GetString() == recoveryText) ? "saved" : null;
+                }
+                catch (IOException) { return null; }
+            });
+            Check("unsaved tab draft automatically persisted", true);
+            app.Kill(entireProcessTree: true); app.WaitForExit(); // own synthetic test instance: recovery after a crash
+            recoveredApp = Launch();
+            toolbar = await FindWindow(recoveredApp.Id, "WordSuggestor Windows");
+            Click(toolbar.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "OpenEditor")));
+            editor = await FindWindow(recoveredApp.Id, "WordSuggestor – Editor");
+            document = await ActiveDocument(editor, recoveryText);
+            tabs = editor.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "EditorTabs"));
+            Check("restart restores all tabs and active Unicode draft", EditorTabs(tabs).Length == 3 && ReadDocument(document) == recoveryText);
+            document.SetFocus(); Shortcut(0x57);
+            InvokeDialogButton(await FindWindow(recoveredApp.Id, "WordSuggestor"), "7");
+            await ActiveDocument(editor, "Åbnet tekst med æøå og 😀");
+            Check("discarding recovered draft retains saved documents", EditorTabs(tabs).Length == 2);
             await Task.Delay(200);
             var runtimeDirectory = Path.Combine(data, "diagnostics", "runtime");
             var runtimeFiles = Directory.Exists(runtimeDirectory) ? Directory.GetFiles(runtimeDirectory, "runtime-v1.jsonl*") : [];
@@ -215,10 +348,21 @@ internal static class GuiSmoke
             Check("actual caret or static placement traced", runtimeText.Contains("CaretConfirmed") || runtimeText.Contains("StaticPlacement") || runtimeText.Contains("CaretFallback"));
             Check("runtime metadata excludes synthetic document and file paths", !runtimeText.Contains("Jeg vil gerne") && !runtimeText.Contains("Åbnet tekst") && !runtimeText.Contains(data, StringComparison.OrdinalIgnoreCase));
             if (notepadHandle != IntPtr.Zero) Check("actual Notepad panel trace independent of App debug", runtimeText.Contains("OverlayExternal"));
-            Console.WriteLine($"PASS GUI {_checks} checks. DPI={GetDpiForWindow(notepadHandle)}; monitors={GetSystemMetrics(80)}. Data: {data}");
+            Console.WriteLine($"PASS GUI {_checks} checks. DPI={GetDpiForWindow(new IntPtr(editor.Current.NativeWindowHandle))}; monitors={GetSystemMetrics(80)}. Data: {data}");
         }
         finally
         {
+            if (recoveredApp is not null)
+            {
+                if (!recoveredApp.HasExited)
+                {
+                    var recoveredToolbar = Windows(recoveredApp.Id).FirstOrDefault(w => w.Current.Name == "WordSuggestor Windows");
+                    if (recoveredToolbar is not null) PostMessageW(new IntPtr(recoveredToolbar.Current.NativeWindowHandle), 0x0010, IntPtr.Zero, IntPtr.Zero);
+                    await Task.Delay(500);
+                    if (!recoveredApp.HasExited) recoveredApp.Kill(true);
+                }
+                recoveredApp.Dispose();
+            }
             // Only close windows created by this run; never other user documents.
             if (notepadHandle != IntPtr.Zero)
             {
@@ -259,6 +403,21 @@ internal static class GuiSmoke
     });
     private static Task<AutomationElement> Candidate(AutomationElement overlay) => WaitValue(() => overlay.FindFirst(TreeScope.Descendants,
         new PropertyCondition(AutomationElement.AutomationIdProperty, "AcceptCandidate")));
+    private static AutomationElement[] EditorTabs(AutomationElement tabs) => tabs.FindAll(TreeScope.Children,
+        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem)).Cast<AutomationElement>().ToArray();
+    private static string ReadDocument(AutomationElement document) => ((TextPattern)document.GetCurrentPattern(TextPattern.Pattern)).DocumentRange.GetText(-1).TrimEnd('\r', '\n');
+    private static Task<AutomationElement> ActiveDocument(AutomationElement editor, string? text = null) => WaitValue(() =>
+        editor.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, "InternalEditor"))
+            .Cast<AutomationElement>().FirstOrDefault(e => !e.Current.IsOffscreen && (text is null || ReadDocument(e) == text)));
+    private static void InvokeDialogButton(AutomationElement dialog, string id) => ((InvokePattern)dialog.FindFirst(TreeScope.Descendants,
+        new AndCondition(new PropertyCondition(AutomationElement.AutomationIdProperty, id),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button))).GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+    private static void Shortcut(byte key, bool shift = false)
+    {
+        Key(0x11, false); if (shift) Key(0x10, false);
+        Key(key, false); Key(key, true);
+        if (shift) Key(0x10, true); Key(0x11, true);
+    }
     private static async Task<T> WaitValue<T>(Func<T?> read) where T : class
     {
         var until = DateTime.UtcNow.AddSeconds(10);

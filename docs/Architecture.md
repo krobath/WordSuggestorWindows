@@ -66,7 +66,7 @@ The [slice-5 follow-up](qualification/WSA-UX-029_slice5.md) records native
 qualification on the newer slice-6 source, including three lanes and Notepad;
 human/hardware signoff remains open.
 
-Updated 2026-11-08. Decision: controlled refactoring of the functioning WPF app,
+Updated 2026-11-09 (document tabs). Decision: controlled refactoring of the functioning WPF app,
 upgraded to .NET 10 LTS. No new solution or WinUI rewrite. See [audit](ReleaseAudit.md)
 for the compared options and [Core contract](BridgeContract.md) for wire details.
 
@@ -204,6 +204,35 @@ twice. Hotkeys are registered only while external candidates are available.
 
 ## Text, caret and placement
 
+`EditorWorkspace` owns the ordered documents and active tab. Each
+`EditorDocumentTab` owns its text, saved baseline, file path, dirty state and UTF-16
+selection/caret. The native `TabControl` retains one RichTextBox per tab, including
+its independent undo stack. The view model remains the active document's shared
+Core/commit orchestration; it does not become a second document store.
+
+A tab switch first captures the outgoing selection, stops dictation/playback,
+invalidates pending suggestions (even for identical document text), switches the
+native view and assigns incoming model state together, then restores selection and
+focus. Programmatic selection/text notifications are guarded. Existing local mouse,
+Tab and Ctrl+digit acceptance still use the same commit path. No linguistic logic
+or pack formats changed.
+
+Open reuses a clean empty untitled tab or creates a new tab; an existing normalized
+path activates its unsaved buffer. Save only touches the requested tab and refuses
+to overwrite a file open in another tab. Close offers Yes/No/Cancel for that tab;
+closing the last tab creates a blank one. App exit confirms every dirty document;
+a cancelled exit preserves all tabs, and No is applied to the final persisted
+snapshot only after all prompts succeed. Hiding the editor preserves the workspace.
+
+`EditorWorkspaceStore` autosaves after 500 ms and flushes on hide/exit, atomically
+replacing schema-v1 JSON with a `.bak`. Monotonic revisions prevent delayed writes
+from overwriting newer snapshots. Restore validates document IDs, paths, schema and
+size limits. Corrupt/newer data is preserved with a calm warning and automatic
+session writes disabled; explicit Save remains available. Limits: 128 tabs, opened
+files up to 2,000,000 bytes, restored text up to 2,000,000 UTF-16 units per tab and
+64 MiB session JSON. Undo history is in memory, not serialized. Drafts are local
+user content in plaintext, not diagnostic records or backend telemetry.
+
 All editing offsets are UTF-16. Prefix/selection replacement, suffix spacing and
 caret position are computed together in `EditorCommit`; this is editing-boundary
 logic, not ranking or lexical normalization. Model text/caret are assigned before
@@ -254,7 +283,8 @@ Existing `%LOCALAPPDATA%\WordSuggestor` is preserved:
 | Installed packs | `Packs`; old roaming packs stay discoverable; bundled packs remain separate/read-only |
 | Insights | `insights/error-insights.jsonl`; kinds/counts by default; word examples require explicit preference |
 | Diagnostics | `diagnostics`; stage/result/counts, no raw key/token/document text, titles or process stderr |
-| Documents | UTF-8 text at the user-selected file path; buffer retained while editor is hidden; quit/open guards unsaved changes |
+| Documents | UTF-8 text at the user-selected file path; independent tabs with close/quit guards |
+| Editor drafts/session | `editor/workspace-v1.json` and `.bak`; text, saved baselines, paths, active tab and selection; local user content, never diagnostics/upload |
 | OCR/TTS temporary content | Existing local bridges, cleaned in their lifecycle; no content in diagnostics |
 | Credentials | No backend/login implemented and no tokens stored; future credentials must use Windows Credential Manager/DPAPI, never settings/logs |
 

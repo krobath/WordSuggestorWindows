@@ -1,5 +1,14 @@
 # Current Windows beta track — 2026-11-10
 
+## Editor tabs closeout — 2026-11-12
+
+WSA-UX-013 retains WPF/Core and adds independent native document tabs with guarded
+save/close and local draft recovery. See the [change note](changes/2026-11-09_wsa_ux_013_editor_tabs.md)
+and [software/desktop evidence](qualification/WSA-UX-013_editor_tabs.md).
+Human accessibility/DPI, speech-switching and signed-update draft retention remain
+open. Windows changes do not modify the macOS app, Core or backend.
+
+
 ## Developer restart closeout — 2026-11-12
 
 WSA-DX-005 is implemented and qualified with 14 owned-fixture checks. Builds fail
@@ -75,6 +84,7 @@ public RC is claimed while signing/install/update qualification remains open.
 | Sprint | Delivery | Status |
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
+| WSA-UX-013_windows_editor_tabs | Native document tabs, independent buffers/undo/selection, file actions, dirty close guards and local draft recovery | Implemented; 94 app checks; clean-source desktop evidence in WSA-UX-013 qualification |
 | [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–6 implemented: sidebar, live settings/schema 5, languages, caret permission, speech, three suggestion lanes, Core analysis and local choices. See slice-6 native evidence; slice 7 account candidate implemented; native Hello/live account and human/hardware gates remain open. Next engineering slice 8 updates |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
