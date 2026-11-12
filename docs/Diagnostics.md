@@ -89,7 +89,7 @@ normalization or language decisions into Windows.
 
 ## Core operational contract
 
-Pinned Core: `56aba63042796b2a6c398828c3737ab0cb02eae5`. Its existing JSON v2 adds
+Pinned Core: `4c3cab1a4717699186461dc34578ff48bb7839b2`. Its existing JSON v2 adds
 capability `operationalDiagnostics`. Only when A05 is enabled and capability true
 does the host send optional `includeOperationalDiagnostics: true`. The Core-owned
 summary contains schema 1, validated existing operation, completed/rejected status,
@@ -107,8 +107,9 @@ retention, UI and platform evidence. No pack format or ranking changes.
 
 ## Unknown-word dependency and remaining acceptance
 
-The CLI explicitly advertises unknownWordLookup/unknownWordSharing false and has
-no committed-word observation, lookup or handoff operation. macOS uses
+The CLI still advertises unknownWordLookup/unknownWordSharing false. Slice 10
+adds only a separately negotiated, read-only completed-token assessment; it has no
+committed-word capture, lookup provider, learning store or handoff operation. macOS uses
 UnknownWordLearningService plus an external provider; that is distinct from saved
 interpretation choices, user words and diagnostic counts. Windows must not infer
 unknown words from an empty suggestion list, add words automatically in C#, start
@@ -126,3 +127,8 @@ still require acceptance. Hello remains deferred by the user, and G05 production
 editing stays source-gated. No signed public beta/release is qualified by these
 software tests. Next work completes real Windows acceptance and designs the
 missing Core lookup lane before users can enable it.
+
+Slice-10 assessment emits only the existing fixed metadata summary when A05 is
+enabled, never the assessed token. See [the narrow transport boundary](CommittedWordAssessment.md).
+The assessment capability cannot make A06/A07 effective or grant storage/network
+permission; their original controls remain unavailable.

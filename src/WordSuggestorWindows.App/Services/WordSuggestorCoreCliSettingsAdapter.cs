@@ -78,6 +78,17 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         return Result(response, new CoreWordInfo(response.Analyses, response.Families));
     }
 
+    // Explicit read-only preflight only. No typing listener, consent, storage,
+    // online dictionary provider or linguistic classification in this adapter.
+    public async Task<CoreQueryResult<CoreCommittedWordAssessment>> AssessCommittedWordAsync(string surface, CoreRequestContext context, CancellationToken cancellationToken = default)
+    {
+        if (!Safe(surface, 128) || surface.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            throw new ArgumentException("Et enkelt afsluttet ord på højst 128 UTF-16-enheder kræves.");
+        var response = await QueryAsync("assessCommittedWord", surface, context, null, null, null, cancellationToken);
+        if (response.CommittedWord is not { SchemaVersion: 1 } result || result.Disposition is not ("candidate" or "not_candidate")) throw InvalidProtocol();
+        return Result(response, result);
+    }
+
     public async Task<CoreQueryResult<CoreFollowup>> GetSmartFollowupAsync(string input, CoreRequestContext context, CancellationToken cancellationToken = default)
     {
         var response = await QueryAsync("smartFollowup", input, context, null, null, null, cancellationToken);
@@ -131,22 +142,44 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         var language = RequireLanguagePack();
         var capabilities = await ReadCapabilitiesAsync(language, catalogPath, cancellationToken);
         if (!capabilities.Supports(operation)) throw new NotSupportedException("Denne Core-version understøtter ikke funktionen.");
+        if (operation == "assessCommittedWord" && !capabilities.CommittedWordAssessment) throw new NotSupportedException("Core har ingen kontrakt til vurdering af afsluttede ord.");
         var id = Guid.NewGuid().ToString("N");
         var includeDiagnostics = Diagnostics?.Enabled(DiagnosticCategory.Core) == true && capabilities.OperationalDiagnostics;
         var request = new { version = 2, requestId = id, operation, language = language.LanguageCode,
             includeOperationalDiagnostics = includeDiagnostics ? true : (bool?)null,
             packPath = language.PackPath, text, maxResults = 40, context, options, catalogPath, domainId,
-            userWordsPath = operation == "suggest" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null };
+            userWordsPath = operation is "suggest" or "assessCommittedWord" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null };
         // Produce a JsonElement with null option fields omitted. Unknown/nonapplicable
         // options are rejected by Core instead of being silently ignored.
         var payload = JsonSerializer.SerializeToElement(request, ExtendedJson);
-        var response = Decode<SettingsEnvelope>(await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation)));
+        var output = await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation));
+        if (operation == "assessCommittedWord") ValidateAssessmentEnvelope(output);
+        var response = Decode<SettingsEnvelope>(output);
         if (response.Version != 2 || response.RequestId != id || response.Context != context || response.Language != language.LanguageCode) throw InvalidProtocol();
         if (response.OperationalDiagnostics is { } trace && !trace.ValidFor(operation, response.ErrorCode is not null) || includeDiagnostics && response.OperationalDiagnostics is null)
         { Diagnostics?.Record(DiagnosticCategory.Core, DiagnosticEvent.CoreRejected, WindowsDiagnostics.Operation(operation)); throw InvalidProtocol(); }
         if (includeDiagnostics && response.OperationalDiagnostics is { } summary) Diagnostics?.RecordCore(summary);
         if (response.ErrorCode is { } error) throw new CoreBridgeRejectedException(error);
         return response;
+    }
+
+    private static void ValidateAssessmentEnvelope(string output)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(output);
+            static bool Closed(JsonElement value, string[] allowed)
+            {
+                if (value.ValueKind != JsonValueKind.Object) return false;
+                var names = value.EnumerateObject().Select(p => p.Name).ToArray();
+                return names.Distinct(StringComparer.Ordinal).Count() == names.Length && names.All(n => allowed.Contains(n, StringComparer.Ordinal));
+            }
+            var root = document.RootElement;
+            if (!Closed(root, ["version", "requestId", "context", "language", "errorCode", "warningCode", "committedWord", "operationalDiagnostics"]) ||
+                root.TryGetProperty("context", out var context) && !Closed(context, ["documentId", "generation"]) ||
+                root.TryGetProperty("committedWord", out var result) && !Closed(result, ["schemaVersion", "disposition"])) throw InvalidProtocol();
+        }
+        catch (JsonException) { throw InvalidProtocol(); }
     }
 
     private static IReadOnlyList<CoreCandidate> ValidateCandidates(CoreCandidate[]? rows)
@@ -163,5 +196,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics, CoreCommittedWordAssessment? CommittedWord);
 }

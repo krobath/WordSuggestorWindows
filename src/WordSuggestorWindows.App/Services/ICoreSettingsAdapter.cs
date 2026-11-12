@@ -6,6 +6,7 @@ namespace WordSuggestorWindows.App.Services;
 // because this transport exists; callers must check capabilities and scope.
 public interface ICoreSettingsAdapter
 {
+    Task<CoreQueryResult<CoreCommittedWordAssessment>> AssessCommittedWordAsync(string surface, CoreRequestContext context, CancellationToken cancellationToken = default);
     Task<CoreQueryResult<CoreDocumentResult>> AnalyzeDocumentAsync(string text, CoreRequestContext context, CoreAnalysisOptions options, CancellationToken cancellationToken = default);
     Task<CoreCapabilities> GetCapabilitiesAsync(string? catalogPath = null, CancellationToken cancellationToken = default);
     Task<CoreQueryResult<IReadOnlyList<CoreCandidate>>> SuggestWithOptionsAsync(string text, CoreRequestContext context,

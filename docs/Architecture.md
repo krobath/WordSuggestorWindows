@@ -324,3 +324,7 @@ user data. The ordinary app does not execute probes without those explicit flags
 Native MSIX qualification is opt-in and cannot uninstall preexisting packages or
 overwrite nonempty test data. See [Release.md](Release.md) for signing, App Installer,
 pending/active publication, trust mutation boundaries and rollback.
+
+## Read-only completed-word boundary — WSA-UX-029, 2026-11-12
+
+Core CLI assessment is separate from lookup/learning. Windows sends an explicit single token and validates a closed scoped response; shared Core owns the observer decision. No input listener, store, provider or new consent is active. The read-only CLI source and memory-only user-word snapshot avoid global migration/fallback. See [CommittedWordAssessment.md](CommittedWordAssessment.md).

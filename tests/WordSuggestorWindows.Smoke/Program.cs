@@ -15,6 +15,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Contains("--tts-fake-worker")) return SpeechSettingsSmoke.FakeWorker();
+        if (CommittedWordAssessmentSmoke.IsChild(args)) return CommittedWordAssessmentSmoke.FakeBridge();
         if (CoreSettingsSmoke.IsBridgeChild(args)) return CoreSettingsSmoke.FakeBridge();
         if (args.Contains("--stdio-json-v1")) return FakeCore();
         if (args.FirstOrDefault() == "--activate-app")
@@ -52,6 +53,7 @@ internal static class Program
                 else if (args.Contains("--speech-ui")) await SpeechUiSmoke.Run(FindRepo());
                 else if (args.Contains("--speech-settings")) await SpeechSettingsSmoke.Run(FindRepo());
                 else if (args.Contains("--core-settings")) await CoreSettingsSmoke.Run(FindRepo());
+                else if (args.Contains("--committed-word")) await CommittedWordAssessmentSmoke.Run(FindRepo());
                 else if (args.Contains("--settings-state")) SettingsStateSmoke.Run(Path.Combine(FindRepo(), ".artifacts", "tests", "settings-state-" + Guid.NewGuid().ToString("N")));
                 else if (args.Contains("--settings-ui")) await SettingsUiSmoke.Run(FindRepo());
                 else if (args.Contains("--gui") || args.Contains("--tabs-gui")) await GuiSmoke.Run(FindRepo(), args.Contains("--tabs-gui"));

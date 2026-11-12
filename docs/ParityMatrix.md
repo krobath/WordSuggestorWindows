@@ -123,3 +123,7 @@ implemented; fixture and standalone payload results are tracked in
 [WSA-RT-017 qualification](qualification/WSA-RT-017_release_cleanup.md).
 This is not signed-install, update, public download or Mac Sparkle qualification.
 Read [Release.md](Release.md) for the exact remaining gates and safe workflow.
+
+## Unknown-word dependency after slice 10 — WSA-UX-029, 2026-11-12
+
+A06/A07 remain unavailable. The new Core/Windows assessment is a prerequisite, not an implemented lookup/sharing UI or full parity. The pinned Core revision now includes only additive CLI code; macOS/library/pack behavior is unchanged. See [slice-10 evidence](qualification/WSA-UX-029_slice10.md).

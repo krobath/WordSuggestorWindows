@@ -722,3 +722,7 @@ Status:
 - Shared semantics must stay aligned with the macOS product.
 - External-app support must be gated by placement confidence rather than optimistic guessing.
 - The current normal-window WPF baseline is temporary and should not be treated as the final shell direction.
+
+## Slice 10 boundary — WSA-UX-029, 2026-11-12
+
+No layout, category, default, enabled-state or shortcut changes. A06/A07 remain visible disabled/off; a read-only Core assessment must never be mistaken for working lookup/learning. Windows Hello and installed update gates retain their current status. See [the contract](CommittedWordAssessment.md).

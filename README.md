@@ -326,3 +326,12 @@ a source-only uncommitted snapshot; its default still tests committed revisions.
 `test_msix.ps1` does not mutate trust by default: temporary LocalTest trust requires
 explicit `-AllowTemporaryMachineTrust` in a disposable test environment.
 See [actual results and open native/public gates](docs/qualification/WSA-RT-017_release_cleanup.md).
+
+## Completed-word adapter foundation — WSA-UX-029 slice 10
+
+The pinned Core provides a negotiated read-only assessment of one completed token.
+It reuses the shared observer; it does not capture typing, learn, contact a
+dictionary or enable unknown-word lookup/sharing. Run
+`scripts/test_settings_app.ps1 -Mode CommittedWord` or the existing All suite.
+[Contract and boundaries](docs/CommittedWordAssessment.md),
+[source/test evidence](docs/qualification/WSA-UX-029_slice10.md).

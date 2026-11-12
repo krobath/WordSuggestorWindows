@@ -31,12 +31,20 @@ public sealed record CoreCapabilities
     public bool OperationalDiagnostics { get; init; }
     public bool UnknownWordLookup { get; init; }
     public bool UnknownWordSharing { get; init; }
+    public bool CommittedWordAssessment { get; init; }
     public bool Supports(string operation) => ProtocolVersions.Contains(2) && Operations.Contains(operation, StringComparer.Ordinal);
     public static CoreCapabilities Legacy { get; } = new() { SchemaVersion = 1, ProtocolVersions = [1], Operations = ["suggest", "addUserWord"] };
 }
 
 public sealed record CoreSuggestionOptions(bool? ConfusionSet = null, bool? Phonetic = null, bool? Misspelling = null,
     bool? Synonym = null, bool? ContextBased = null, string? RuntimeBudget = null, string? SpacingMode = null, string? Suffix = null);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CoreCommittedWordAssessment([property: JsonRequired] int SchemaVersion,
+    [property: JsonRequired] string Disposition)
+{
+    [JsonIgnore] public bool IsCandidate => Disposition == "candidate";
+}
 public sealed record CoreAnalysisOptions(bool Semantic = false, bool Punctuation = false,
     string CommaStyle = "grammatical_without_start_comma", string CommaMode = "boundary_local_contextual_v1");
 public sealed record CoreCandidate([property: JsonRequired] string Term, [property: JsonRequired] string InsertText,

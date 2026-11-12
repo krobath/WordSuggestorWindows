@@ -1,5 +1,20 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## WSA-UX-029 slice 10 — read-only completed-word boundary, 2026-11-12
+
+The Windows adapter can explicitly ask Core whether one completed token would
+emit its existing unknown-word observer signal. This foundation is implemented;
+it does not enable A06/A07, capture typing, store words or perform online lookup.
+See [the contract](../CommittedWordAssessment.md), [slice plan](WSA-UX-029_slice10_committed_word_assessment.md)
+and [qualification](../qualification/WSA-UX-029_slice10.md). Core changes only its CLI,
+tests and local docs; library/pack/macOS source remain unchanged.
+
+Next implement a reviewed Core-owned provider/store and explicit lookup consent
+before users can enable local unknown-word learning. Public sharing, Hello native
+acceptance (user-deferred), installed update policy and official beta remain gated.
+Earlier dated next-step text below is historical.
+
+
 ## Slice 9 implementation candidate — 2026-11-12
 
 A01–A05 and A08 have real Windows paths: independent categories, bounded aggregate

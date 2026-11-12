@@ -372,3 +372,7 @@ The cleanup does not close any native installation/update or public HTTPS gate.
 The default local MSIX harness returns BLOCKED until temporary trust is explicitly
 opted into. Human accessibility/DPI, actual cross-update editor draft retention,
 production trust and live server/Mac regression remain separate acceptance.
+
+## Slice 10 completed-word transport — WSA-UX-029, 2026-11-12
+
+Run `scripts/test_settings_app.ps1 -Mode CommittedWord` for real Core and hostile process fixtures. The operation is not wired to normal typing; verify A06/A07 remain disabled/off and ordinary editor/Notepad suggestions, tab recovery and diagnostics remain unchanged. Full native/manual results are recorded in [slice-10 qualification](qualification/WSA-UX-029_slice10.md); no new Hello, signing or install/update sign-off is inferred.

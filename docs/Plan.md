@@ -1,5 +1,20 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 10 — read-only completed-word boundary, 2026-11-12
+
+The Windows adapter can explicitly ask Core whether one completed token would
+emit its existing unknown-word observer signal. This foundation is implemented;
+it does not enable A06/A07, capture typing, store words or perform online lookup.
+See [the contract](CommittedWordAssessment.md), [slice plan](sprints/WSA-UX-029_slice10_committed_word_assessment.md)
+and [qualification](qualification/WSA-UX-029_slice10.md). Core changes only its CLI,
+tests and local docs; library/pack/macOS source remain unchanged.
+
+Next implement a reviewed Core-owned provider/store and explicit lookup consent
+before users can enable local unknown-word learning. Public sharing, Hello native
+acceptance (user-deferred), installed update policy and official beta remain gated.
+Earlier dated next-step text below is historical.
+
+
 ## Beta tooling cleanup — 2026-11-12
 
 WSA-RT-017 records the existing Windows x64 MSIX/App Installer and backend O-052
@@ -95,7 +110,7 @@ public RC is claimed while signing/install/update qualification remains open.
 |---|---|---|
 | WSA-UX-012_windows_internal_editor_window_split | Compact non-activating toolbar, normal activating editor, common overlay; shared state | Implemented; desktop editor/Notepad/native Open/Save checks pass |
 | WSA-UX-013_windows_editor_tabs | Native document tabs, independent buffers/undo/selection, file actions, dirty close guards and local draft recovery | Implemented; 94 app checks; clean-source desktop evidence in WSA-UX-013 qualification |
-| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slice 0 baseline and slices 1–6 implemented: sidebar, live settings/schema 5, languages, caret permission, speech, three suggestion lanes, Core analysis and local choices. See slice-6 native evidence; slice 7 account candidate implemented; native Hello/live account and human/hardware gates remain open. Next engineering slice 8 updates |
+| [WSA-UX-029_windows_settings_sidebar_and_functional_parity](sprints/WSA-UX-029_windows_settings_sidebar_and_functional_parity.md) | Native sidebar, all Settings controls/effects, Windows Hello, configurable lanes and Windows legacy migration | Slices 0–6 implemented; 7–9 have account/update/diagnostic paths with explicit native/manual gaps. Slice 10 adds read-only Core assessment; A06/A07 still unavailable. Settings schema 6; next provider/store consent integration and remaining acceptance gates |
 | WSA-RT-016_windows_beta_hardening | JSON v1 Core process lifecycle, pack validation, Core user words, stale-response guards, verified Notepad commit, privacy and data retention | Implemented; automated contract/state checks pass |
 | WSA-TS-004_windows_beta_contract_and_desktop_smoke | Real Core fixtures, adversarial hosts, UIA/physical-input desktop smoke, isolated payload and clean committed-export builds | Implemented; final qualification results in delivery note |
 | WSA-DX-004_windows_signed_beta_delivery | .NET 10, pinned build inputs, SDK virtual module maps, self-contained MSIX, guarded signing/feed scripts | Package validated; trusted signing/install/update gate pending |
