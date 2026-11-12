@@ -65,6 +65,8 @@ public sealed class AppSettingsSnapshot
 
     public bool IsCoreDebugLoggingEnabled { get; set; }
 
+    public bool IsPanelParityLoggingEnabled { get; set; }
+
     public AppSettingsSnapshot Clone() =>
         new()
         {
@@ -101,6 +103,7 @@ public sealed class AppSettingsSnapshot
             IsPerformanceInstrumentationEnabled = IsPerformanceInstrumentationEnabled,
             IsAppDebugLoggingEnabled = IsAppDebugLoggingEnabled,
             IsPlacementDebugLoggingEnabled = IsPlacementDebugLoggingEnabled,
-            IsCoreDebugLoggingEnabled = IsCoreDebugLoggingEnabled
+            IsCoreDebugLoggingEnabled = IsCoreDebugLoggingEnabled,
+            IsPanelParityLoggingEnabled = IsPanelParityLoggingEnabled
         };
 }

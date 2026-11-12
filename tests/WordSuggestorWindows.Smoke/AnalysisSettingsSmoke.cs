@@ -27,7 +27,7 @@ internal static class AnalysisSettingsSmoke
         var settingsPath = Path.Combine(root, "settings.json"); const string old = "{\"schemaVersion\":4,\"punctuationCommaStyle\":\"Standard\",\"readingSpeedDelta\":0.15,\"storeSentenceExamples\":false,\"unknownConsent\":false}";
         File.WriteAllText(settingsPath, old); var originalBytes = File.ReadAllBytes(settingsPath);
         var store = new WindowsAppSettingsService(settingsPath); var snapshot = store.Load();
-        Check("old comma style migrates without granting storage consent", snapshot.SchemaVersion == 5 && snapshot.PunctuationCommaStyle == "grammatical_without_start_comma" && !snapshot.SaveWordChoices && !snapshot.ShareWordChoices && !snapshot.StoreSentenceExamples);
+        Check("old comma style migrates without granting storage consent", snapshot.SchemaVersion == SettingsSchema.CurrentVersion && snapshot.PunctuationCommaStyle == "grammatical_without_start_comma" && !snapshot.SaveWordChoices && !snapshot.ShareWordChoices && !snapshot.StoreSentenceExamples);
         snapshot.IsPunctuationDiagnosticsEnabled = true; store.Save(snapshot);
         Check("v4 exact backup and unknown false values preserved", File.ReadAllBytes(settingsPath + ".v4.bak").SequenceEqual(originalBytes) && !store.Load().AdditionalProperties["unknownConsent"].GetBoolean());
         Check("invalid contextual mode rolls back to graph-only", SettingsSchema.Upgrade(new() { ContextualCommaMode = "unknown" }).ContextualCommaMode == "legacy_graph_only");

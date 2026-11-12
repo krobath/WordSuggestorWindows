@@ -1,5 +1,17 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Slice 9 Advanced adoption — 2026-11-12
+
+Advanced now has A01–A08 in the macOS reference order: performance, App, Windows
+caret/placement, independent panel state, Core, unavailable unknown-word lookup/
+sharing, then the Windows legacy entry. Native checkboxes have explicit dynamic
+DA/EN screen-reader names/help. Five real switches persist through the shared
+authority; unavailable controls remain unchecked with a reason and no hidden
+action. Async local-write failures show a calm status without blocking typing.
+The reference is macOS `ba18b45`; its default-on App debug/unknown-word settings
+are not new Windows defaults or consent. See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
+Human Narrator/high contrast/DPI and trusted package acceptance remain separate.
+
 ## Slice 8 General update adoption — 2026-11-12
 
 G04 displays the actual package/display version. G05 is a native three-state

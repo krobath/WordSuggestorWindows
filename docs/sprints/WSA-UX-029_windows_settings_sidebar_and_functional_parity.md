@@ -1,5 +1,26 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## Slice 9 implementation candidate — 2026-11-12
+
+A01–A05 and A08 have real Windows paths: independent categories, bounded aggregate
+timings, safe Core summary, persistence and legacy merge. A06/A07 are visible
+unavailable states pending a Core-owned unknown-word lookup/handoff contract.
+The CLI explicitly advertises that boundary; no manual user-word workaround,
+automatic ranking change or network upload is added. See
+[diagnostic contract](../Diagnostics.md), [qualification](../qualification/WSA-UX-029_slice9.md)
+and [all 72 current statuses](../qualification/settings-parity-status.v1.json).
+
+This advances the final implementation slice without closing the full sprint:
+G05 positive installed policy mutation, P07 user-deferred Hello, human accessibility/
+DPI/multi-monitor and real install/N→N+1/data retention still require evidence.
+Next work completes those acceptance checks and designs portable unknown-word
+observation/provider behavior before users can enable lookup/sharing. No official
+Windows beta, consent or public update is unlocked by this candidate.
+All seven final isolated-source software gates pass: build, Core/app, complete
+Settings, GUI/Notepad, Media and current mapping/safety. Actual display was 96 DPI
+and one monitor; human/platform/release gates above remain open.
+Older dated entries below are historical checkpoints.
+
 ## Slice 8 implementation candidate — 2026-11-12
 
 G04–G06 now use actual Windows package/policy readback and a separate explicit
@@ -52,12 +73,12 @@ and [runtime contract](../Suggestions.md). Slice 6 remains the next feature slic
 Earlier dated statuses in this plan document prior deliveries.
 
 Oprettet: 2026-11-10. Opdateret: 2026-11-12. Platform/ejer: Windows.
-Status: **Slice 0–6 implementeret; slice 7 konto og slice 8 opdateringer er
-implementerede kandidater med åbne native kvalifikationskrav. Automatisk
-opdateringspolitik vises fra Windows, men redigering er fortsat låst. Hello-testen
-er parkeret efter brugerens ønske. Ingen offentlig release er kvalificeret.**
-Næste engineering-slice: 9, Avanceret med fungerende privatlivssikre
-diagnosekontroller og adgang til de hidtidige Windows-indstillinger.
+Status: **Slice 0–6 implementeret; slice 7–9 er implementeringskandidater.
+Fem diagnosekontakter og Windows-legacy virker; ukendt ord-opslag/deling er
+utilgængeligt. Opdateringspolitik vises, men redigering er låst. Hello er parkeret
+efter brugerens ønske. Samlet paritet og offentlig release er ikke godkendt.**
+Næste arbejde: afslut menneskelig Windows-accept og betroet installer-/updatertest;
+fastlæg Core-kontrakten, før ukendt-ord-opslag og deling kan aktiveres.
 
 ## Resultat sprintet skal levere
 

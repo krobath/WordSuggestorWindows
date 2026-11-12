@@ -1,0 +1,587 @@
+{
+  "schema_version": 1,
+  "platform": "windows",
+  "reference_commit": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
+  "windows_base": "92f2ed5f1044dc69d3484294cf9f4933b4156323",
+  "core_revision": "56aba63042796b2a6c398828c3737ab0cb02eae5",
+  "sprint_complete": false,
+  "release_qualified": false,
+  "controls": [
+    {
+      "id": "P01",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P02",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P03",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P04",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P05",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P06",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P07",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "deferred_by_user"
+    },
+    {
+      "id": "P08",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P09",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P10",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P11",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P12",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P13",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P14",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P15",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P16",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P17",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P18",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P19",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P20",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "P21",
+      "category": "profile",
+      "implementation": "implemented",
+      "automation_suite": "AccountUi",
+      "evidence_document": "WSA-UX-029_slice7.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "G01",
+      "category": "general",
+      "implementation": "implemented",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice2.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "G02",
+      "category": "general",
+      "implementation": "implemented",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice2.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "G03",
+      "category": "general",
+      "implementation": "implemented",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice2.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "G04",
+      "category": "general",
+      "implementation": "implemented",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice8.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "G05",
+      "category": "general",
+      "implementation": "partial",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice8.md",
+      "manual_qualification": "blocked"
+    },
+    {
+      "id": "G06",
+      "category": "general",
+      "implementation": "implemented",
+      "automation_suite": "Ui/UpdateUi",
+      "evidence_document": "WSA-UX-029_slice8.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "O01",
+      "category": "speech",
+      "implementation": "implemented",
+      "automation_suite": "Speech/SpeechUi",
+      "evidence_document": "WSA-UX-029_slice4.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "O02",
+      "category": "speech",
+      "implementation": "implemented",
+      "automation_suite": "Speech/SpeechUi",
+      "evidence_document": "WSA-UX-029_slice4.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "O03",
+      "category": "speech",
+      "implementation": "implemented",
+      "automation_suite": "Speech/SpeechUi",
+      "evidence_document": "WSA-UX-029_slice4.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "O04",
+      "category": "speech",
+      "implementation": "implemented",
+      "automation_suite": "Speech/SpeechUi",
+      "evidence_document": "WSA-UX-029_slice4.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "O05",
+      "category": "speech",
+      "implementation": "implemented",
+      "automation_suite": "Speech/SpeechUi",
+      "evidence_document": "WSA-UX-029_slice4.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F01",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F02",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F03",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F04",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F05",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F06",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F07",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F08",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F09",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F10",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F11",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F12",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F13",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F14",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F15",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F16",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F17",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F18",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F19",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "F20",
+      "category": "suggestions",
+      "implementation": "implemented",
+      "automation_suite": "Suggestions",
+      "evidence_document": "WSA-UX-029_slice5.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T01",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T02",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T03",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T04",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T05",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "T06",
+      "category": "textAnalysis",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "L01",
+      "category": "learning",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "L02",
+      "category": "learning",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "L03",
+      "category": "learning",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "L04",
+      "category": "learning",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "E01",
+      "category": "errorTracking",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "E02",
+      "category": "errorTracking",
+      "implementation": "implemented",
+      "automation_suite": "AnalysisUi",
+      "evidence_document": "WSA-UX-029_slice6.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A01",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A02",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A03",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A04",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A05",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    },
+    {
+      "id": "A06",
+      "category": "advanced",
+      "implementation": "unavailable",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "unavailable"
+    },
+    {
+      "id": "A07",
+      "category": "advanced",
+      "implementation": "unavailable",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "unavailable"
+    },
+    {
+      "id": "A08",
+      "category": "advanced",
+      "implementation": "implemented",
+      "automation_suite": "AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice9.md",
+      "manual_qualification": "not_run"
+    }
+  ]
+}

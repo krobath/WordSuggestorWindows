@@ -1,5 +1,20 @@
 # WordSuggestorWindows architecture
 
+## Advanced diagnostic boundary — 2026-11-12
+
+Retain WPF, three-layer Windows adapters and Core CLI/SQLite pack. Per-view-model
+`WindowsDiagnostics` owns category flags, fixed metadata DTOs, bounded nonblocking
+producer queue, background writer and aggregate timer. Typed event/operation/metric
+enums prevent callers from forwarding document text or free-form exception strings.
+The existing Core adapter requests an additive, capability-negotiated v2 summary;
+Core constructs only fixed codes/timing/counts with raw debug logging off.
+Settings updates take effect after the existing successful persistent transaction.
+Schema 6 adds only panel-state preference; source-format backup/unknown fields and
+three-way legacy merge remain intact. See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
+Unknown-word lookup/handoff are absent from the CLI and are explicit unavailable
+controls, not C# linguistic logic or a new network path. Existing legacy flow
+breadcrumbs stay separate from these new opt-in runtime categories.
+
 ## Windows update boundary — 2026-11-12
 
 Retain WPF/Core/pack and extend the existing update adapter. Typed WinRT lives in

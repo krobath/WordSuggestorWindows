@@ -1,5 +1,37 @@
 # WordSuggestorWindows
 
+## Settings slice 9 diagnostics candidate — 2026-11-12
+
+Advanced now has five effective, independent diagnostic switches, including panel
+state, plus the two explicitly unavailable unknown-word controls and the existing
+Windows legacy entry. Metadata uses a bounded queue/files and aggregated timings;
+there is no automatic upload, document text or raw Core error logging. Core is
+pinned to `56aba63042796b2a6c398828c3737ab0cb02eae5` with opt-in structured summaries.
+Schema 6 adds panel-state preference with exact old-format backup on first write.
+See [runtime/privacy contract](docs/Diagnostics.md),
+[all 72 control statuses and test/manual evidence](docs/qualification/WSA-UX-029_slice9.md),
+and [change note/file scope](docs/changes/2026-11-12_wsa_ux_029_slice9_advanced_diagnostics.md).
+
+From the WordSuggestorWindows repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_core_cli.ps1 -SettingsContract
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode AdvancedState -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode AdvancedUi -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode All -SkipBuild
+```
+
+Desktop gates need an active unlocked Windows session. HelloNative stays deferred
+by user request and is not in All. Production update-policy editing, unknown-word
+lookup/sharing, real trusted MSIX update and human accessibility acceptance remain
+open. Do not interpret implementation/test candidates as official beta qualification.
+Existing tabs/restart/release working-tree files/hunks remain outside this slice.
+Final isolated-source gates PASS: build, Core 354 + 6 DA fixtures, app 67,
+Advanced 34, complete Settings regression, editor/Notepad GUI 37, Media 3 and
+safety/mapping 41. Tested display: 96 DPI, one monitor. Native installed update
+and human acceptance remain open. Earlier dated entries below are historical checkpoints.
+
 ## Settings slice 8 update candidate — 2026-11-12
 
 General now shows Windows' actual App Installer scheduling state and separates

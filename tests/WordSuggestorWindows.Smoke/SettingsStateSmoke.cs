@@ -92,7 +92,7 @@ internal static class SettingsStateSmoke
         Check("missing file is a writable new profile", new WindowsAppSettingsService(Path.Combine(root, "absent.json")).LoadResult() is { State: SettingsLoadState.Missing, CanWrite: true });
         File.WriteAllText(path, "{\"schemaVersion\":99}");
         Check("unavailable profile disables external capture and content collection", store.Load() is { IsGlobalCaptureEnabled: false, IsErrorTrackingEnabled: false, StoreSentenceExamples: false, FollowCaretOptionEnabled: false });
-        foreach (var invalid in new[] { "{\"schemaVersion\":6}", "{\"schemaVersion\":0}", "{\"schemaVersion\":\"2\"}", "{\"schemaVersion\":999999999999999999999}", "[]", "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"unknown\"}", "{\"schemaVersion\":2,\"systemVoiceIdOverrideByLanguage\":null}" })
+        foreach (var invalid in new[] { JsonSerializer.Serialize(new { schemaVersion = SettingsSchema.CurrentVersion + 1 }), "{\"schemaVersion\":0}", "{\"schemaVersion\":\"2\"}", "{\"schemaVersion\":999999999999999999999}", "[]", "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"unknown\"}", "{\"schemaVersion\":2,\"systemVoiceIdOverrideByLanguage\":null}" })
         {
             File.WriteAllText(path, invalid);
             Check("unsupported/invalid document stays unavailable", !store.LoadResult().CanWrite && File.ReadAllText(path) == invalid);

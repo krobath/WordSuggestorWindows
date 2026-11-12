@@ -421,10 +421,12 @@ public partial class MainWindow : Window
 
     private bool TryCommitExternalSuggestion(ExternalSuggestionCommitRequest request)
     {
+        using var measurement = _viewModel.Diagnostics.Measure(DiagnosticMetric.NativeCommit);
         var snapshot = _globalSuggestionCaptureService.CurrentSnapshot;
-        if (snapshot is null || snapshot.Window != request.WindowHandle || request.ExpectedTarget != snapshot) return false;
+        if (snapshot is null || snapshot.Window != request.WindowHandle || request.ExpectedTarget != snapshot) { _viewModel.Diagnostics.Record(DiagnosticCategory.Placement, DiagnosticEvent.NativeEditRejected); return false; }
         var committed = _externalSuggestionCommitService.TryCommitSuggestion(snapshot, request.TypedToken,
             request.Suggestion.CommitPlan?.Text ?? request.Suggestion.InsertText ?? request.Suggestion.Term, out var diagnostic, exactInsertion: request.Suggestion.CommitPlan is not null);
+        _viewModel.Diagnostics.Record(DiagnosticCategory.Placement, committed ? DiagnosticEvent.NativeEditVerified : DiagnosticEvent.NativeEditRejected);
         WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(DateTimeOffset.Now,
             "ExternalSuggestionCommit", committed ? "Success" : "Rejected", diagnostic));
         _globalSuggestionCaptureService.ClearTokenAfterCommittedSuggestion();
@@ -1806,6 +1808,7 @@ public partial class MainWindow : Window
         if (_overlayWindow is not null && !_overlayWindow.IsVisible)
         {
             _overlayWindow.Show();
+            RecordDiagnosticPanelState();
             WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                 DateTimeOffset.Now,
                 "SuggestionOverlay",
@@ -1842,6 +1845,7 @@ public partial class MainWindow : Window
         {
             UnregisterExternalSuggestionHotKeys();
             _overlayWindow.Hide();
+            RecordDiagnosticPanelState();
             WriteSelectionImportDiagnostic(new SelectionImportDiagnostic(
                 DateTimeOffset.Now,
                 "SuggestionOverlay",
@@ -1853,10 +1857,12 @@ public partial class MainWindow : Window
     private void UpdateOverlayPosition()
     {
         if (_overlayWindow is null || !_viewModel.ShouldShowSuggestionOverlay) return;
+        using var measurement = _viewModel.Diagnostics.Measure(DiagnosticMetric.OverlayPlacement);
         var confirmed = _viewModel.RequestsCaretGeometry && (_viewModel.IsExternalSuggestionSessionActive
             ? _lastExternalSuggestionAnchor is { Quality: SuggestionAnchorQuality.Confirmed }
             : TryGetCaretScreenRect(out _));
         var follow = _viewModel.IsFollowCaretPlacementMode && confirmed;
+        RecordDiagnosticPlacement(follow);
         var anchor = follow ? ResolveOverlayAnchor() : _manualOverlayTopLeft ?? DefaultStaticPosition();
         ScreenPlacement.Place(_overlayWindow, anchor, follow);
     }

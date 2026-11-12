@@ -1,5 +1,36 @@
 # Windows smoke and qualification
 
+## Slice 9 Advanced/manual qualification — 2026-11-12
+
+See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
+Run AdvancedState, AdvancedUi, All and GUI from the Windows repository root.
+AdvancedUi uses actual mouse/Space/UIA input with isolated local data. It does not
+touch a real account or ask for Hello. GUI creates an owned Notepad fixture;
+never target a user's document. The full current 72-control matrix distinguishes
+unavailable features from incomplete platform acceptance.
+
+1. Enable each of the five categories separately; trigger suggestions and panel
+   changes. Check only the intended category appears under
+   `%LOCALAPPDATA%\WordSuggestor\diagnostics\runtime`. Disable; new capture stops,
+   existing files remain. No document text/word/window title/path/token may appear.
+2. Verify independent App vs placement/panel/Core, internal/external panel state,
+   static fallback, NativeEdit success/rejection and bounded timing aggregates.
+3. Test disk full/access denial: keep typing, see local-write error, retain the
+   user's configured choice and no false claim of a successful file write.
+4. Reopen both settings surfaces and restart. Verify v5 byte-exact backup and
+   panel flag, explicit false consent, old voice choices/user words/packs/documents.
+   Legacy save must preserve newer primary changes.
+5. Unknown-word controls must stay visible disabled/unchecked with explanation;
+   no word lookup, upload or manual-user-word masquerade is permitted.
+6. Human Narrator, keyboard traversal, high contrast, scaling and multi-monitor
+   review remain required. Automated peer names/input are not human signoff.
+7. Keep Hello parked. For updater, obtain a trusted isolated installed test fixture
+   before policy mutation, then use the existing update runbook; no trust/policy
+   bypass, public test feed or unsigned production release.
+
+Earlier dated matrices below record their own checkpoints; final slice-9 evidence
+states which earlier desktop/media restrictions were actually rerun successfully.
+
 ## Slice 8 update/manual qualification — 2026-11-12
 
 See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).

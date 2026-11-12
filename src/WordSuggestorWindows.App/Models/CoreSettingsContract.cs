@@ -28,6 +28,9 @@ public sealed record CoreCapabilities
     public bool InterpretationChoices { get; init; }
     public bool ChoicePersistence { get; init; }
     public bool AdaptiveLearning { get; init; }
+    public bool OperationalDiagnostics { get; init; }
+    public bool UnknownWordLookup { get; init; }
+    public bool UnknownWordSharing { get; init; }
     public bool Supports(string operation) => ProtocolVersions.Contains(2) && Operations.Contains(operation, StringComparer.Ordinal);
     public static CoreCapabilities Legacy { get; } = new() { SchemaVersion = 1, ProtocolVersions = [1], Operations = ["suggest", "addUserWord"] };
 }

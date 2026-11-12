@@ -16,7 +16,7 @@ internal static class GuiSmoke
         var data = Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(data);
         Directory.CreateDirectory(Path.Combine(data, "settings"));
-        File.WriteAllText(Path.Combine(data, "settings", "settings-v1.json"), "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"da-DK\"}");
+        File.WriteAllText(Path.Combine(data, "settings", "settings-v1.json"), "{\"schemaVersion\":2,\"interfaceLocalePreference\":\"da-DK\",\"isPanelParityLoggingEnabled\":true,\"isPlacementDebugLoggingEnabled\":true,\"isCoreDebugLoggingEnabled\":true,\"isPerformanceInstrumentationEnabled\":true}");
         var path = Path.Combine(data, "wordsuggestor-smoke-" + Guid.NewGuid().ToString("N") + ".txt");
         File.WriteAllText(path, "Jeg vil gerne skri");
         var appExe = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_PATH") ?? Path.Combine(repo, "src", "WordSuggestorWindows.App", "bin", "Debug", "net10.0-windows", "WordSuggestorWindows.App.exe");
@@ -205,6 +205,16 @@ internal static class GuiSmoke
             Check("closing editor keeps toolbar", toolbar.Current.IsEnabled && !app.HasExited);
             using var duplicate = Process.Start(info)!;
             Check("second launch exits without duplicate toolbar", duplicate.WaitForExit(5000) && duplicate.ExitCode == 0 && !app.HasExited);
+            await Task.Delay(200);
+            var runtimeDirectory = Path.Combine(data, "diagnostics", "runtime");
+            var runtimeFiles = Directory.Exists(runtimeDirectory) ? Directory.GetFiles(runtimeDirectory, "runtime-v1.jsonl*") : [];
+            var runtimeText = string.Join("\n", runtimeFiles.Select(File.ReadAllText));
+            Check("runtime diagnostic files bounded", runtimeFiles.Length is > 0 and <= 3 && runtimeFiles.All(p => new FileInfo(p).Length <= WindowsDiagnostics.MaximumFileBytes));
+            Check("actual app receives safe Core summary", runtimeText.Contains("CoreSummary"));
+            Check("actual local panel traced without App debug", runtimeText.Contains("OverlayLocal") && !runtimeText.Contains("\"category\":\"App\""));
+            Check("actual caret or static placement traced", runtimeText.Contains("CaretConfirmed") || runtimeText.Contains("StaticPlacement") || runtimeText.Contains("CaretFallback"));
+            Check("runtime metadata excludes synthetic document and file paths", !runtimeText.Contains("Jeg vil gerne") && !runtimeText.Contains("Åbnet tekst") && !runtimeText.Contains(data, StringComparison.OrdinalIgnoreCase));
+            if (notepadHandle != IntPtr.Zero) Check("actual Notepad panel trace independent of App debug", runtimeText.Contains("OverlayExternal"));
             Console.WriteLine($"PASS GUI {_checks} checks. DPI={GetDpiForWindow(notepadHandle)}; monitors={GetSystemMetrics(80)}. Data: {data}");
         }
         finally

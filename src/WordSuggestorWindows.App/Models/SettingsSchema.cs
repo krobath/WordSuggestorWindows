@@ -4,7 +4,7 @@ namespace WordSuggestorWindows.App.Models;
 // consent are not inferred or created by this migration.
 public static class SettingsSchema
 {
-    public const int CurrentVersion = 5;
+    public const int CurrentVersion = 6;
 
     public static AppSettingsSnapshot Upgrade(AppSettingsSnapshot source)
     {

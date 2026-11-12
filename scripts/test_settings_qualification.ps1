@@ -22,6 +22,16 @@ Check 'Hello explicitly permits PIN and biometrics' ($registry.approved_windows_
 Check 'approved independent shortcut defaults' (($registry.approved_windows_policy.lane_defaults -join ',') -ceq 'ctrl_digits,ctrl_shift_digits,alt_digits')
 Check 'legacy remains Windows-only' ($registry.approved_windows_policy.legacy -ceq 'existing_windows_settings')
 
+# Current implementation status is separate from the immutable slice-0 baseline.
+$current = Get-Content -LiteralPath (Join-Path $repo 'docs\qualification\settings-parity-status.v1.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+Check 'current matrix schema platform and canonical reference' ($current.schema_version -eq 1 -and $current.platform -ceq 'windows' -and $current.reference_commit -ceq $registry.reference_commit)
+Check 'current matrix covers all 72 controls once' ($current.controls.Count -eq 72 -and @($current.controls.id | Select-Object -Unique).Count -eq 72 -and -not (Compare-Object ($current.controls.id | Sort-Object) ($registry.controls.id | Sort-Object)))
+Check 'implementation states never imply human acceptance' (@($current.controls | Where-Object { $_.implementation -notin @('implemented','partial','unavailable') -or $_.manual_qualification -notin @('not_run','blocked','unavailable','deferred_by_user') -or -not $_.automation_suite }).Count -eq 0 -and $current.sprint_complete -eq $false -and $current.release_qualified -eq $false)
+$pins = Get-Content -LiteralPath (Join-Path $repo 'dependencies.lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+Check 'status matrix matches pinned Core revision' ($current.core_revision -ceq $pins.coreRevision)
+Check 'unknown-word updater and Hello gaps explicit' ((@($current.controls | Where-Object implementation -eq 'unavailable').id -join ',') -ceq 'A06,A07' -and ($current.controls | Where-Object id -eq 'G05').implementation -ceq 'partial' -and ($current.controls | Where-Object id -eq 'P07').manual_qualification -ceq 'deferred_by_user')
+Check 'each current control has a local evidence document' (@($current.controls | Where-Object { $_.evidence_document -cnotmatch '^WSA-UX-029_slice[0-9]\.md$' -or -not (Test-Path -LiteralPath (Join-Path $repo ('docs\qualification\'+$_.evidence_document))) }).Count -eq 0)
+
 $family = 'WordSuggestor.Windows.LocalTest.0123456789ab_0123456789abc'
 $package = [pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.0123456789ab'; Publisher='CN=WordSuggestor Local Test 0123456789ab'; PackageFamilyName=$family}
 Assert-SettingsQualificationPackage $family $package

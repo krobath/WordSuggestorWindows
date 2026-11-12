@@ -142,10 +142,10 @@
                         <Border Style="{StaticResource SectionStyle}">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource WS.Settings.DiagnosticsGroup}" Style="{StaticResource SectionTitleStyle}"/>
-                                <CheckBox x:Name="PerformanceInstrumentationCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A01.Title}" IsEnabled="False"/>
-                                <CheckBox x:Name="AppDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A02.Title}" IsEnabled="False"/>
-                                <CheckBox x:Name="PlacementDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.Legacy.PanelDebug}" IsEnabled="False"/>
-                                <CheckBox x:Name="CoreDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A05.Title}" IsEnabled="False"/>
+                                <CheckBox x:Name="PerformanceInstrumentationCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A01.Title}"/>
+                                <CheckBox x:Name="AppDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A02.Title}"/>
+                                <CheckBox x:Name="PlacementDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.Legacy.PanelDebug}"/>
+                                <CheckBox x:Name="CoreDebugLoggingCheckBox" Style="{StaticResource SettingCheckBoxStyle}" Content="{DynamicResource WS.Settings.A05.Title}"/>
                                 <TextBlock Text="{DynamicResource WS.Settings.Legacy.DebugNote}" Style="{StaticResource MutedTextStyle}"/>
                             </StackPanel>
                         </Border>

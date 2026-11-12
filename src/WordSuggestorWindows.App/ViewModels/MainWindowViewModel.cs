@@ -51,13 +51,16 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         ISuggestionProvider suggestionProvider,
         WindowsErrorInsightsStore insightsStore,
         WindowsAppSettingsService settingsService,
-        string? initialEditorText = null)
+        string? initialEditorText = null, WindowsDiagnostics? diagnostics = null)
     {
         _suggestionProvider = suggestionProvider;
         _insightsStore = insightsStore;
         _settingsService = settingsService;
         var settings = _settingsService.Load();
         _appliedSettings = settings.Clone();
+        Diagnostics = diagnostics ?? new WindowsDiagnostics();
+        Diagnostics.Apply(settings);
+        if (suggestionProvider is WordSuggestorCoreCliSuggestionProvider coreProvider) coreProvider.Diagnostics = Diagnostics;
         SettingsText.ApplyPreference(settings.InterfaceLocalePreference);
         _editorText = initialEditorText ?? string.Empty;
         _caretIndex = _editorText.Length;
@@ -90,6 +93,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         }
     }
 
+    public WindowsDiagnostics Diagnostics { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<AppSettingsSnapshot>? SettingsChanged;
     public bool CanWriteSettings => _settingsService.LoadResult().CanWrite;
@@ -103,6 +107,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
     {
         if (_isLocalEditorActive == active) return;
         _isLocalEditorActive = active;
+        Diagnostics.Record(DiagnosticCategory.App, active ? DiagnosticEvent.LocalSession : DiagnosticEvent.ExternalSession);
         ClearSuggestionSession(keepOverlayVisible: false);
         if (active)
         {
@@ -678,6 +683,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         try
         {
             _appliedSettings = settings.Clone();
+            Diagnostics.Apply(settings);
+            Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.SettingsApplied);
             if (SettingsText.Preference != settings.InterfaceLocalePreference) SettingsText.ApplyPreference(settings.InterfaceLocalePreference);
             SetProperty(ref _followCaretOptionEnabled, settings.FollowCaretOptionEnabled, nameof(FollowCaretOptionEnabled));
             OnPropertyChanged(nameof(RequestsCaretGeometry));
@@ -858,8 +865,9 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         {
             var request = new ExternalSuggestionCommitRequest(SelectedSuggestion, _externalSuggestionToken,
                 _externalSuggestionToken.Length, _externalSuggestionWindowHandle) { ExpectedTarget = _currentCommitTarget };
-            if (ExternalCommitRequested?.Invoke(request) != true) return false;
+            if (ExternalCommitRequested?.Invoke(request) != true) { Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.CommitRejected); return false; }
             CompleteExternalSuggestionCommit(request);
+            Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.CommitAccepted);
             return true;
         }
         if (!_isLocalEditorActive || CanCommitLocally?.Invoke() != true) return false;
@@ -876,6 +884,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
         NotifyEditorMetricsChanged();
         if (_isErrorTrackingEnabled) _insightsStore.RecordAcceptedSuggestion(typed, accepted, SelectedLanguageOption.LanguageCode, rank);
         ClearSuggestionSession(keepOverlayVisible: true);
+        Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.CommitAccepted);
         LocalSuggestionCommitted?.Invoke(this, accepted);
         StatusMessage = "Forslag indsat. Skriv videre for nye forslag.";
         return true;
@@ -963,6 +972,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             return;
         }
 
+        using var measurement = Diagnostics.Measure(DiagnosticMetric.Suggestions);
         var selectedLanguage = _suggestionProvider.SelectedLanguage;
         if (!selectedLanguage.IsPackAvailable)
         {
@@ -996,6 +1006,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
                 _suggestionContext = text;
                 _currentCommitTarget = target;
                 SetDomainSuggestions(results.Primary, results.Secondary);
+                Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.SuggestionsReady);
                 Suggestions.Clear();
                 foreach (var suggestion in suggestions.Take(40))
                 {
@@ -1017,6 +1028,7 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
             {
                 if (cancellationToken.IsCancellationRequested || revision != _requestRevision) return;
                 ClearSuggestionResults(keepOverlayVisible: false);
+                Diagnostics.Record(DiagnosticCategory.App, DiagnosticEvent.SuggestionsUnavailable);
                 StatusMessage = $"Ordforslag er midlertidigt utilgængelige ({ex.GetType().Name}). Kontrollér Core og sprogpakken.";
             });
         }
@@ -1164,6 +1176,8 @@ public sealed partial class MainWindowViewModel : INotifyPropertyChanged, IDispo
 
     public void Dispose()
     {
+        Diagnostics.Dispose();
+        if (_suggestionProvider is WordSuggestorCoreCliSuggestionProvider coreProvider && ReferenceEquals(coreProvider.Diagnostics, Diagnostics)) coreProvider.Diagnostics = null;
         DisposeAccountSession();
         DisposeDocumentAnalysis();
         _settingsService.Changed -= SettingsServiceOnChanged;

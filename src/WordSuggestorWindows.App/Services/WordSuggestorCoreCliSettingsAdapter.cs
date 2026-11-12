@@ -30,7 +30,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         var id = Guid.NewGuid().ToString("N");
         var request = new { version = 1, requestId = id, operation = "capabilities", language = language.LanguageCode,
             packPath = language.PackPath, textBeforeCaret = "", maxSuggestions = 40, catalogPath };
-        var response = Decode<CapabilityEnvelope>(await ExchangeAsync(request, "--stdio-json-v1", cancellationToken));
+        var response = Decode<CapabilityEnvelope>(await ExchangeAsync(request, "--stdio-json-v1", cancellationToken, DiagnosticOperation.Capabilities));
         if (response.Version != 1 || response.RequestId != id) throw InvalidProtocol();
         // Explicit old-protocol rejection is the only downgrade signal. Network,
         // timeout, corruption or process errors never masquerade as capabilities.
@@ -132,14 +132,19 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         var capabilities = await ReadCapabilitiesAsync(language, catalogPath, cancellationToken);
         if (!capabilities.Supports(operation)) throw new NotSupportedException("Denne Core-version understøtter ikke funktionen.");
         var id = Guid.NewGuid().ToString("N");
+        var includeDiagnostics = Diagnostics?.Enabled(DiagnosticCategory.Core) == true && capabilities.OperationalDiagnostics;
         var request = new { version = 2, requestId = id, operation, language = language.LanguageCode,
+            includeOperationalDiagnostics = includeDiagnostics ? true : (bool?)null,
             packPath = language.PackPath, text, maxResults = 40, context, options, catalogPath, domainId,
             userWordsPath = operation == "suggest" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null };
         // Produce a JsonElement with null option fields omitted. Unknown/nonapplicable
         // options are rejected by Core instead of being silently ignored.
         var payload = JsonSerializer.SerializeToElement(request, ExtendedJson);
-        var response = Decode<SettingsEnvelope>(await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken));
+        var response = Decode<SettingsEnvelope>(await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation)));
         if (response.Version != 2 || response.RequestId != id || response.Context != context || response.Language != language.LanguageCode) throw InvalidProtocol();
+        if (response.OperationalDiagnostics is { } trace && !trace.ValidFor(operation, response.ErrorCode is not null) || includeDiagnostics && response.OperationalDiagnostics is null)
+        { Diagnostics?.Record(DiagnosticCategory.Core, DiagnosticEvent.CoreRejected, WindowsDiagnostics.Operation(operation)); throw InvalidProtocol(); }
+        if (includeDiagnostics && response.OperationalDiagnostics is { } summary) Diagnostics?.RecordCore(summary);
         if (response.ErrorCode is { } error) throw new CoreBridgeRejectedException(error);
         return response;
     }
@@ -158,5 +163,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics);
 }

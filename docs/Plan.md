@@ -1,5 +1,21 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 9 implementation candidate — 2026-11-12
+
+A01–A05 now have effective performance/App/placement/panel/Core diagnostics;
+A08 preserves the separate Windows legacy dialog. A06/A07 are visible unavailable
+states: the current portable CLI has no committed-unknown-word lookup/handoff
+operation. No upload or new consent is inferred. See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
+
+The implementation matrix covers all 72 controls without conflating source,
+simulated, native desktop, human and installed-package evidence. Hello remains
+deferred by the user. G05 editing still awaits a trusted installed fixture; all
+real signing/N→N+1 and human accessibility/DPI acceptance remain open. The next
+work lets users finish Windows-specific acceptance and gives Core a reviewed
+unknown-word observation/provider contract. All seven isolated-source software gates pass; actual Notepad/editor and Media
+were rerun in the active session. No public beta or automatic learning
+is authorized by this candidate. Earlier dated next-step text is historical.
+
 ## WSA-UX-029 slice 8 candidate — 2026-11-12
 
 G04–G06 now have actual package version, OS scheduling readback, bounded manual

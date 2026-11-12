@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -11,6 +11,14 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if ($Mode -eq 'AdvancedState') {
+    & $runner --advanced-state
+    if ($LASTEXITCODE -ne 0) { throw "Advanced state smoke failed ($LASTEXITCODE)." }
+}
+if ($Mode -in @('AdvancedUi', 'All')) {
+    & $runner --advanced-ui
+    if ($LASTEXITCODE -ne 0) { throw "Advanced desktop smoke failed ($LASTEXITCODE). An active unlocked desktop is required." }
+}
 if ($Mode -eq 'UpdateNative') {
     & $runner --update-native
     if ($LASTEXITCODE -eq 3) { Write-Warning 'Packaged native update qualification needs a trusted isolated LocalTest MSIX; G05 remains read-only.'; exit 3 }

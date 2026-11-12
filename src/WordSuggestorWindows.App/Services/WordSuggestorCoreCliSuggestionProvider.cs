@@ -13,6 +13,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
     private readonly string _localDataRoot;
     private readonly string? _cliPath;
     private readonly TimeSpan _timeout;
+    public WindowsDiagnostics? Diagnostics { get; set; }
     private readonly SemaphoreSlim _processGate = new(1, 1);
     private LanguageOption _selectedLanguage;
     private readonly Dictionary<string, (long Length, DateTime Modified, PackValidation Result)> _validated = new();
@@ -54,7 +55,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
         var request = new { version = 1, requestId, operation, language = language.LanguageCode,
             packPath = language.PackPath, textBeforeCaret = text.Length > 16000 ? text[^16000..] : text,
             maxSuggestions = 40, userWordsPath };
-        var output = await ExchangeAsync(request, "--stdio-json-v1", cancellationToken);
+        var output = await ExchangeAsync(request, "--stdio-json-v1", cancellationToken, WindowsDiagnostics.Operation(operation));
         var response = Decode<BridgeResponse>(output);
         if (response.Version != 1 || response.RequestId != requestId)
             throw new InvalidOperationException("Core-protokollen er inkompatibel.");
@@ -69,8 +70,9 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
     {
         var language = SelectedLanguage;
         if (language.PackPath is null || !ValidateCached(language.PackPath, language).Compatible)
-            throw new InvalidOperationException("Sprogpakken mangler eller er inkompatibel.");
-        if (_cliPath is null || !File.Exists(_cliPath)) throw new FileNotFoundException("Core er ikke installeret.");
+        { Diagnostics?.Record(DiagnosticCategory.Core, DiagnosticEvent.CorePackUnavailable); throw new InvalidOperationException("Sprogpakken mangler eller er inkompatibel."); }
+        if (_cliPath is null || !File.Exists(_cliPath))
+        { Diagnostics?.Record(DiagnosticCategory.Core, DiagnosticEvent.CoreUnavailable); throw new FileNotFoundException("Core er ikke installeret."); }
         return language;
     }
 
@@ -80,10 +82,12 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
         catch (JsonException) { throw new InvalidOperationException("Ugyldigt Core-svar."); }
     }
 
-    private async Task<string> ExchangeAsync(object request, string transport, CancellationToken cancellationToken)
+    private async Task<string> ExchangeAsync(object request, string transport, CancellationToken cancellationToken, DiagnosticOperation operation = DiagnosticOperation.Legacy)
     {
         var cliPath = _cliPath ?? throw new FileNotFoundException("Core er ikke installeret.");
+        using var measurement = Diagnostics?.Measure(DiagnosticMetric.CoreRoundtrip);
         await _processGate.WaitAsync(cancellationToken);
+        var outcome = DiagnosticEvent.CoreFailed;
         try
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -111,10 +115,12 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
                 var output = await stdout;
                 _ = await stderr; // never forward raw process diagnostics into UI/logs
                 if (process.ExitCode != 0) throw new InvalidOperationException($"Core exit code {process.ExitCode}.");
+                outcome = DiagnosticEvent.CoreCompleted;
                 return output;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            { throw new TimeoutException("Core svarede ikke inden tidsgrænsen."); }
+            { outcome = DiagnosticEvent.CoreTimedOut; throw new TimeoutException("Core svarede ikke inden tidsgrænsen."); }
+            catch (OperationCanceledException) { outcome = DiagnosticEvent.CoreCancelled; throw; }
             finally
             {
                 if (!process.HasExited)
@@ -126,7 +132,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
                 try { await Task.WhenAll(stdout, stderr); } catch (Exception) { /* observed, no content logging */ }
             }
         }
-        finally { _processGate.Release(); }
+        finally { _processGate.Release(); Diagnostics?.Record(DiagnosticCategory.Core, outcome, operation); }
     }
 
     private static async Task<string> ReadBoundedAsync(StreamReader reader, int maximum, CancellationToken token)

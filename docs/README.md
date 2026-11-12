@@ -1,5 +1,24 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Latest: slice 9 Advanced diagnostics candidate — 2026-11-12
+
+- [Categories, storage, privacy, migration and Core summary](Diagnostics.md).
+- [Exact-source evidence and manual/native matrix](qualification/WSA-UX-029_slice9.md).
+- [All 72 current control statuses](qualification/settings-parity-status.v1.json).
+- [Change note and exact changed files](changes/2026-11-12_wsa_ux_029_slice9_advanced_diagnostics.md).
+
+Five diagnostic controls are effective; the same unknown-word controls are visible
+but unavailable. They neither send words nor pretend manual user-word insertion is
+learning. WPF/Core/pack architecture is retained. The original slice-0 register is
+an immutable baseline; the new status matrix records current implementation and
+separate evidence boundaries. No blanket 72-control/release signoff is claimed.
+Next acceptance work runs remaining human accessibility/DPI and trusted installed
+update tests, while a Core-owned unknown-word contract is prepared. Hello remains
+user-deferred. All seven isolated-source software gates pass, including actual editor/Notepad
+and Media reruns in the active session. Native installed update, human acceptance
+and unavailable unknown-word features are still open. Earlier dated status entries
+below are historical.
+
 ## Latest: slice 8 update implementation candidate — 2026-11-12
 
 - [Actual OS policy, manual installer handoff, safety and native gate](WindowsUpdates.md).

@@ -232,17 +232,30 @@
                         <GroupBox Header="{DynamicResource WS.Settings.DiagnosticsGroup}" Style="{StaticResource SettingsGroup}">
                             <StackPanel>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A01.Title}" ControlId="A01" Description="{DynamicResource WS.Settings.A01.Help}">
-                                    <CheckBox x:Name="PerformanceInstrumentationCheckBox" IsEnabled="False"/>
+                                    <CheckBox x:Name="PerformanceInstrumentationCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A01.Title}"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A02.Title}" ControlId="A02" Description="{DynamicResource WS.Settings.A02.Help}">
-                                    <CheckBox x:Name="AppDebugLoggingCheckBox" IsEnabled="False"/>
+                                    <CheckBox x:Name="AppDebugLoggingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A02.Title}"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A03.Title}" ControlId="A03" Description="{DynamicResource WS.Settings.A03.Help}">
-                                    <CheckBox x:Name="PlacementDebugLoggingCheckBox" IsEnabled="False"/>
+                                    <CheckBox x:Name="PlacementDebugLoggingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A03.Title}"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.A04.Title}" ControlId="A04" Description="{DynamicResource WS.Settings.A04.Help}">
+                                    <CheckBox x:Name="PanelParityLoggingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A04.Title}"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A05.Title}" ControlId="A05" Description="{DynamicResource WS.Settings.A05.Help}">
-                                    <CheckBox x:Name="CoreDebugLoggingCheckBox" IsEnabled="False"/>
+                                    <CheckBox x:Name="CoreDebugLoggingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A05.Title}"/>
                                 </ui:SettingsRow>
+                                <TextBlock x:Name="AdvancedCoreStatus" Style="{StaticResource SettingsNote}" AutomationProperties.LiveSetting="Polite"/>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.A06.Title}" ControlId="A06" Description="{DynamicResource WS.Settings.A06.Help}">
+                                    <CheckBox x:Name="UnknownWordLookupCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A06.Title}" IsEnabled="False" IsChecked="False"/>
+                                </ui:SettingsRow>
+                                <ui:SettingsRow Header="{DynamicResource WS.Settings.A07.Title}" ControlId="A07" Description="{DynamicResource WS.Settings.A07.Help}">
+                                    <CheckBox x:Name="UnknownWordSharingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A07.Title}" IsEnabled="False" IsChecked="False"/>
+                                </ui:SettingsRow>
+                                <TextBlock Text="{DynamicResource WS.Settings.AdvancedUnknownUnavailable}" Style="{StaticResource SettingsNote}"/>
+                                <TextBlock Text="{DynamicResource WS.Settings.AdvancedPrivacy}" Style="{StaticResource SettingsNote}"/>
+                                <TextBlock x:Name="AdvancedDiagnosticsStatus" Style="{StaticResource SettingsNote}" AutomationProperties.LiveSetting="Polite"/>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource WS.Settings.MigrationGroup}" Style="{StaticResource SettingsGroup}">

@@ -34,6 +34,7 @@ internal sealed partial class SettingsFormController : IDisposable
         AttachSuggestionControls();
         AttachAnalysisControls();
         AttachUpdateControls();
+        AttachAdvancedControls();
         Language.SelectionChanged += OnLanguageChanged;
         Voice.SelectionChanged += OnVoiceChanged;
         SystemSpeech.Checked += OnSpeechChanged; SystemSpeech.Unchecked += OnSpeechChanged;
@@ -107,12 +108,14 @@ internal sealed partial class SettingsFormController : IDisposable
         RefreshSpeechControls();
         LoadSuggestionControls();
         LoadAnalysisControls();
+        LoadAdvancedControls();
     }
 
     private void ReadControls()
     {
         ReadSuggestionControls();
         ReadAnalysisControls();
+        ReadAdvancedControls();
         _settings.SelectedLanguageCode = Language.SelectedValue as string ?? _settings.SelectedLanguageCode;
         if (Optional<ComboBox>("InterfaceLanguageComboBox") is { } ui) _settings.InterfaceLocalePreference = ui.SelectedValue as string ?? _settings.InterfaceLocalePreference;
         if (Optional<CheckBox>("FollowCaretOptionCheckBox") is { } allowed) _settings.FollowCaretOptionEnabled = allowed.IsChecked == true;

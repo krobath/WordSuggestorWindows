@@ -1,5 +1,23 @@
 # Windows evidence-based parity matrix
 
+## Slice 9 Advanced and complete status mapping — 2026-11-12
+
+| Controls | Current behavior | Evidence boundary |
+|---|---|---|
+| A01 | Aggregated bounded timings/counts, no individual key/text log | State/worker tests; no performance SLA |
+| A02 | App events independently filtered | Persistent flags and runtime metadata |
+| A03 | Confirmed/static/fallback caret state and verified NativeEdit commit route | Actual app/Notepad gate and typed metadata; unsupported external apps remain unsupported |
+| A04 | Independent hidden/local/external panel state | New schema-6 flag, shared legacy merge and native UI |
+| A05 | Safe bridge outcomes plus negotiated Core operation summary | Real Core contract; raw logger/stderr stays off |
+| A06–A07 | Visible disabled unknown-word lookup and sharing | Unavailable CLI capability, no substitution/upload/consent |
+| A08 | Existing separate Windows settings | Shared authority; no recursive or Mac neural controls |
+
+All 72 implementation/manual statuses are in
+[the current status matrix](qualification/settings-parity-status.v1.json); the old
+slice-0 register stays baseline history. See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
+No blanket parity or release approval follows. G05 installed mutation, Hello,
+live account and human/installed-package acceptance remain separately open.
+
 ## Slice 8 General update candidate — 2026-11-12
 
 | Controls | Implementation | Evidence boundary |
