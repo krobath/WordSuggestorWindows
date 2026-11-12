@@ -16,7 +16,7 @@ public partial class SettingsWindow : Window
     private LegacySettingsWindow? _legacy;
     private readonly Dictionary<string, StackPanel> _pages;
 
-    public SettingsWindow(MainWindowViewModel viewModel)
+    public SettingsWindow(MainWindowViewModel viewModel, WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null)
     {
         _viewModel = viewModel;
         InitializeComponent();
@@ -36,7 +36,7 @@ public partial class SettingsWindow : Window
         };
         _help = new SettingsHelpCoordinator(this);
         AddHandler(SettingsRow.HelpRequestedEvent, new EventHandler<SettingsHelpEventArgs>((_, request) => _help.Toggle(request)));
-        _form = new SettingsFormController(this, viewModel, live: true);
+        _form = new SettingsFormController(this, viewModel, live: true, updates: updates, updateHandoff: updateHandoff);
         SettingsText.Changed += OnCopyChanged;
         Closed += (_, _) => SettingsText.Changed -= OnCopyChanged;
         CategoryNavigation.SelectedIndex = 0;

@@ -1,5 +1,23 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## Slice 8 implementation candidate — 2026-11-12
+
+G04–G06 now use actual Windows package/policy readback and a separate explicit
+manual update flow. State/contract gates pass. Earlier native checks cover mouse/keyboard/accessibility
+Toggle, OS/feed disagreement and dirty-document Cancel. The fresh desktop run is
+blocked by a disconnected session; Media fails on a black fixture also reproduced
+with the prior baseline. The whole suite is not green. Production
+policy editing remains read-only: trusted native packaged change/read/restore
+is BLOCKED, not signed off. Automatic OS scheduling is unaffected. See
+[update contract](../WindowsUpdates.md) and [qualification](../qualification/WSA-UX-029_slice8.md).
+
+User decision 2026-11-12: park Hello PIN/biometric acceptance until suitable access
+exists; this slice does not execute HelloNative. Next engineering slice 9 builds
+Advanced's working privacy-safe diagnostic controls and keeps access to the old
+Windows settings. Users should be able to diagnose failures without logging their
+document text. Public beta, real install/update, live account and human platform
+acceptance remain open. Earlier dated entries below are historical checkpoints.
+
 ## Slice 7 implementation candidate — 2026-11-11
 
 P01–P21 are implemented with existing backend contracts and Windows-native account
@@ -33,10 +51,13 @@ infer native focus/acceptance signoff. See [qualification](../qualification/WSA-
 and [runtime contract](../Suggestions.md). Slice 6 remains the next feature slice.
 Earlier dated statuses in this plan document prior deliveries.
 
-Oprettet: 2026-11-10. Opdateret: 2026-11-11. Platform/ejer: Windows.
-Status: **Slice 0-baseline og slice 1–6 implementeret; native evidens og resterende
-manuelle gates står i slice 6-kvalifikationen. Positiv Hello-/updaterkvalifikation åben.**
-Næste engineering-slice: 8, reelle App Installer-kontroller. Slice 7 er en implementeret kandidat; positiv native Hello-/kontoaccept er fortsat åben.
+Oprettet: 2026-11-10. Opdateret: 2026-11-12. Platform/ejer: Windows.
+Status: **Slice 0–6 implementeret; slice 7 konto og slice 8 opdateringer er
+implementerede kandidater med åbne native kvalifikationskrav. Automatisk
+opdateringspolitik vises fra Windows, men redigering er fortsat låst. Hello-testen
+er parkeret efter brugerens ønske. Ingen offentlig release er kvalificeret.**
+Næste engineering-slice: 9, Avanceret med fungerende privatlivssikre
+diagnosekontroller og adgang til de hidtidige Windows-indstillinger.
 
 ## Resultat sprintet skal levere
 

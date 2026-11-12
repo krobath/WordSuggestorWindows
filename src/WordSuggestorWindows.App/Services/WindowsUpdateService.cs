@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -75,8 +74,15 @@ public sealed class WindowsUpdateService : IDisposable
         var root = document.Root;
         var package = root?.Element(ns + "MainPackage");
         var uri = (string?)package?.Attribute("Uri");
+        var updateSettings = root?.Element(ns + "UpdateSettings");
         if (root?.Name != ns + "AppInstaller" || root.Elements(ns + "MainPackage").Count() != 1 ||
             root.Element(ns + "MainBundle") is not null || (string?)root.Attribute("Uri") != FeedUrl ||
+            root.Elements().Any(e => e.Name != ns + "MainPackage" && e.Name != ns + "UpdateSettings") ||
+            root.Elements(ns + "UpdateSettings").Count() > 1 ||
+            updateSettings?.Elements().Any(e => e.Name != ns + "OnLaunch" && e.Name != ns + "AutomaticBackgroundTask" && e.Name != ns + "ForceUpdateFromAnyVersion") == true ||
+            updateSettings?.Elements().GroupBy(e => e.Name).Any(g => g.Count() > 1) == true ||
+            updateSettings?.Elements(ns + "ForceUpdateFromAnyVersion").Any(e => e.Value.Trim() is not ("false" or "0")) == true ||
+            updateSettings?.Elements(ns + "OnLaunch").Any(e => e.Attribute("UpdateBlocksActivation") is { } block && block.Value is not ("false" or "0")) == true ||
             (string?)package?.Attribute("Name") != installed.Name ||
             (string?)package?.Attribute("Publisher") != installed.Publisher ||
             (string?)package?.Attribute("ProcessorArchitecture") != "x64" ||
@@ -85,17 +91,12 @@ public sealed class WindowsUpdateService : IDisposable
             uri.Contains("..", StringComparison.Ordinal) ||
             !Version.TryParse((string?)package?.Attribute("Version"), out var version) || version.Revision < 0 ||
             version.Major > 65535 || version.Minor > 65535 || version.Build > 65535 || version.Revision > 65535 ||
+            (string?)package?.Attribute("Version") != version.ToString() ||
             (string?)root.Attribute("Version") != version.ToString())
             return new("invalid_feed", "Opdateringens identitet, udgiver eller adresse kunne ikke valideres.");
         return version > installed.Version
             ? new("available", $"Version {version} er klar. Gem dit arbejde og afslut WordSuggestor, før du installerer opdateringen.", version)
             : new("current", "Du har den nyeste tilgængelige Windows-beta.");
-    }
-
-    public void OpenInstaller()
-    {
-        if (!IsProductionInstalled) throw new InvalidOperationException("Installed production beta required.");
-        Process.Start(new ProcessStartInfo(FeedUrl) { UseShellExecute = true });
     }
 
     public static InstalledRelease? ReadInstalledRelease()
@@ -104,14 +105,11 @@ public sealed class WindowsUpdateService : IDisposable
         if (GetCurrentPackageFullName(ref size, null) != 122) return null; // APPMODEL_ERROR_NO_PACKAGE for loose builds
         try
         {
-            using var input = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "AppxManifest.xml"));
-            using var reader = XmlReader.Create(input, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
-            var root = XDocument.Load(reader).Root;
-            var identity = root?.Elements().SingleOrDefault(e => e.Name.LocalName == "Identity");
-            return identity is null ? null : new((string)identity.Attribute("Name")!, (string)identity.Attribute("Publisher")!,
-                Version.Parse((string)identity.Attribute("Version")!));
+            var identity = Windows.ApplicationModel.Package.Current.Id;
+            if (identity.Architecture.ToString() != "X64") return null;
+            return new(identity.Name, identity.Publisher, WindowsNativeUpdatePlatform.VersionOf(identity.Version));
         }
-        catch (Exception ex) when (ex is IOException or XmlException or ArgumentException or InvalidOperationException) { return null; }
+        catch (Exception ex) when (ex is IOException or XmlException or ArgumentException or InvalidOperationException or System.Runtime.InteropServices.COMException) { return null; }
     }
 
     public void Dispose() => _http.Dispose();

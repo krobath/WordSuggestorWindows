@@ -17,13 +17,17 @@ internal static class Program
         if (args.Contains("--tts-fake-worker")) return SpeechSettingsSmoke.FakeWorker();
         if (CoreSettingsSmoke.IsBridgeChild(args)) return CoreSettingsSmoke.FakeBridge();
         if (args.Contains("--stdio-json-v1")) return FakeCore();
+        if (args.FirstOrDefault() == "--activate-update-fixture") return args.Length == 3 ? UpdatePackageActivation.Start(args[1], args[2]) : 2;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var code = 1;
         app.Dispatcher.InvokeAsync(async () =>
         {
             try
             {
-                if (args.Contains("--hello-native")) { if (!await AccountHelloNativeSmoke.Run()) { code = 3; return; } }
+                if (args.Contains("--update-native")) { Console.WriteLine("BLOCKED UPDATE NATIVE: use test_settings_platform.ps1 -PackagedUpdateProbe with an installed trusted isolated LocalTest package; no production mutation."); code = 3; return; }
+                else if (args.Contains("--update-state")) await UpdateSettingsSmoke.Run(false);
+                else if (args.Contains("--update-ui")) await UpdateSettingsSmoke.Run(true);
+                else if (args.Contains("--hello-native")) { if (!await AccountHelloNativeSmoke.Run()) { code = 3; return; } }
                 else if (args.Contains("--account-state")) await AccountSettingsSmoke.Run(false);
                 else if (args.Contains("--account-ui")) await AccountSettingsSmoke.Run(true);
                 else if (args.Contains("--analysis-state")) await AnalysisSettingsSmoke.Run(FindRepo(), false);

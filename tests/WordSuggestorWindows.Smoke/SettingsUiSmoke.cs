@@ -60,7 +60,7 @@ internal static class SettingsUiSmoke
             Check("current version value readable through UI Automation", await Task.Run(() => AutomationElement.FromHandle(handle).FindFirst(TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.AutomationIdProperty, "AppVersion"))?.Current.Name.Contains("WordSuggestor") == true));
             Capture(window, Path.Combine(root, "general.png"));
-            Check("automatic update control does not pretend OS authority", Descendants(Find<StackPanel>("GeneralPage")).OfType<SettingsRow>().Single(r => r.ControlId == "G05").Content is TextBlock);
+            Check("automatic update control does not pretend OS authority", !Find<CheckBox>("AutomaticUpdatesCheckBox").IsEnabled && Find<CheckBox>("AutomaticUpdatesCheckBox").IsChecked is null && Find<TextBlock>("AutomaticUpdateStatus").Text.Length > 0);
             Check("live view has Close without global Save or Cancel", !Descendants(window).OfType<Button>().Any(b => Equals(b.Content, "Gem") || Equals(b.Content, "Annuller")));
             var interfaceLanguage = Find<ComboBox>("InterfaceLanguageComboBox");
             Check("three independent interface choices", interfaceLanguage.Items.Count == 3 && Equals(interfaceLanguage.SelectedValue, "da-DK"));

@@ -7,7 +7,7 @@ namespace WordSuggestorWindows.App;
 public partial class App : Application
 {
     private SingleInstance? _singleInstance;
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         if (WindowsOcrCallbackBridge.TryPersistStartupCallback(e.Args))
         {
@@ -16,6 +16,7 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+        if (await WindowsUpdateQualification.TryRunAsync(e.Args) is { } updateCode) { Shutdown(updateCode); return; }
 
         _singleInstance = new SingleInstance();
         if (!_singleInstance.IsPrimary) { Shutdown(0); return; }

@@ -1,5 +1,20 @@
 # WordSuggestorWindows architecture
 
+## Windows update boundary — 2026-11-12
+
+Retain WPF/Core/pack and extend the existing update adapter. Typed WinRT lives in
+`WindowsNativeUpdatePlatform`; immutable OS snapshots and a single-flight
+`WindowsUpdateCoordinator` separate native authority, bounded HTTPS metadata and
+Settings UI. `SettingsFormController.Updates` renders actual OS state; no app JSON
+bool represents scheduling. `WindowsUpdateHandoff` uses normal owner/root close
+and the existing unsaved-document guard before a fixed OS installer URI is opened.
+Tickets are single-use and expire after two minutes. No custom installer is added.
+
+The managed SDK is pinned to 10.0.22621.57, compile TFM to
+`net10.0-windows10.0.22621.0`, minimum API baseline 19041. Existing build output
+paths remain compatible. Production policy writes are explicitly source-gated
+off until the packaged native acceptance gate passes. See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+
 ## Account boundary — 2026-11-11
 
 Retain WPF and Core/pack architecture. `AccountSessionCoordinator` owns serialized,

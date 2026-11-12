@@ -1,5 +1,40 @@
 # Windows smoke and qualification
 
+## Slice 8 update/manual qualification — 2026-11-12
+
+See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+Run commands from the WordSuggestorWindows root. `test_settings_app.ps1 -Mode
+UpdateUi` exercises real WPF input with synthetic HTTP/OS adapters and a fake
+launcher; `All` includes it. It does not install or update a package.
+
+1. In a loose developer build, confirm unknown/read-only automatic setting with
+   an explanation; manual check must not open App Installer or touch user data.
+2. With an already installed, trusted, isolated LocalTest package containing this
+   candidate, run `scripts/test_settings_platform.ps1 -PackagedUpdateProbe
+   -TestPackageFamilyName <family>` in an ordinary-user session. This activates
+   the package itself, changes only schedule flags, verifies and restores all
+   original settings. Production identities, elevation and paused fixtures are
+   rejected. See the contract for fixture provisioning limitations.
+3. Test a separately trusted beta identity/feed: current/newer/offline/invalid
+   metadata and OS/feed disagreement. Wrong publisher, identity, downgrade and
+   damaged signatures must fail in Windows; no direct payload fallback.
+4. Confirm manual check alone never closes or installs. On an available offer,
+   test No, Save/Discard/Cancel, slow save/expired ticket and confirmed close;
+   App Installer must launch only after normal close completes.
+5. In the isolated feed, install N→N+1, verify settings/user words/packs, relaunch,
+   automatic/background checks, future feed overrides and uninstall behavior.
+   Never publish synthetic test versions to the public feed.
+6. Test Narrator, keyboard, high contrast, window resizing and multiple DPI/
+   monitors. Automated native input is not human accessibility signoff.
+
+Fresh isolated desktop acceptance is BLOCKED by the disconnected user session;
+final Media exits 1 on an all-black OCR fixture, also reproduced with the prior
+baseline. Rerun All, GUI and Media in an active unlocked session. Do not treat
+earlier desktop evidence as fresh-source signoff.
+Current native policy-write gate is BLOCKED; no trusted package was installed,
+no machine policy was enabled and no production schedule was changed. Hello
+PIN/biometric test is deferred by the user (2026-11-12), not failed or passed.
+
 ## Slice 7 account/manual qualification — 2026-11-11
 
 Use [account/session/Hello contract](AccountAndHello.md) and [slice-7 qualification](qualification/WSA-UX-029_slice7.md) for exact automated results. `test_settings_app.ps1 -Mode AccountUi`

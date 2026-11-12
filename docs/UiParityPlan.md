@@ -1,5 +1,18 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Slice 8 General update adoption — 2026-11-12
+
+G04 displays the actual package/display version. G05 is a native three-state
+checkbox backed by OS readback (mixed/unknown stays indeterminate); unavailable
+editing has a reason and does not masquerade as a persisted app preference.
+G06 checks without launching, then offers a separate confirmed installer action.
+Mouse, Space and accessibility Toggle share the verified change path in tests.
+The normal unsaved-document Cancel path blocks handoff. DA/EN status and help text
+use plain product language; no new startup/Settings layout is introduced.
+See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+Native editing, human Narrator/contrast/DPI/multiple monitors and real package
+update behavior remain unqualified. Hello hardware acceptance is user-deferred.
+
 ## Slice 7 Profile adoption — 2026-11-11
 
 Profile keeps the vertical sidebar and native Windows controls. Conditional login/

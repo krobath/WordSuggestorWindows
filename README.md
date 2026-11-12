@@ -1,5 +1,38 @@
 # WordSuggestorWindows
 
+## Settings slice 8 update candidate — 2026-11-12
+
+General now shows Windows' actual App Installer scheduling state and separates
+checking for updates from explicitly opening the installer. Manual handoff requires
+valid HTTPS metadata and OS agreement, confirmation, then normal application close
+with the existing unsaved-document guard. Earlier native UI checks passed; the final isolated desktop rerun is blocked by
+a disconnected session, and Media fails on the same black fixture as the prior
+baseline. State/contract gates pass; this is not an all-green release.
+Native policy editing remains read-only
+until an installed trusted test package passes change/read/restore qualification.
+This does not disable automatic updates already scheduled by Windows.
+Windows Hello hardware acceptance is deferred by the user as of 2026-11-12.
+See [update contract](docs/WindowsUpdates.md),
+[evidence/manual matrix](docs/qualification/WSA-UX-029_slice8.md) and
+[change note/file scope](docs/changes/2026-11-12_wsa_ux_029_slice8_app_installer_updates.md).
+
+Run from the WordSuggestorWindows repository directory:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build_app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode UpdateState -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode UpdateUi -SkipBuild
+powershell -ExecutionPolicy Bypass -File scripts\test_settings_app.ps1 -Mode All -SkipBuild
+```
+
+Both projects use .NET 10 WPF with managed Windows SDK 10.0.22621.57, pinned in
+the project files and dependency lock. The compile target is
+`net10.0-windows10.0.22621.0`; the Windows manifest/API baseline remains 19041.
+Legacy `bin/Debug/net10.0-windows` output paths remain stable for existing scripts;
+custom `--artifacts-path` layouts still work. Positive policy mutation requires
+Windows 11 and remains unqualified; Windows 10 behavior is not tested here.
+Older dated Settings entries below are historical checkpoints.
+
 ## Settings slice 7 account candidate — 2026-11-11
 
 The Profile category now has backend-backed login/verification-first registration,

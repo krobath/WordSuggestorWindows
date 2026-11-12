@@ -18,20 +18,22 @@ internal sealed partial class SettingsFormController : IDisposable
     private string? _voiceLanguageKey;
     private readonly HashSet<string> _editedVoiceLanguages = [];
     private readonly List<Action> _unsubscribe = [];
-    private readonly WindowsUpdateService _updates = new();
+    private readonly WindowsUpdateCoordinator _updates;
+    private readonly IWindowsUpdateHandoff _updateHandoff;
     private readonly CancellationTokenSource _updateCancellation = new();
-    private UpdateCheckResult? _updateResult;
-    private bool _checkingUpdates;
     private string? _statusKey;
 
-    public SettingsFormController(Window host, MainWindowViewModel viewModel, bool live = false)
+    public SettingsFormController(Window host, MainWindowViewModel viewModel, bool live = false,
+        WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null)
     {
         _host = host; _viewModel = viewModel; _live = live;
+        _updates = updates ?? new(); _updateHandoff = updateHandoff ?? new WindowsUpdateHandoff();
         _original = viewModel.LoadSettingsSnapshot().Clone(); _settings = _original.Clone();
         InitializeOptionSources(); LoadControls(); RenderStatus();
         _loading = false;
         AttachSuggestionControls();
         AttachAnalysisControls();
+        AttachUpdateControls();
         Language.SelectionChanged += OnLanguageChanged;
         Voice.SelectionChanged += OnVoiceChanged;
         SystemSpeech.Checked += OnSpeechChanged; SystemSpeech.Unchecked += OnSpeechChanged;
@@ -178,10 +180,7 @@ internal sealed partial class SettingsFormController : IDisposable
     private void SetStatus(string key) { _statusKey = key; Find<TextBlock>("SettingsSaveStatus").Text = SettingsText.Get(key); }
     private void RenderStatus()
     {
-        Find<TextBlock>("VersionText").Text = _updates.VersionLabel;
-        Find<TextBlock>("UpdateStatusText").Text = _checkingUpdates ? SettingsText.Get("UpdateChecking") : _updateResult is { } result
-            ? SettingsText.Format("Update." + result.Code, result.AvailableVersion)
-            : SettingsText.Get(_updates.IsProductionInstalled ? "UpdateInstalled" : "UpdateDevelopment");
+        RenderUpdateState();
         if (_statusKey is not null) SetStatus(_statusKey);
     }
 
@@ -239,27 +238,6 @@ internal sealed partial class SettingsFormController : IDisposable
         else _settings.SystemVoiceIdOverrideByLanguage.Remove(_voiceLanguageKey);
     }
 
-    public async void CheckUpdates_OnClick(object sender, RoutedEventArgs e)
-    {
-        var button = Find<Button>("CheckUpdatesButton"); button.IsEnabled = false;
-        _checkingUpdates = true;
-        Find<TextBlock>("UpdateStatusText").Text = SettingsText.Get("UpdateChecking");
-        try
-        {
-            _updateResult = await _updates.CheckAsync(_updateCancellation.Token);
-            if (_disposed) return;
-            _checkingUpdates = false;
-            RenderStatus(); Find<Button>("OpenUpdateButton").Visibility = _updateResult.Code == "available" ? Visibility.Visible : Visibility.Collapsed;
-        }
-        catch (OperationCanceledException) { }
-        finally { _checkingUpdates = false; if (!_disposed) { button.IsEnabled = true; RenderStatus(); } }
-    }
-    public void OpenUpdate_OnClick(object sender, RoutedEventArgs e)
-    {
-        try { _updates.OpenInstaller(); }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-        { Find<TextBlock>("UpdateStatusText").Text = SettingsText.Get("UpdateOpenFailed"); }
-    }
     public void OpenSpeechSettingsButton_OnClick(object sender, RoutedEventArgs e) => OpenWindowsSettings("ms-settings:speech");
     public void OpenLanguageSettingsButton_OnClick(object sender, RoutedEventArgs e) => OpenWindowsSettings("ms-settings:regionlanguage");
     private static void OpenWindowsSettings(string uri)

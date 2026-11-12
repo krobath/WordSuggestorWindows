@@ -1,5 +1,21 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 8 candidate — 2026-11-12
+
+G04–G06 now have actual package version, OS scheduling readback, bounded manual
+check and explicit save/close/install handoff. State/contract tests pass and earlier native WPF checks passed; the final desktop
+rerun is blocked by a disconnected session (Media black fixture also fails on the
+prior baseline). The full suite is not green; trusted packaged policy change/read/restore is still BLOCKED. In-app
+editing remains read-only and existing OS scheduling continues. See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+
+Hello PIN/biometric acceptance is deferred by the user on 2026-11-12. Do not rerun
+that gate until access changes. Next slice 9 implements Advanced's effective,
+privacy-safe diagnostic controls and preserves the legacy-settings entry. In
+practice users will be able to inspect adapter failures without collecting their
+document text. Real MSIX N→N+1, publisher trust, live account and human hardware/
+accessibility acceptance remain separate; no public release is qualified.
+Older dated next-step entries are historical and superseded within this scope.
+
 ## WSA-UX-029 slice 7 candidate — 2026-11-11
 
 P01–P21 have effective account UI/session paths using the unchanged backend API.

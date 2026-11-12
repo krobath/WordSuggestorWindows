@@ -1,5 +1,20 @@
 # Windows evidence-based parity matrix
 
+## Slice 8 General update candidate — 2026-11-12
+
+| Controls | Implementation | Evidence boundary |
+|---|---|---|
+| G04 installed version | Native package identity/version; development version when loose | Software tests PASS; real signed beta context not installed here |
+| G05 automatic checking | Typed WinRT readback, mixed/unknown state; verified setter with restore path | Simulated write/readback tests PASS; production editing deliberately read-only pending trusted packaged qualification |
+| G06 manual checking | Canonical bounded HTTPS feed plus OS availability; single-flight/cancel | Synthetic HTTP/native-adapter tests PASS; real public installed feed not qualified |
+| Explicit update action | Recheck, native confirmation, existing dirty-document close guard, one-use OS handoff | Physical WPF input/native modal tests PASS; actual App Installer install/relaunch not run |
+
+See [Windows update contract](WindowsUpdates.md) and [slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+Existing Windows scheduling is unaffected by the editing gate. Neither fake policy
+results nor API presence attest native authority, trust or N→N+1. Hello native
+acceptance is deferred by the user as of 2026-11-12. Other human/hardware/live
+account and release gates remain open; earlier dated statuses are historical.
+
 ## Slice 7 account candidate — 2026-11-11
 
 | Controls | Implementation | Evidence boundary |

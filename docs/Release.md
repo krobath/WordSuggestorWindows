@@ -1,5 +1,20 @@
 # Windows beta packaging and release
 
+## Settings/manual update integration — 2026-11-12
+
+The existing MSIX/App Installer release model is retained. Settings now validates
+canonical feed metadata and OS association/availability before offering a separate
+confirmed normal-close handoff to `ms-appinstaller`. Signing, publisher stability,
+HTTPS publication and N→N+1 remain release gates. This slice does not publish,
+change backend O-052, add an updater or qualify a signed beta.
+
+In-app policy editing is source-gated read-only until native packaged change/read/
+restore passes. Windows' existing configured automatic updates still run. Default
+App Installer policy overrides can be replaced by the next App Installer update;
+they are not a durable promise across releases. See
+[Windows update contract and native fixture procedure](WindowsUpdates.md) and
+[slice-8 evidence](qualification/WSA-UX-029_slice8.md).
+
 Updated 2026-11-08, WSA-DX-004. Current output is a signing-ready MSIX test artifact;
 it is not a signed public release. The user has confirmed that no signing service
 is currently configured. A service is optional, but trusted package signing is

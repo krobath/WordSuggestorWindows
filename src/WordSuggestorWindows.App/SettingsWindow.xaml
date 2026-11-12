@@ -94,7 +94,7 @@
                                     <TextBlock x:Name="VersionText" TextWrapping="Wrap" AutomationProperties.AutomationId="AppVersion"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.G05.Title}" ControlId="G05" Description="{DynamicResource WS.Settings.G05.Help}">
-                                    <TextBlock Text="{DynamicResource WS.Settings.WindowsOwned}" TextWrapping="Wrap"/>
+                                    <StackPanel><CheckBox x:Name="AutomaticUpdatesCheckBox" IsThreeState="True" IsEnabled="False" AutomationProperties.Name="{DynamicResource WS.Settings.G05.Title}"/><TextBlock x:Name="AutomaticUpdateStatus" Style="{StaticResource SettingsNote}" AutomationProperties.LiveSetting="Polite"/></StackPanel>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.G06.Title}" ControlId="G06" Description="{DynamicResource WS.Settings.G06.Help}">
                                     <Button x:Name="CheckUpdatesButton" Content="{DynamicResource WS.Settings.CheckUpdates}" Click="CheckUpdates_OnClick" AutomationProperties.Name="{DynamicResource WS.Settings.CheckUpdates}" Padding="8,5"/>

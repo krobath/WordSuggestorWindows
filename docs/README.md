@@ -1,5 +1,22 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Latest: slice 8 update implementation candidate — 2026-11-12
+
+- [Actual OS policy, manual installer handoff, safety and native gate](WindowsUpdates.md).
+- [Slice 8 software results and manual/native matrix](qualification/WSA-UX-029_slice8.md).
+- [Change note and exact file scope](changes/2026-11-12_wsa_ux_029_slice8_app_installer_updates.md).
+
+Manual update orchestration and actual-state UI are implemented. Fresh isolated
+state/contract gates pass; desktop acceptance is blocked by a disconnected session
+and Media failed on a black fixture also reproduced with the prior baseline.
+The full suite is not green. In-app automatic
+policy editing is still read-only because trusted packaged change/read/restore is
+not qualified. Existing OS scheduling is unaffected. Hello hardware acceptance is
+deferred by the user (2026-11-12); no further native Hello gate was executed.
+Next work builds Advanced diagnostics controls, then closes the outstanding real
+installation/update and human accessibility tests before public release.
+Older dated entries below record earlier checkpoints.
+
 ## Latest: slice 7 account implementation candidate — 2026-11-11
 
 - [Account, backend wire, credentials, Hello and recovery](AccountAndHello.md).

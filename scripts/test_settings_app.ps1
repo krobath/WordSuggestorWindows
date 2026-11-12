@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -11,6 +11,19 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if ($Mode -eq 'UpdateNative') {
+    & $runner --update-native
+    if ($LASTEXITCODE -eq 3) { Write-Warning 'Packaged native update qualification needs a trusted isolated LocalTest MSIX; G05 remains read-only.'; exit 3 }
+    if ($LASTEXITCODE -ne 0) { throw "Native update smoke failed ($LASTEXITCODE)." }
+}
+if ($Mode -eq 'UpdateState') {
+    & $runner --update-state
+    if ($LASTEXITCODE -ne 0) { throw "Update state smoke failed ($LASTEXITCODE)." }
+}
+if ($Mode -in @('UpdateUi', 'All')) {
+    & $runner --update-ui
+    if ($LASTEXITCODE -ne 0) { throw "Update desktop smoke failed ($LASTEXITCODE)." }
+}
 if ($Mode -eq 'HelloNative') {
     & $runner --hello-native
     if ($LASTEXITCODE -eq 3) { Write-Warning 'Native Hello qualification blocked; provision PIN/biometrics in a local unlocked session. Mock PASS does not enable protection.'; exit 3 }
