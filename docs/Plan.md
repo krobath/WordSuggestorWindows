@@ -1,5 +1,13 @@
 # Current Windows beta track — 2026-11-10
 
+## Developer restart closeout — 2026-11-12
+
+WSA-DX-005 is implemented and qualified with 14 owned-fixture checks. Builds fail
+early on a locked executable; `run_app.ps1 -Restart` requests save-aware shutdown
+without force termination. Relative paths follow the PowerShell working directory
+and launch-only text/environment are contained. See the [change note](changes/2026-11-09_wsa_dx_005_safe_developer_restart.md).
+
+
 ## WSA-UX-029 slice 9 implementation candidate — 2026-11-12
 
 A01–A05 now have effective performance/App/placement/panel/Core diagnostics;

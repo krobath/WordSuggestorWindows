@@ -142,6 +142,18 @@ powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\test_app
 powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBuild
 ```
 
+To rebuild and restart an already running development app safely:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\WordSuggestorWindows\scripts\run_app.ps1 -SkipBootstrap -Restart
+```
+
+`-Restart` requests normal app shutdown and waits for save prompts to finish before
+building. It never kills the process. If shutdown is cancelled or still pending
+after two minutes, the script stops without building. Without `-Restart`, a locked
+build output is detected before bootstrap/MSBuild. Closing only the editor leaves
+the floating toolbar/app running; use **Afslut WordSuggestor** to exit manually.
+
 Bootstrap downloads checksum-pinned SQLite 3.46.0 when absent, compiles it locally,
 and builds Core. Swift 6.3 SDK-module discovery is corrected using local virtual
 module maps; no Program Files files are patched. All native exit codes are checked.

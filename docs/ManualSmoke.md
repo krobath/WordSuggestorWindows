@@ -314,6 +314,23 @@ Test package, private test key and temporary leaf trust were removed and checked
 
 ## Troubleshooting
 
+### Build output locked by WordSuggestor
+
+The toolbar may still be running after the editor window is closed. From the
+workspace parent run `powershell -ExecutionPolicy Bypass -File
+.\WordSuggestorWindows\scripts\run_app.ps1 -SkipBootstrap -Restart` and respond to
+the app's save prompts. The script posts normal close only to the verified
+executable's toolbar, waits for actual process exit and then builds/launches.
+Cancel or timeout preserves the running app and aborts the build; no forced
+termination is used. Standalone build also fails early for a locked output and
+offers the independent `-ArtifactsPath` alternative.
+
+`powershell -ExecutionPolicy Bypass -File scripts\test_run_scripts.ps1` verifies
+exact-path selection, wrong-target rejection, normal close and cancelled-close
+retention against an invisible synthetic window. Fourteen checks passed on November 12, including relative paths, child-only startup
+text and parent environment restoration. No user app was closed by that test.
+
+
 Run Core smoke first if suggestions are empty. Build/bootstrap now fail on nonzero
 native exit; a stale CLI cannot make a failed build pass. Missing `_complex` or
 mixed-SDK Winsock errors indicate SDK-module discovery: rerun the bootstrap with

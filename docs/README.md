@@ -1,5 +1,13 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Developer restart closeout — 2026-11-12
+
+WSA-DX-005 is implemented and qualified with 14 owned-fixture checks. Builds fail
+early on a locked executable; `run_app.ps1 -Restart` requests save-aware shutdown
+without force termination. Relative paths follow the PowerShell working directory
+and launch-only text/environment are contained. See the [change note](changes/2026-11-09_wsa_dx_005_safe_developer_restart.md).
+
+
 ## Latest: slice 9 Advanced diagnostics candidate — 2026-11-12
 
 - [Categories, storage, privacy, migration and Core summary](Diagnostics.md).
