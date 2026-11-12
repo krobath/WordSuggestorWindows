@@ -24,7 +24,7 @@ internal static class AdvancedSettingsSmoke
         void Check(string title,bool value) { if(!value)throw new Exception("Advanced: "+title);count++;Console.WriteLine("PASS ADVANCED SETTINGS "+title); }
         var raw="{\"schemaVersion\":5,\"isAppDebugLoggingEnabled\":false,\"isCoreDebugLoggingEnabled\":true,\"shareWordChoices\":false,\"unknownConsent\":false}";
         var settingsPath=Path.Combine(root,"settings.json");File.WriteAllText(settingsPath,raw);var bytes=File.ReadAllBytes(settingsPath);var store=new WindowsAppSettingsService(settingsPath);var old=store.Load();
-        Check("v5 migrates without new consent or diagnostic defaults",old.SchemaVersion==6 && old.IsCoreDebugLoggingEnabled && !old.IsAppDebugLoggingEnabled && !old.IsPanelParityLoggingEnabled && !old.ShareWordChoices && !old.AdditionalProperties["unknownConsent"].GetBoolean());
+        Check("v5 migrates without new consent or diagnostic defaults",old.SchemaVersion==SettingsSchema.CurrentVersion && old.IsCoreDebugLoggingEnabled && !old.IsAppDebugLoggingEnabled && !old.IsPanelParityLoggingEnabled && !old.ShareWordChoices && !old.AdditionalProperties["unknownConsent"].GetBoolean());
         var changed=old.Clone();changed.IsPanelParityLoggingEnabled=true;store.SaveChanges(old,changed);
         Check("v5 exact backup and new field persist",File.ReadAllBytes(settingsPath+".v5.bak").SequenceEqual(bytes) && store.Load().IsPanelParityLoggingEnabled);
         var legacy=changed.Clone();var latest=changed.Clone();latest.IsPanelParityLoggingEnabled=false;store.Save(latest);legacy.IsAppDebugLoggingEnabled=true;store.SaveChanges(changed,legacy);
@@ -74,7 +74,7 @@ internal static class AdvancedSettingsSmoke
         }
 
         var provider=new WordSuggestorCoreCliSuggestionProvider(localDataRoot:root){Diagnostics=sink};sink.Apply(new(){IsCoreDebugLoggingEnabled=true});
-        var caps=await provider.GetCapabilitiesAsync();Check("real Core advertises safe diagnostics without unknown-word learning",caps.OperationalDiagnostics && !caps.UnknownWordLookup && !caps.UnknownWordSharing);
+        var caps=await provider.GetCapabilitiesAsync();Check("real Core advertises safe diagnostics with explicit import only",caps.OperationalDiagnostics && caps.UnknownWordLookup && caps.ExplicitUnknownWordImport && !caps.AutomaticUnknownWordObservation && !caps.UnknownWordSharing);
         await provider.SuggestWithOptionsAsync("skri",new(Guid.NewGuid(),1),new());await sink.FlushAsync();
         Check("real Core produces structured operational summary",Contents(dir).Contains("CoreSummary") && Contents(dir).Contains("Suggest"));
         var failedProvider=new WordSuggestorCoreCliSuggestionProvider(localDataRoot:root,cliPath:Environment.ProcessPath){Diagnostics=sink};
@@ -88,7 +88,7 @@ internal static class AdvancedSettingsSmoke
         Check("all diagnostic rows have only the closed metadata schema",Contents(dir).Split('\n',StringSplitOptions.RemoveEmptyEntries).All(s=>{using var d=JsonDocument.Parse(s);return d.RootElement.EnumerateObject().All(p=>safeFields.Contains(p.Name));}));
         sink.Apply(new());var completed=sink.Completion;sink.Dispose();await completed.WaitAsync(TimeSpan.FromSeconds(5));Check("view teardown drains without active capture",completed.IsCompletedSuccessfully);
         if(desktop)await Desktop(root,Check);
-        Console.WriteLine($"PASS ADVANCED SETTINGS {count} checks; desktop={desktop}; unknown-word lookup/sharing unavailable; Hello deferred.");
+        Console.WriteLine($"PASS ADVANCED SETTINGS {count} checks; desktop={desktop}; explicit unknown-word import available; sharing unavailable; Hello deferred.");
     }
     private static async Task Desktop(string root,Action<string,bool> check)
     {
@@ -108,7 +108,7 @@ internal static class AdvancedSettingsSmoke
             foreach(var name in names.Skip(2))((IToggleProvider)UIElementAutomationPeer.CreatePeerForElement(Find<CheckBox>(name))!.GetPattern(PatternInterface.Toggle)!).Toggle();
             await Until(()=>settings.Load().IsPlacementDebugLoggingEnabled && settings.Load().IsPanelParityLoggingEnabled && settings.Load().IsCoreDebugLoggingEnabled);
             check("UIA Toggle shares native persistence for independent categories",vm.Diagnostics.Enabled(DiagnosticCategory.Placement) && vm.Diagnostics.Enabled(DiagnosticCategory.Panel) && vm.Diagnostics.Enabled(DiagnosticCategory.Core));
-            check("unknown-word controls visible disabled unchecked",new[]{"UnknownWordLookupCheckBox","UnknownWordSharingCheckBox"}.All(n=>Find<CheckBox>(n).IsVisible && !Find<CheckBox>(n).IsEnabled && Find<CheckBox>(n).IsChecked==false));
+            check("explicit lookup available off by default; sharing disabled",Find<CheckBox>("UnknownWordLookupCheckBox").IsEnabled && Find<CheckBox>("UnknownWordLookupCheckBox").IsChecked==false && !Find<CheckBox>("UnknownWordSharingCheckBox").IsEnabled && Find<CheckBox>("UnknownWordSharingCheckBox").IsChecked==false);
             var old=vm.LoadSettingsSnapshot();var draft=old.Clone();draft.IsPanelParityLoggingEnabled=false;vm.ApplySettingsSnapshot(draft);await Task.Delay(100);
             check("external stored change updates primary checkbox",Find<CheckBox>(names[3]).IsChecked==false);
             SettingsText.ApplyPreference("en-GB");check("diagnostic status and help translate without changing flags",Find<TextBlock>("AdvancedDiagnosticsStatus").Text==SettingsText.Get("AdvancedEnabled") && Find<CheckBox>(names[1]).IsChecked==true);SettingsText.ApplyPreference("da-DK");

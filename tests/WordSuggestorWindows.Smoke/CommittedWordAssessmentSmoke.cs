@@ -68,7 +68,7 @@ internal static class CommittedWordAssessmentSmoke
         var scope = new CoreRequestContext(Guid.NewGuid(), 10);
         var provider = new WordSuggestorCoreCliSuggestionProvider(localDataRoot: root);
         var caps = await provider.GetCapabilitiesAsync();
-        Check("real assessment capability is separate from lookup and sharing", caps.Supports("assessCommittedWord") && caps.CommittedWordAssessment && !caps.UnknownWordLookup && !caps.UnknownWordSharing);
+        Check("real assessment capability is separate from lookup and sharing", caps.Supports("assessCommittedWord") && caps.CommittedWordAssessment && caps.UnknownWordLookup && caps.ExplicitUnknownWordImport && !caps.AutomaticUnknownWordObservation && !caps.UnknownWordSharing);
         var candidate = await provider.AssessCommittedWordAsync(PrivateWord, scope);
         Check("real Core observes unknown candidate without returning content", candidate.Value is { SchemaVersion: 1, IsCandidate: true } && !candidate.Value.ToString().Contains(PrivateWord) &&
             JsonSerializer.SerializeToElement(candidate.Value, Json).EnumerateObject().Select(p => p.Name).Order().SequenceEqual(new[] { "disposition", "schemaVersion" }));
@@ -141,7 +141,7 @@ internal static class CommittedWordAssessmentSmoke
         }
         finally { Environment.SetEnvironmentVariable(Mode, originalMode); Environment.SetEnvironmentVariable(PidFile, originalPid); }
         Check("no observation store or handoff queue created", !Directory.Exists(Path.Combine(root,"UnknownWords")) && !Directory.Exists(Path.Combine(root,"learning")));
-        Console.WriteLine($"PASS COMMITTED WORD {count} checks; read-only assessment, lookup/sharing unavailable.");
+        Console.WriteLine($"PASS COMMITTED WORD {count} checks; read-only assessment, no implicit lookup/sharing.");
     }
     private static bool ChildGone(string path)
     {

@@ -80,7 +80,7 @@ public sealed class WindowsDiagnostics : IDisposable
             TotalMicroseconds: summary.ElapsedMilliseconds * 1000, CandidateCount: summary.CandidateCount, DiagnosticCount: summary.DiagnosticCount, DocumentWordCount: summary.DocumentWordCount));
     }
     public static DiagnosticOperation Operation(string operation) => operation switch
-    { "suggest" => DiagnosticOperation.Suggest, "capabilities" => DiagnosticOperation.Capabilities, "domains" => DiagnosticOperation.Domains, "domainSuggestions" => DiagnosticOperation.DomainSuggestions, "wordInfo" => DiagnosticOperation.WordInfo, "analyze" => DiagnosticOperation.Analyze, "document" => DiagnosticOperation.Document, "smartFollowup" => DiagnosticOperation.SmartFollowup, "livePeriod" => DiagnosticOperation.LivePeriod, "assessCommittedWord" => DiagnosticOperation.AssessCommittedWord, _ => DiagnosticOperation.None };
+    { "suggest" => DiagnosticOperation.Suggest, "capabilities" => DiagnosticOperation.Capabilities, "domains" => DiagnosticOperation.Domains, "domainSuggestions" => DiagnosticOperation.DomainSuggestions, "wordInfo" => DiagnosticOperation.WordInfo, "analyze" => DiagnosticOperation.Analyze, "document" => DiagnosticOperation.Document, "smartFollowup" => DiagnosticOperation.SmartFollowup, "livePeriod" => DiagnosticOperation.LivePeriod, "assessCommittedWord" => DiagnosticOperation.AssessCommittedWord, "lookupUnknownWord" => DiagnosticOperation.LookupUnknownWord, "mergeLearnedWord" => DiagnosticOperation.MergeLearnedWord, _ => DiagnosticOperation.None };
     public Measurement Measure(DiagnosticMetric metric) => new(this, metric, Enabled(DiagnosticCategory.Performance));
     public readonly struct Measurement : IDisposable
     {

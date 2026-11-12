@@ -1,5 +1,18 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 11 — explicit unknown-word import, 2026-11-13
+
+Users can explicitly look up and import one Danish word through Settings > Advanced
+or the editor menu, after separate online consent. Core validates dictionary data;
+Windows atomically saves the separate local overlay. Imported words work offline
+and survive restart; opting out stops lookup, explicit clear removes imported data.
+A06 is partial (explicit import only), A07 unavailable; automatic typing capture is
+off. Schema 7 defaults new/migrated consent to off. See [contract](UnknownWordImport.md),
+[plan](sprints/WSA-UX-029_slice11_explicit_unknown_word_import.md) and
+[qualification](qualification/WSA-UX-029_slice11.md). Older dated statements below
+are historical. Native Hello remains user-deferred and release gates remain open.
+
+
 ## WSA-UX-029 slice 10 — read-only completed-word boundary, 2026-11-12
 
 The Windows adapter can explicitly ask Core whether one completed token would

@@ -6,7 +6,7 @@ using WordSuggestorWindows.App.Models;
 
 namespace WordSuggestorWindows.App.Services;
 
-public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider, ICoreSettingsAdapter
+public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider, ICoreSettingsAdapter, ICoreUnknownWordAdapter
 {
     private readonly string _baseDirectory;
     private readonly string? _workspaceRoot;
@@ -82,7 +82,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
         catch (JsonException) { throw new InvalidOperationException("Ugyldigt Core-svar."); }
     }
 
-    private async Task<string> ExchangeAsync(object request, string transport, CancellationToken cancellationToken, DiagnosticOperation operation = DiagnosticOperation.Legacy)
+    private async Task<string> ExchangeAsync(object request, string transport, CancellationToken cancellationToken, DiagnosticOperation operation = DiagnosticOperation.Legacy, TimeSpan? timeoutOverride = null)
     {
         var cliPath = _cliPath ?? throw new FileNotFoundException("Core er ikke installeret.");
         using var measurement = Diagnostics?.Measure(DiagnosticMetric.CoreRoundtrip);
@@ -91,7 +91,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestion
         try
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(_timeout);
+            deadline.CancelAfter(timeoutOverride ?? _timeout);
             var token = deadline.Token;
             var info = new ProcessStartInfo(cliPath)
             {

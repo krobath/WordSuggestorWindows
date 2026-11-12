@@ -15,6 +15,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Contains("--tts-fake-worker")) return SpeechSettingsSmoke.FakeWorker();
+        if (UnknownWordSmoke.IsChild(args)) return UnknownWordSmoke.Bridge(args);
         if (CommittedWordAssessmentSmoke.IsChild(args)) return CommittedWordAssessmentSmoke.FakeBridge();
         if (CoreSettingsSmoke.IsBridgeChild(args)) return CoreSettingsSmoke.FakeBridge();
         if (args.Contains("--stdio-json-v1")) return FakeCore();
@@ -39,6 +40,8 @@ internal static class Program
             try
             {
                 if (args.Contains("--update-native")) { Console.WriteLine("BLOCKED UPDATE NATIVE: use test_settings_platform.ps1 -PackagedUpdateProbe with an installed trusted isolated LocalTest package; no production mutation."); code = 3; return; }
+                else if (args.Contains("--unknown-word")) await UnknownWordSmoke.Run(FindRepo(), false);
+                else if (args.Contains("--unknown-word-ui")) await UnknownWordSmoke.Run(FindRepo(), true);
                 else if (args.Contains("--advanced-state")) await AdvancedSettingsSmoke.Run(false);
                 else if (args.Contains("--advanced-ui")) await AdvancedSettingsSmoke.Run(true);
                 else if (args.Contains("--update-state")) await UpdateSettingsSmoke.Run(false);

@@ -2,8 +2,8 @@
   "schema_version": 1,
   "platform": "windows",
   "reference_commit": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
-  "windows_base": "92f2ed5f1044dc69d3484294cf9f4933b4156323",
-  "core_revision": "4c3cab1a4717699186461dc34578ff48bb7839b2",
+  "windows_base": "d39afaa",
+  "core_revision": "5cd7503097f3e12d336bf6829f00fab83917f11d",
   "sprint_complete": false,
   "release_qualified": false,
   "controls": [
@@ -562,10 +562,10 @@
     {
       "id": "A06",
       "category": "advanced",
-      "implementation": "unavailable",
-      "automation_suite": "AdvancedUi",
-      "evidence_document": "WSA-UX-029_slice9.md",
-      "manual_qualification": "unavailable"
+      "implementation": "partial",
+      "automation_suite": "UnknownWordsUi",
+      "evidence_document": "WSA-UX-029_slice11.md",
+      "manual_qualification": "not_run"
     },
     {
       "id": "A07",

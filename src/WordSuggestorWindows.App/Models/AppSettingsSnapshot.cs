@@ -66,6 +66,8 @@ public sealed class AppSettingsSnapshot
     public bool IsCoreDebugLoggingEnabled { get; set; }
 
     public bool IsPanelParityLoggingEnabled { get; set; }
+    public bool IsUnknownWordLookupEnabled { get; set; }
+    public int UnknownWordLookupConsentVersion { get; set; }
 
     public AppSettingsSnapshot Clone() =>
         new()
@@ -104,6 +106,8 @@ public sealed class AppSettingsSnapshot
             IsAppDebugLoggingEnabled = IsAppDebugLoggingEnabled,
             IsPlacementDebugLoggingEnabled = IsPlacementDebugLoggingEnabled,
             IsCoreDebugLoggingEnabled = IsCoreDebugLoggingEnabled,
-            IsPanelParityLoggingEnabled = IsPanelParityLoggingEnabled
+            IsPanelParityLoggingEnabled = IsPanelParityLoggingEnabled,
+            IsUnknownWordLookupEnabled = IsUnknownWordLookupEnabled,
+            UnknownWordLookupConsentVersion = UnknownWordLookupConsentVersion
         };
 }

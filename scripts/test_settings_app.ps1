@@ -1,5 +1,5 @@
-param(
-    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
+﻿param(
+    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -69,7 +69,7 @@ if ($Mode -in @('Core', 'All')) {
     & $runner --core-settings
     if ($LASTEXITCODE -ne 0) { throw "Settings Core adapter smoke failed ($LASTEXITCODE)." }
 }
-if ($Mode -in @('CommittedWord', 'All')) {
+if ($Mode -in @('CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'All')) {
     & $runner --committed-word
     if ($LASTEXITCODE -ne 0) { throw "Committed-word assessment smoke failed ($LASTEXITCODE)." }
 }
@@ -84,4 +84,13 @@ if ($Mode -in @('Ui', 'All')) {
 if ($Mode -in @('SpeechUi', 'All')) {
     & $runner --speech-ui
     if ($LASTEXITCODE -ne 0) { throw "Speech desktop smoke failed ($LASTEXITCODE). An unlocked interactive Windows desktop is required." }
+}
+
+if ($Mode -in @('UnknownWords', 'All')) {
+    & $runner --unknown-word
+    if ($LASTEXITCODE -ne 0) { throw "Unknown-word import smoke failed ($LASTEXITCODE)." }
+}
+if ($Mode -in @('UnknownWordsUi', 'All')) {
+    & $runner --unknown-word-ui
+    if ($LASTEXITCODE -ne 0) { throw "Unknown-word desktop smoke failed ($LASTEXITCODE)." }
 }

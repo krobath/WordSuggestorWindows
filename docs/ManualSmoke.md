@@ -1,5 +1,18 @@
 # Windows smoke and qualification
 
+## WSA-UX-029 slice 11 — explicit unknown-word import, 2026-11-13
+
+Users can explicitly look up and import one Danish word through Settings > Advanced
+or the editor menu, after separate online consent. Core validates dictionary data;
+Windows atomically saves the separate local overlay. Imported words work offline
+and survive restart; opting out stops lookup, explicit clear removes imported data.
+A06 is partial (explicit import only), A07 unavailable; automatic typing capture is
+off. Schema 7 defaults new/migrated consent to off. See [contract](UnknownWordImport.md),
+[plan](sprints/WSA-UX-029_slice11_explicit_unknown_word_import.md) and
+[qualification](qualification/WSA-UX-029_slice11.md). Older dated statements below
+are historical. Native Hello remains user-deferred and release gates remain open.
+
+
 ## Slice 9 Advanced/manual qualification — 2026-11-12
 
 See [diagnostics/privacy contract](Diagnostics.md) and [slice-9 qualification](qualification/WSA-UX-029_slice9.md).
@@ -376,3 +389,17 @@ production trust and live server/Mac regression remain separate acceptance.
 ## Slice 10 completed-word transport — WSA-UX-029, 2026-11-12
 
 Run `scripts/test_settings_app.ps1 -Mode CommittedWord` for real Core and hostile process fixtures. The operation is not wired to normal typing; verify A06/A07 remain disabled/off and ordinary editor/Notepad suggestions, tab recovery and diagnostics remain unchanged. Full native/manual results are recorded in [slice-10 qualification](qualification/WSA-UX-029_slice10.md); no new Hello, signing or install/update sign-off is inferred.
+
+## Explicit import human follow-up (slice 11)
+
+1. In Advanced, verify lookup starts off; decline the separate consent explanation.
+   Reopen and approve; confirm the text names both dictionary sites and one word.
+2. Open the import dialog from Settings and editor; keyboard-navigate every control.
+   Choose an eligible Danish word absent from the installed pack and look it up.
+3. Check success/miss/offline states, then switch focus or close during lookup.
+   No cancelled lookup may later create or replace the learned snapshot.
+4. Restart and check imported-word suggestions offline; revoke online consent and
+   verify existing local suggestions remain. Explicitly clear with native confirmation;
+   ensure manual user words, choice data, settings and pack remain intact.
+5. Repeat with Narrator and mixed DPI/multiple monitors. These human checks remain
+   NOT RUN; automated coverage and tested source are in qualification/WSA-UX-029_slice11.md.

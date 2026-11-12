@@ -17,6 +17,7 @@
    </MenuItem>
    <MenuItem Header="_Indstillinger" Tag="settings" Click="ToolbarAction_OnClick" />
    <MenuItem Header="_Brugerord" Tag="wordList" Click="ToolbarAction_OnClick" />
+   <MenuItem Header="Slå _ukendt ord op…" Tag="lookupUnknownWord" Click="EditorCommand_OnClick" AutomationProperties.AutomationId="EditorUnknownWordLookup"/>
   </Menu>
   <TextBlock DockPanel.Dock="Bottom" Margin="12,4" Text="{Binding StatusMessage}" TextWrapping="Wrap" AutomationProperties.AutomationId="EditorStatus" AutomationProperties.LiveSetting="Polite" />
                 <Border Padding="12"

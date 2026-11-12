@@ -54,6 +54,8 @@ public sealed partial class MainWindowViewModel
     public event EventHandler<SuggestionItem>? LocalSuggestionCommitted;
     private readonly SuggestionSchedulingPolicy _suggestionScheduler = new();
     public ICoreSettingsAdapter? CoreSettings => _suggestionProvider as ICoreSettingsAdapter;
+    public ICoreUnknownWordAdapter? UnknownWordCore => _suggestionProvider as ICoreUnknownWordAdapter;
+    internal WindowsAppSettingsService SettingsService => _settingsService;
     public string ExternalSuggestionSuffix { get; set; } = "";
     public ExternalTextSnapshot? ExternalSuggestionTarget { get; set; }
     private ExternalTextSnapshot? _currentCommitTarget;

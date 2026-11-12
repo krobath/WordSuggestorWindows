@@ -1137,6 +1137,9 @@ public partial class MainWindow : Window
 
         switch (action)
         {
+            case "lookupUnknownWord":
+                new UnknownWordLookupWindow(_viewModel, GetSelectedEditorPlainText()) { Owner = _editorWindow }.ShowDialog();
+                break;
             case "newDocument": NewEditorTab(); break;
             case "closeDocument": CloseEditorTab(_workspace.Active); break;
             case "openDocument":

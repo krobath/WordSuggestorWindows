@@ -32,6 +32,9 @@ public sealed record CoreCapabilities
     public bool UnknownWordLookup { get; init; }
     public bool UnknownWordSharing { get; init; }
     public bool CommittedWordAssessment { get; init; }
+    public bool ExplicitUnknownWordImport { get; init; }
+    public bool LearnedWordOverlay { get; init; }
+    public bool AutomaticUnknownWordObservation { get; init; }
     public bool Supports(string operation) => ProtocolVersions.Contains(2) && Operations.Contains(operation, StringComparer.Ordinal);
     public static CoreCapabilities Legacy { get; } = new() { SchemaVersion = 1, ProtocolVersions = [1], Operations = ["suggest", "addUserWord"] };
 }

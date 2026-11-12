@@ -22,11 +22,13 @@ internal sealed partial class SettingsFormController : IDisposable
     private readonly IWindowsUpdateHandoff _updateHandoff;
     private readonly CancellationTokenSource _updateCancellation = new();
     private string? _statusKey;
+    private readonly Func<bool> _confirmUnknownLookup;
 
     public SettingsFormController(Window host, MainWindowViewModel viewModel, bool live = false,
-        WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null)
+        WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null, Func<bool>? confirmUnknownLookup = null)
     {
         _host = host; _viewModel = viewModel; _live = live;
+        _confirmUnknownLookup = confirmUnknownLookup ?? (() => UnknownWordConsent.Request(host));
         _updates = updates ?? new(); _updateHandoff = updateHandoff ?? new WindowsUpdateHandoff();
         _original = viewModel.LoadSettingsSnapshot().Clone(); _settings = _original.Clone();
         InitializeOptionSources(); LoadControls(); RenderStatus();

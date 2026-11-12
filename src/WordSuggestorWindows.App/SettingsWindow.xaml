@@ -248,12 +248,13 @@
                                 </ui:SettingsRow>
                                 <TextBlock x:Name="AdvancedCoreStatus" Style="{StaticResource SettingsNote}" AutomationProperties.LiveSetting="Polite"/>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A06.Title}" ControlId="A06" Description="{DynamicResource WS.Settings.A06.Help}">
-                                    <CheckBox x:Name="UnknownWordLookupCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A06.Title}" IsEnabled="False" IsChecked="False"/>
+                                    <CheckBox x:Name="UnknownWordLookupCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A06.Title}" IsEnabled="False"/>
                                 </ui:SettingsRow>
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A07.Title}" ControlId="A07" Description="{DynamicResource WS.Settings.A07.Help}">
                                     <CheckBox x:Name="UnknownWordSharingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A07.Title}" IsEnabled="False" IsChecked="False"/>
                                 </ui:SettingsRow>
-                                <TextBlock Text="{DynamicResource WS.Settings.AdvancedUnknownUnavailable}" Style="{StaticResource SettingsNote}"/>
+                                <TextBlock x:Name="UnknownWordSupportStatus" Text="{DynamicResource WS.Settings.AdvancedUnknownUnavailable}" Style="{StaticResource SettingsNote}"/>
+                                <Button x:Name="UnknownWordOpenButton" Content="{DynamicResource WS.Settings.UnknownOpen}" IsEnabled="False" HorizontalAlignment="Left" Padding="8,5" AutomationProperties.AutomationId="UnknownWordOpen"/>
                                 <TextBlock Text="{DynamicResource WS.Settings.AdvancedPrivacy}" Style="{StaticResource SettingsNote}"/>
                                 <TextBlock x:Name="AdvancedDiagnosticsStatus" Style="{StaticResource SettingsNote}" AutomationProperties.LiveSetting="Polite"/>
                             </StackPanel>

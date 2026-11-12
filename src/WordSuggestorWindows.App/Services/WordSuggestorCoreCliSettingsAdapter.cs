@@ -48,7 +48,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         CoreSuggestionOptions options, CancellationToken cancellationToken = default)
     {
         var response = await QueryAsync("suggest", text, context, options, null, null, cancellationToken);
-        HealthWarning = response.WarningCode == "user_words_unavailable" ? "Brugerord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
+        HealthWarning = response.WarningCode is "user_words_unavailable" or "learned_words_unavailable" ? "Lokale ord kunne ikke indlæses. Sprogpakken bruges fortsat, og brugerdata er bevaret." : null;
         return Result(response, ValidateCandidates(response.Suggestions));
     }
 
@@ -136,24 +136,28 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     }
 
     private async Task<SettingsEnvelope> QueryAsync(string operation, string text, CoreRequestContext context, object? options,
-        string? catalogPath, string? domainId, CancellationToken cancellationToken)
+        string? catalogPath, string? domainId, CancellationToken cancellationToken, JsonElement? learnedProposal = null, int? lookupConsentVersion = null)
     {
         if (context.DocumentId == Guid.Empty || context.Generation < 0 || text.Length > 16000) throw new ArgumentException("Invalid Core request scope or size.");
         var language = RequireLanguagePack();
         var capabilities = await ReadCapabilitiesAsync(language, catalogPath, cancellationToken);
         if (!capabilities.Supports(operation)) throw new NotSupportedException("Denne Core-version understøtter ikke funktionen.");
         if (operation == "assessCommittedWord" && !capabilities.CommittedWordAssessment) throw new NotSupportedException("Core har ingen kontrakt til vurdering af afsluttede ord.");
+        if (operation is "lookupUnknownWord" or "mergeLearnedWord" && (!capabilities.UnknownWordLookup || !capabilities.ExplicitUnknownWordImport || !capabilities.LearnedWordOverlay))
+            throw new NotSupportedException("Denne Core-version understøtter ikke eksplicit ordimport.");
         var id = Guid.NewGuid().ToString("N");
         var includeDiagnostics = Diagnostics?.Enabled(DiagnosticCategory.Core) == true && capabilities.OperationalDiagnostics;
         var request = new { version = 2, requestId = id, operation, language = language.LanguageCode,
             includeOperationalDiagnostics = includeDiagnostics ? true : (bool?)null,
             packPath = language.PackPath, text, maxResults = 40, context, options, catalogPath, domainId,
-            userWordsPath = operation is "suggest" or "assessCommittedWord" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null };
+            userWordsPath = operation is "suggest" or "assessCommittedWord" or "lookupUnknownWord" or "mergeLearnedWord" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null,
+            learnedWordsPath = capabilities.LearnedWordOverlay && operation is "suggest" or "assessCommittedWord" or "lookupUnknownWord" or "mergeLearnedWord" ? LearnedWordStore.PathFor(_localDataRoot) : null,
+            lookupConsent = lookupConsentVersion, learnedProposal };
         // Produce a JsonElement with null option fields omitted. Unknown/nonapplicable
         // options are rejected by Core instead of being silently ignored.
         var payload = JsonSerializer.SerializeToElement(request, ExtendedJson);
-        var output = await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation));
-        if (operation == "assessCommittedWord") ValidateAssessmentEnvelope(output);
+        var output = await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation), operation == "lookupUnknownWord" ? TimeSpan.FromSeconds(15) : null);
+        if (operation is "assessCommittedWord" or "lookupUnknownWord" or "mergeLearnedWord") ValidateAssessmentEnvelope(output, operation);
         var response = Decode<SettingsEnvelope>(output);
         if (response.Version != 2 || response.RequestId != id || response.Context != context || response.Language != language.LanguageCode) throw InvalidProtocol();
         if (response.OperationalDiagnostics is { } trace && !trace.ValidFor(operation, response.ErrorCode is not null) || includeDiagnostics && response.OperationalDiagnostics is null)
@@ -163,7 +167,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
         return response;
     }
 
-    private static void ValidateAssessmentEnvelope(string output)
+    private static void ValidateAssessmentEnvelope(string output, string operation)
     {
         try
         {
@@ -175,9 +179,9 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
                 return names.Distinct(StringComparer.Ordinal).Count() == names.Length && names.All(n => allowed.Contains(n, StringComparer.Ordinal));
             }
             var root = document.RootElement;
-            if (!Closed(root, ["version", "requestId", "context", "language", "errorCode", "warningCode", "committedWord", "operationalDiagnostics"]) ||
+            if (!Closed(root, ["version", "requestId", "context", "language", "errorCode", "warningCode", operation == "assessCommittedWord" ? "committedWord" : "unknownWord", "operationalDiagnostics"]) ||
                 root.TryGetProperty("context", out var context) && !Closed(context, ["documentId", "generation"]) ||
-                root.TryGetProperty("committedWord", out var result) && !Closed(result, ["schemaVersion", "disposition"])) throw InvalidProtocol();
+                root.TryGetProperty(operation == "assessCommittedWord" ? "committedWord" : "unknownWord", out var result) && !Closed(result, operation == "assessCommittedWord" ? ["schemaVersion", "disposition"] : ["schemaVersion", "status", "proposal", "snapshot"])) throw InvalidProtocol();
         }
         catch (JsonException) { throw InvalidProtocol(); }
     }
@@ -196,5 +200,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics, CoreCommittedWordAssessment? CommittedWord);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics, CoreCommittedWordAssessment? CommittedWord, CoreUnknownWordResult? UnknownWord);
 }

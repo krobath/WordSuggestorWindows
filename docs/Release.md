@@ -31,7 +31,7 @@ distribution. Never run the editor elevated to work around an unsupported target
 - Separate display version, e.g. `0.2.0-beta.1`, build number `2001`, and four-part
   numeric package version `0.2.0.1`. Every published update/rollback increases the
   latter; do not reuse or overwrite historical packages.
-- `%LOCALAPPDATA%\WordSuggestor`: settings/settings-v1.json (current schema 6),
+- `%LOCALAPPDATA%\WordSuggestor`: settings/settings-v1.json (current schema 7),
   editor/workspace-v1.json (drafts/schema 1 + backup), Packs (installed packs),
   UserWords (Core-owned overlay), learning and diagnostics. Bundled Core/Packs stay
   inside the read-only payload; installed packs and user changes stay outside it.
