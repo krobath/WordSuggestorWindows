@@ -15,6 +15,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'dotnet_env.ps1')
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
+. (Join-Path $PSScriptRoot 'msix_integrity.ps1')
 . (Join-Path $PSScriptRoot 'app_process.ps1')
 if ($PreparedLocalTestSession) {
     if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory -or $NegativeBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
@@ -324,17 +325,18 @@ try {
     $rejected = $false
     try { Add-AppxPackage -AppInstallerFile -Path $badFeed -ErrorAction Stop } catch { $rejected = $true }
     if (-not $rejected) { throw 'Malformed App Installer accepted.' }; Pass 'invalid_feed'
-    $tampered = Join-Path $root 'tampered.msix'
+    $tampered = Join-Path $root 'tampered-signature.msix'
     $currentBundle=if($rollback){$rollback}else{$candidate}
-    Copy-Item -LiteralPath (Join-Path $negative.Directory $negative.Manifest.release.artifact.filename) -Destination $tampered
-    $stream = [IO.File]::Open($tampered,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite)
-    try { $stream.Position = 100; $byte = $stream.ReadByte(); $stream.Position = 100; $stream.WriteByte([byte]($byte -bxor 1)) } finally { $stream.Dispose() }
+    $negativePackage=Join-Path $negative.Directory $negative.Manifest.release.artifact.filename
+    New-MsixSignatureCorruption $negativePackage $tampered
     $signTool = Get-ReleaseSdkTool 'signtool'
     $tamperedSignature=Invoke-ReleaseProcess $signTool @('verify','/pa','/all','/v',$tampered) 30
     if ($tamperedSignature.ExitCode -eq 0) { throw 'Tampered package passed trust verification.' }
+    $beforeTamper=[string](Installed).Version
     $rejected = $false
     try { Add-AppxPackage -Path $tampered -ErrorAction Stop } catch { $rejected = $true }
-    if (-not $rejected) { throw 'Tampered MSIX accepted.' }; Pass 'tampered_package'
+    if (-not $rejected -or [string](Installed).Version -cne $beforeTamper) { throw 'Signature-tampered MSIX was not rejected safely.' }
+    $record.tamper_kind='signature_footprint';Pass 'tampered_package'
     $rejected = $false
     try { Add-AppxPackage -Path (Join-Path $previous.Directory $previous.Manifest.release.artifact.filename) -ErrorAction Stop } catch { $rejected = $true }
     if (-not $rejected -or (Installed).Version -ne $installed.Version) { throw 'Ordinary update allowed an older package.' }
@@ -342,8 +344,41 @@ try {
     Add-AppxPackage -Path (Join-Path $currentBundle.Directory $currentBundle.Manifest.release.artifact.filename) -ErrorAction Stop
     if ((Installed).Version -ne $installed.Version) { throw 'Same-version operation changed installed version.' }
     Pass 'same_version_unchanged'
+    # Windows can reuse signed original payload blocks. Registration success is
+    # not proof that changed source bytes were installed. Never launch this case;
+    # compare every block-map-listed file to the trusted original before accepting
+    # an integrity outcome. Signature corruption above must always be rejected.
+    $payloadTampered=Join-Path $root 'tampered-payload.msix'
+    $payloadChange=New-MsixPayloadCorruption $negativePackage $payloadTampered
+    $record.payload_tamper_entry=$payloadChange.entry;$record.payload_tamper_offset=$payloadChange.offset
+    $payloadSignature=Invoke-ReleaseProcess $signTool @('verify','/pa','/all','/v',$payloadTampered) 30
+    if($payloadSignature.ExitCode -eq 0){throw 'Payload corruption passed full signature verification.'}
+    $payloadRejected=$false
+    try{Add-AppxPackage -Path $payloadTampered -ErrorAction Stop}catch{$payloadRejected=$true}
+    if($payloadRejected){
+        if([string](Installed).Version -cne $beforeTamper){throw 'Rejected payload changed the installation.'}
+        $record.payload_tamper_outcome='rejected'
+    }else{
+        $installed=Wait-Version $negative.Identity.Version
+        if($installed.Name -cne $negative.Identity.Name -or $installed.Publisher -cne $negative.Identity.Publisher){throw 'Unexpected payload identity.'}
+        $record.payload_files_verified=Assert-InstalledMsixPayload $negativePackage $installed.InstallLocation
+        $record.payload_tamper_outcome='accepted_verified_original_payload'
+        $retentionPayload=Get-RetentionPayload $negative $installed
+    }
+    Pass 'payload_integrity'
+    $uninstallHashes=@{}
+    foreach($file in $sentinels){$uninstallHashes[$file]=(Get-FileHash -LiteralPath (Join-Path $data $file) -Algorithm SHA256).Hash}
+    $record.final_installed_version=[string](Installed).Version
     Remove-AppxPackage -Package (Installed).PackageFullName -ErrorAction Stop
-    foreach ($file in $sentinels) { if (-not (Test-Path -LiteralPath (Join-Path $data $file))) { throw 'Uninstall removed retained user data.' } }
+    if(Installed){throw 'Test package registration remains after uninstall.'}
+    foreach ($file in $sentinels) {
+        if (-not (Test-Path -LiteralPath (Join-Path $data $file)) -or (Get-FileHash -LiteralPath (Join-Path $data $file) -Algorithm SHA256).Hash -cne $uninstallHashes[$file]) { throw 'Uninstall changed retained user data.' }
+    }
+    if($localTest){
+        $retentionMode=if($rollback){'check-dirty'}else{'check'}
+        & $runner --retention-data $retentionMode $data $retentionPayload
+        if($LASTEXITCODE -ne 0){throw 'Uninstalled user-data readback failed.'}
+    }
     Pass 'uninstall_retention'
     $finished = $true
 } catch {

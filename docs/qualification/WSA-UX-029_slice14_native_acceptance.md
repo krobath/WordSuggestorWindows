@@ -1,5 +1,14 @@
 # WSA-UX-029: native acceptance results and remaining checks
 
+## Superseded by measured package-integrity follow-up
+
+The user's e281a55453d24952a915c8b2fed4a068 run reached the old payload-tamper
+case and failed because Windows registered .4. Its installed bytes were not
+established. The corrected test and new enforced-integrity fixture have now been
+run: see [current evidence](WSA-UX-029_slice14_package_integrity.md). The earlier
+remaining-check command/profile is obsolete; prepare a fresh nonce. The text below
+is historical and does not describe the latest run.
+
 Date: 2026-11-13. Base 97bb840. Windows test/release scripts and local docs only.
 App/Core/pack/macOS/backend source unchanged. No public upload or production beta.
 The user confirms UAC was visible and approved. Successful helper receipts prove
@@ -103,26 +112,9 @@ Raw software logs: .artifacts/native-{four-package-release,negative-stderr-relea
 final-facet-release,four-package-preparation,actual-bad-hash}.log. No private keys/
 PFX/passwords/tokens.
 
-## Single operator command for remaining checks
+## Current operator action
 
-Run in the Windows RDP session from WordSuggestorWindows. This command opens its
-one UAC dialog and then runs without further permission questions:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreparedLocalTestSession .artifacts/msix-tests/prepared-292715dbca6b -SkipBuild -AllowTemporaryMachineTrust -SkipAutomaticUpdateProbe -SkipInstalledGuiProbe
-```
-
-If checking out elsewhere, first run prepare_msix_test and use its printed session
-directory; do not copy machine artifacts or signing keys into Git. A nonempty prior
-synthetic profile must be preserved before rerun, not deleted. Default combined
-qualification omits both Skip switches. Trusted production-identity qualification
-requires PreviousBundleDirectory, CandidateBundleDirectory and a signed newer
-NegativeBundleDirectory in a clean account/VM; no Skip switch is allowed there.
-
-The current remaining-check session was canceled before trust/install, so its
-LocalTests/292715dbca6b directory is empty. Review the resulting msix-qualification
-JSON and cleanup even if exit 3 is expected for deliberate skips/G05. In product
-terms the remaining checks establish corrupt/old package rejection, same-version
-behavior and removal without loss of local work. Official public beta still needs
-its approved stable signer, canonical HTTPS/feed/publication and separate human/
-backend acceptance. No user confirmation is inferred from elapsed time or defaults.
+Use [the current integrity qualification procedure](WSA-UX-029_slice14_package_integrity.md#reproduce-and-remaining-acceptance).
+Do not rerun prepared-292715dbca6b: it lacks the new mandatory runtime integrity
+policy and its user-run synthetic data/evidence must be preserved. The original
+partial progress and 'Tampered MSIX accepted' failure are not retroactively PASS.

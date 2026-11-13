@@ -1,15 +1,18 @@
 # WordSuggestorWindows architecture
 
-## Authorized native follow-up (2026-11-13)
+## Package integrity follow-up (2026-11-13)
 
-Native tests verify .1-to-.2 updates, higher-version rollback with dirty-draft
-retention, installed GUI/Notepad (55 checks) and rejection of newer invalid feeds.
-G05 remains blocked (0x800706F7); corrupt-package installation, version negatives
-and dedicated uninstall retention still need the final remaining-check run.
-The four-package harness keeps deliberate skips false and cannot qualify a public
-release. Cleanup is verified; UAC cancellation reports are not attributed to the user.
-See [exact results and next action](qualification/WSA-UX-029_slice14_native_acceptance.md).
-Earlier pending-approval/no-install statements are historical preparation results.
+Current Settings and fresh build pass (0 warnings/errors); the reported
+OpenInstaller call was already removed by 92f2ed5. New MSIXs enforce Windows
+runtime content integrity. Native testing now proves corrupt-signature rejection,
+older/same-version behavior and data preservation after uninstall. A payload-only
+corrupt source was accepted, but all 441 installed content files matched the
+trusted original; registration alone never qualifies integrity. Release tests: 94.
+G05 stays blocked; this run deliberately skips GUI/automatic update. Full release
+remains unqualified, Hello user-deferred, production signer/feed absent.
+See [exact evidence and next steps](qualification/WSA-UX-029_slice14_package_integrity.md).
+Earlier dated sections below preserve historical, narrower results.
+
 
 
 ## WSA-UX-029 slice 15 - final software and acceptance boundary (2026-11-13)

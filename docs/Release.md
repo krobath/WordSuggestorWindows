@@ -1,15 +1,18 @@
 # Windows beta packaging and release
 
-## Authorized native follow-up (2026-11-13)
+## Package integrity follow-up (2026-11-13)
 
-Native tests verify .1-to-.2 updates, higher-version rollback with dirty-draft
-retention, installed GUI/Notepad (55 checks) and rejection of newer invalid feeds.
-G05 remains blocked (0x800706F7); corrupt-package installation, version negatives
-and dedicated uninstall retention still need the final remaining-check run.
-The four-package harness keeps deliberate skips false and cannot qualify a public
-release. Cleanup is verified; UAC cancellation reports are not attributed to the user.
-See [exact results and next action](qualification/WSA-UX-029_slice14_native_acceptance.md).
-Earlier pending-approval/no-install statements are historical preparation results.
+Current Settings and fresh build pass (0 warnings/errors); the reported
+OpenInstaller call was already removed by 92f2ed5. New MSIXs enforce Windows
+runtime content integrity. Native testing now proves corrupt-signature rejection,
+older/same-version behavior and data preservation after uninstall. A payload-only
+corrupt source was accepted, but all 441 installed content files matched the
+trusted original; registration alone never qualifies integrity. Release tests: 94.
+G05 stays blocked; this run deliberately skips GUI/automatic update. Full release
+remains unqualified, Hello user-deferred, production signer/feed absent.
+See [exact evidence and next steps](qualification/WSA-UX-029_slice14_package_integrity.md).
+Earlier dated sections below preserve historical, narrower results.
+
 
 
 Final software/desktop qualification and the updated local signing series are
@@ -222,7 +225,13 @@ powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreviousBundleDi
 The harness attempts clean ordinary-user install, packaged Core/DA + user word,
 automatic and manual N-to-N+1 update, settings/pack/user-word hash retention,
 installed relaunch/desktop smoke, offline/invalid/wrong identity/publisher,
-tamper/older-version rejection, same-version unchanged and uninstall retention.
+signature-footprint/older-version rejection, same-version unchanged and uninstall retention.
+A separate payload-corruption case requires native rejection or exact SHA-256/size
+equality of every installed block-map-listed file against the trusted original,
+before any launch. A corrupt source archive still fails the production uploader.
+New bundles must declare uap10:PackageIntegrity/Content Enforcement=on; old signed
+fixtures without it must be rebuilt. Runtime detection by modifying WindowsApps
+files is not claimed. See the current evidence linked above.
 Same-version reinstall is not described as a Windows rejection. Native evidence
 is the ignored msix-qualification.json, not mocks. Additionally qualify editor
 draft/session retention across the actual update, unknown signer rejection,

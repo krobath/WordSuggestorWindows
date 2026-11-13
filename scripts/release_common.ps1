@@ -46,6 +46,15 @@ function Get-ReleaseFileContract([string]$Path) {
     return [ordered]@{ filename=$item.Name; size_bytes=[long]$item.Length; sha256=(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 
+function Assert-ReleaseIntegrityManifest($Document) {
+    $namespaces=New-Object Xml.XmlNamespaceManager($Document.NameTable)
+    $namespaces.AddNamespace('p','http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+    $namespaces.AddNamespace('u10','http://schemas.microsoft.com/appx/manifest/uap/windows10/10')
+    $policy=$Document.SelectNodes('/p:Package/p:Properties/u10:PackageIntegrity',$namespaces)
+    $content=$Document.SelectNodes('/p:Package/p:Properties/u10:PackageIntegrity/u10:Content',$namespaces)
+    if($policy.Count -ne 1 -or $content.Count -ne 1 -or $content[0].GetAttribute('Enforcement') -cne 'on'){throw 'MSIX runtime package integrity enforcement must be on; rebuild this bundle.'}
+}
+
 function Get-MsixIdentity([string]$Path) {
     $null = Assert-ReleaseFile $Path
     Add-Type -AssemblyName System.IO.Compression,System.IO.Compression.FileSystem
@@ -55,6 +64,7 @@ function Get-MsixIdentity([string]$Path) {
         if (-not $entry -or $entry.Length -gt 1048576) { throw 'MSIX manifest is missing or too large.' }
         $reader = New-Object IO.StreamReader($entry.Open(), [Text.Encoding]::UTF8)
         try { $document = Read-ReleaseXml $reader.ReadToEnd() } finally { $reader.Dispose() }
+        Assert-ReleaseIntegrityManifest $document
         $identity = $document.Package.Identity
         if (-not $identity -or $identity.ProcessorArchitecture -cne 'x64') { throw 'An x64 MSIX identity is required.' }
         Assert-PackageVersion ([string]$identity.Version)

@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
+. (Join-Path $PSScriptRoot 'msix_integrity.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $root = Join-Path $repo ('.artifacts\tests\release-' + [guid]::NewGuid().ToString('N'))
 $bundle = Join-Path $root 'bundle'
@@ -18,7 +19,7 @@ $zip = [IO.Compression.ZipFile]::Open($packagePath,[IO.Compression.ZipArchiveMod
 try {
     $entry = $zip.CreateEntry('AppxManifest.xml')
     $writer = New-Object IO.StreamWriter($entry.Open(),[Text.UTF8Encoding]::new($false))
-    try { $writer.Write('<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"><Identity Name="WordSuggestor.Windows.Beta" Publisher="CN=Fixture" Version="0.2.0.1" ProcessorArchitecture="x64" /></Package>') }
+    try { $writer.Write('<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"><Identity Name="WordSuggestor.Windows.Beta" Publisher="CN=Fixture" Version="0.2.0.1" ProcessorArchitecture="x64" /><Properties><uap10:PackageIntegrity><uap10:Content Enforcement="on"/></uap10:PackageIntegrity></Properties></Package>') }
     finally { $writer.Dispose() }
 } finally { $zip.Dispose() }
 $feedPath = Join-Path $bundle 'WordSuggestor.Beta.appinstaller'
@@ -236,4 +237,68 @@ $verificationRejected=Invoke-ReleaseProcess $powershell @('-NoProfile','-Executi
 Check 'expected verifier stderr preserves nonzero status without a PowerShell stop' ($verificationRejected.ExitCode -eq 1 -and $verificationRejected.Error.Contains('SYNTHETIC_SIGNATURE_REJECTION'))
 $guiSkip=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-SkipInstalledGuiProbe','-PreviousBundleDirectory',$bundle,'-CandidateBundleDirectory',$bundle) 15
 Check 'GUI-skipping qualification is rejected for production fixtures' ($guiSkip.ExitCode -ne 0 -and ($guiSkip.Output+$guiSkip.Error).Contains('Skipping installed GUI qualification is restricted'))
+# Runtime integrity is mandatory for newly built and uploaded packages. The
+# legacy fixture intentionally remains unsigned; these are structural checks.
+$runtimeManifest=[IO.File]::ReadAllText((Join-Path $repo 'packaging/AppxManifest.xml'))
+Assert-ReleaseIntegrityManifest (Read-ReleaseXml $runtimeManifest)
+Check 'packaging template enables Windows runtime content integrity' $true
+foreach($policy in @('off','default','ON')) {
+    Reject ("runtime integrity $policy is rejected") {Assert-ReleaseIntegrityManifest (Read-ReleaseXml $runtimeManifest.Replace('Enforcement="on"',('Enforcement="'+$policy+'"')))}
+}
+Reject 'missing runtime integrity is rejected' {Assert-ReleaseIntegrityManifest (Read-ReleaseXml ([regex]::Replace($runtimeManifest,'<uap10:PackageIntegrity>.*?</uap10:PackageIntegrity>','',[Text.RegularExpressions.RegexOptions]::Singleline)))}
+Reject 'wrong integrity namespace is rejected' {Assert-ReleaseIntegrityManifest (Read-ReleaseXml $runtimeManifest.Replace('/uap/windows10/10','/uap/windows10/99'))}
+Reject 'duplicate runtime integrity is rejected' {Assert-ReleaseIntegrityManifest (Read-ReleaseXml $runtimeManifest.Replace('</uap10:PackageIntegrity>','</uap10:PackageIntegrity><uap10:PackageIntegrity><uap10:Content Enforcement="on" /></uap10:PackageIntegrity>'))}
+
+# Deliberately synthetic ZIPs, not deployable MSIXs. Native trust/rejection is
+# tested separately on actual SignTool-signed LocalTest packages.
+$payloadDirectory=Join-Path $root 'installed-payload'
+New-Item -ItemType Directory -Path (Join-Path $payloadDirectory 'data') -Force | Out-Null
+$dllBytes=[byte[]](0..255)
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'Fixture.dll'),$dllBytes)
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'data/sample.bin'),[byte[]](9,8,7,6))
+$blockMap='<BlockMap xmlns="http://schemas.microsoft.com/appx/2010/blockmap"><File Name="Fixture.dll"/><File Name="data\sample.bin"/></BlockMap>'
+function New-IntegrityFixture([string]$Path,[string]$Map=$blockMap) {
+    $archive=[IO.Compression.ZipFile]::Open($Path,[IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach($name in @('Fixture.dll','data/sample.bin','AppxSignature.p7x','AppxBlockMap.xml')) {
+            $bytes=switch($name){'Fixture.dll'{$dllBytes};'data/sample.bin'{[byte[]](9,8,7,6)};'AppxSignature.p7x'{[byte[]](1..16)};default{[Text.Encoding]::UTF8.GetBytes($Map)}}
+            $entry=$archive.CreateEntry($name,[IO.Compression.CompressionLevel]::NoCompression)
+            $output=$entry.Open();try{$output.Write($bytes,0,$bytes.Length)}finally{$output.Dispose()}
+        }
+    }finally{$archive.Dispose()}
+}
+function Read-IntegrityEntry([string]$Path,[string]$Name) {
+    $archive=[IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $input=$archive.GetEntry($Name).Open();$memory=New-Object IO.MemoryStream
+        try{$input.CopyTo($memory);return [Convert]::ToBase64String($memory.ToArray())}finally{$input.Dispose();$memory.Dispose()}
+    }finally{$archive.Dispose()}
+}
+$originalIntegrity=Join-Path $root 'integrity-original.msix'
+New-IntegrityFixture $originalIntegrity
+Check 'installed comparison verifies every original payload file' ((Assert-InstalledMsixPayload $originalIntegrity $payloadDirectory) -eq 2)
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'Fixture.dll'),[byte[]](255..0))
+Reject 'same-sized altered installed DLL is rejected' {Assert-InstalledMsixPayload $originalIntegrity $payloadDirectory}
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'Fixture.dll'),$dllBytes)
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'data/sample.bin'),[byte[]](9,8,7))
+Reject 'changed installed payload size is rejected' {Assert-InstalledMsixPayload $originalIntegrity $payloadDirectory}
+Remove-Item -LiteralPath (Join-Path $payloadDirectory 'data/sample.bin')
+Reject 'missing installed payload file is rejected' {Assert-InstalledMsixPayload $originalIntegrity $payloadDirectory}
+[IO.File]::WriteAllBytes((Join-Path $payloadDirectory 'data/sample.bin'),[byte[]](9,8,7,6))
+foreach($badName in @('..\escape.bin','C:\escape.bin','Fixture.dll')) {
+    $badPackage=Join-Path $root ([guid]::NewGuid().ToString('N')+'.msix')
+    New-IntegrityFixture $badPackage $blockMap.Replace('data\sample.bin',$badName)
+    Reject ("unsafe or duplicate block-map path rejected: $badName") {Assert-InstalledMsixPayload $badPackage $payloadDirectory}
+}
+$signatureCorruption=Join-Path $root 'integrity-bad-signature.msix'
+New-MsixSignatureCorruption $originalIntegrity $signatureCorruption
+Check 'signature corruption leaves original payload intact' ((Read-IntegrityEntry $originalIntegrity 'Fixture.dll') -ceq (Read-IntegrityEntry $signatureCorruption 'Fixture.dll'))
+Check 'signature corruption actually changes signature footprint' ((Read-IntegrityEntry $originalIntegrity 'AppxSignature.p7x') -cne (Read-IntegrityEntry $signatureCorruption 'AppxSignature.p7x'))
+Reject 'signature fixture never overwrites an existing artifact' {New-MsixSignatureCorruption $originalIntegrity $signatureCorruption}
+$payloadCorruption=Join-Path $root 'integrity-bad-payload.msix'
+$payloadMutation=New-MsixPayloadCorruption $originalIntegrity $payloadCorruption
+Check 'payload corruption targets compressed DLL data' ($payloadMutation.entry -ceq 'Fixture.dll' -and $payloadMutation.offset -eq (30+11+53))
+Check 'payload corruption retains the signed footprint and block map' ((Read-IntegrityEntry $originalIntegrity 'AppxSignature.p7x') -ceq (Read-IntegrityEntry $payloadCorruption 'AppxSignature.p7x') -and (Read-IntegrityEntry $originalIntegrity 'AppxBlockMap.xml') -ceq (Read-IntegrityEntry $payloadCorruption 'AppxBlockMap.xml'))
+Check 'payload mutation changes archive bytes' ((Get-FileHash -LiteralPath $originalIntegrity).Hash -cne (Get-FileHash -LiteralPath $payloadCorruption).Hash)
+Reject 'payload fixture never overwrites an existing artifact' {New-MsixPayloadCorruption $originalIntegrity $payloadCorruption}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"
