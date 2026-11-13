@@ -13,7 +13,7 @@ public sealed record WindowsUpdatePolicy(
     public override string ToString() => $"WindowsUpdatePolicy[source={PolicySource}, onLaunch={OnLaunch}, background={Background}]";
 }
 public sealed record WindowsUpdatePolicyResult(string Code, WindowsUpdatePolicy? Policy = null, bool CanChange = false, string? HResult = null);
-public sealed record WindowsUpdateMutationResult(string Code, WindowsUpdatePolicy? Policy, bool Restored, string? HResult = null);
+public sealed record WindowsUpdateMutationResult(string Code, WindowsUpdatePolicy? Policy, bool Restored, string? HResult = null, string? Stage = null);
 public sealed record NativeUpdateAvailability(string Code, string? HResult = null);
 
 public interface IWindowsUpdatePlatform
@@ -43,7 +43,7 @@ public sealed class VerifiedUpdateHandoff
 
 internal static class UpdatePolicyQualification
 {
-    // Release gate: current host cannot establish trusted LocalTest MSIX execution.
+    // Release gate: native G05 mutation still fails; installed tests now run.
     // Flip only in a reviewed change with native packaged read/change/read/restore evidence.
     public static readonly bool ProductionWriteQualified = false;
 }

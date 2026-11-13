@@ -85,26 +85,31 @@ public sealed class WindowsNativeUpdatePlatform : IWindowsUpdatePlatform
     [SupportedOSPlatform("windows10.0.22000")]
     private WindowsUpdateMutationResult RestoreNativeFixture(WindowsUpdatePolicy original)
     {
+        var stage = "restore_identity";
         try
         {
             var package = OwnPackage();
             var match = System.Text.RegularExpressions.Regex.Match(package.Id.Name, @"^WordSuggestor\.Windows\.LocalTest\.([a-f0-9]{8,32})$");
             if (!match.Success || package.Id.Publisher != "CN=WordSuggestor Local Test " + match.Groups[1].Value ||
                 new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator)) return new("fixture_rejected", null, false);
+            stage = "restore_read";
             var info = package.GetAppInstallerInfo(); var now = Snapshot(package, info);
             if (now.NonSchedulingFingerprint != original.NonSchedulingFingerprint) return new("restore_failed", now, false);
             if (now.OnLaunch != original.OnLaunch || now.Background != original.Background)
             {
+                stage = "restore_options";
                 var options = AutoUpdateSettingsOptions.CreateFromAppInstallerInfo(info);
                 options.OnLaunch = original.OnLaunch; options.AutomaticBackgroundTask = original.Background;
+                stage = "restore_write";
                 AppInstallerManager.GetDefault().SetAutoUpdateSettings(package.Id.FamilyName, options);
             }
+            stage = "restore_verify";
             var restored = Snapshot(OwnPackage(), OwnPackage().GetAppInstallerInfo());
             return restored.NonSchedulingFingerprint == original.NonSchedulingFingerprint && restored.OnLaunch == original.OnLaunch && restored.Background == original.Background
-                ? new("restored", restored, true) : new("restore_failed", restored, false);
+                ? new("restored", restored, true, Stage: stage) : new("restore_failed", restored, false, Stage: stage);
         }
         catch (Exception e) when (e is InvalidOperationException or ArgumentException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
-        { return new("restore_failed", null, false, Code(e)); }
+        { return new("restore_failed", null, false, Code(e), stage); }
     }
     [SupportedOSPlatform("windows10.0.22000")]
     private WindowsUpdateMutationResult MutatePolicy(WindowsUpdatePolicy expected, bool enabled, CancellationToken cancellation, bool fixture)
@@ -121,33 +126,48 @@ public sealed class WindowsNativeUpdatePlatform : IWindowsUpdatePlatform
         if (before != expected && (before.NonSchedulingFingerprint != expected.NonSchedulingFingerprint || before.OnLaunch != expected.OnLaunch || before.Background != expected.Background)) return new("conflict", before, false);
         if (before.PolicySource != "Default") return new("system_managed", before, false);
         cancellation.ThrowIfCancellationRequested();
-        var restoreOptions = AutoUpdateSettingsOptions.CreateFromAppInstallerInfo(beforeInfo);
-        var manager = AppInstallerManager.GetDefault(); var attempted = false;
+        AutoUpdateSettingsOptions? restoreOptions = null;
+        AppInstallerManager? manager = null;
+        var attempted = false; var stage = "prepare_restore";
         try
         {
+            restoreOptions = AutoUpdateSettingsOptions.CreateFromAppInstallerInfo(beforeInfo);
+            stage = "create_manager";
+            manager = AppInstallerManager.GetDefault();
+            stage = "create_options";
             var options = AutoUpdateSettingsOptions.CreateFromAppInstallerInfo(beforeInfo);
+            stage = "set_flags";
             options.OnLaunch = options.AutomaticBackgroundTask = enabled;
+            stage = "write_policy";
             attempted = true; manager.SetAutoUpdateSettings(package.Id.FamilyName, options);
+            stage = "read_after";
             var after = Snapshot(OwnPackage(), OwnPackage().GetAppInstallerInfo());
+            stage = "verify_after";
             if (cancellation.IsCancellationRequested || after.NonSchedulingFingerprint != before.NonSchedulingFingerprint || after.OnLaunch != enabled || after.Background != enabled) throw new InvalidOperationException("OS policy verification failed.");
-            return new("saved", after, false);
+            return new("saved", after, false, Stage: stage);
         }
         catch (Exception e) when (e is InvalidOperationException or ArgumentException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
         {
+            var failureStage = stage;
             if (attempted)
             {
                 try
                 {
+                    stage = "recovery_read";
                     var now = Snapshot(OwnPackage(), OwnPackage().GetAppInstallerInfo());
                     if (now.NonSchedulingFingerprint != before.NonSchedulingFingerprint || now.OnLaunch != before.OnLaunch || now.Background != before.Background)
-                        manager.SetAutoUpdateSettings(package.Id.FamilyName, restoreOptions);
+                    {
+                        stage = "recovery_write";
+                        manager!.SetAutoUpdateSettings(package.Id.FamilyName, restoreOptions!);
+                    }
+                    stage = "recovery_verify";
                     var restored = Snapshot(OwnPackage(), OwnPackage().GetAppInstallerInfo());
-                    if (restored.NonSchedulingFingerprint != before.NonSchedulingFingerprint || restored.OnLaunch != before.OnLaunch || restored.Background != before.Background) return new("restore_failed", restored, false, Code(e));
+                    if (restored.NonSchedulingFingerprint != before.NonSchedulingFingerprint || restored.OnLaunch != before.OnLaunch || restored.Background != before.Background) return new("restore_failed", restored, false, Code(e), stage);
                 }
                 catch (Exception restore) when (restore is InvalidOperationException or ArgumentException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
-                { return new("restore_failed", null, false, Code(restore)); }
+                { return new("restore_failed", null, false, Code(restore), stage); }
             }
-            return new("write_failed", before, true, Code(e));
+            return new("write_failed", before, true, Code(e), failureStage);
         }
     }
     private Package OwnPackage()

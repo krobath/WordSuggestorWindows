@@ -46,6 +46,16 @@ function Get-ReleaseFileContract([string]$Path) {
     return [ordered]@{ filename=$item.Name; size_bytes=[long]$item.Length; sha256=(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 
+function Add-TestUpdatePolicyCapabilities($Document,[bool]$LocalTest) {
+    if(-not $LocalTest -or $Document.Package.Identity.Name -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
+        $Document.Package.Identity.Publisher -cne ('CN=WordSuggestor Local Test '+$Document.Package.Identity.Name.Split('.')[-1])){throw 'Update-policy capability experiments require an isolated LocalTest identity.'}
+    foreach($name in @('packageManagement','packageQuery')) {
+        $element=$Document.CreateElement('rescap','Capability','http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities')
+        $element.SetAttribute('Name',$name)
+        $null=$Document.Package.Capabilities.AppendChild($element)
+    }
+}
+
 function Assert-ReleaseIntegrityManifest($Document) {
     $namespaces=New-Object Xml.XmlNamespaceManager($Document.NameTable)
     $namespaces.AddNamespace('p','http://schemas.microsoft.com/appx/manifest/foundation/windows10')

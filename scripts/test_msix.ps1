@@ -9,6 +9,8 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipAutomaticUpdateProbe,
     [switch]$SkipInstalledGuiProbe,
+    [switch]$UpdatePolicyDiagnostic,
+    [ValidateRange(0,255)][int]$UpdatePolicyDiagnosticHours=0,
     [switch]$AllowTemporaryMachineTrust
 )
 $ErrorActionPreference = 'Stop'
@@ -26,6 +28,7 @@ if ($PreparedLocalTestSession) {
     $prepared=([IO.File]::ReadAllText((Join-Path $preparedRoot 'prepared-session.json'))|ConvertFrom-Json)
     if($prepared.schema_version -ne 1 -or $prepared.package_name -cne ('WordSuggestor.Windows.LocalTest.'+[IO.Path]::GetFileName($preparedRoot).Substring(9)) -or $prepared.trust_changed -ne $false -or $prepared.installed -ne $false -or $prepared.key_removed -ne $true){throw 'Prepared session is not safe for qualification.'}
     if(-not $prepared.negative_bundle){throw 'Reprepare the isolated series: a newer negative-test bundle is required.'}
+    if($prepared.update_policy_capability_experiment -and -not $UpdatePolicyDiagnostic){throw 'Capability experiment fixtures require UpdatePolicyDiagnostic; they cannot qualify the default release suite.'}
     foreach($path in @($prepared.previous_bundle,$prepared.candidate_bundle,$prepared.rollback_bundle,$prepared.negative_bundle)) {
         if(-not $path -or -not ([IO.Path]::GetFullPath($path)).StartsWith(($windowsRepo+'\.artifacts\release\'),[StringComparison]::OrdinalIgnoreCase)){throw 'Prepared bundle is outside release artifacts.'}
         $input=Test-ReleaseBundle $path -LocalTest
@@ -39,6 +42,8 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 if ([bool]$PreviousBundleDirectory -ne [bool]$CandidateBundleDirectory) { throw 'Provide both production bundles, or neither for isolated local testing.' }
 $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
+if($UpdatePolicyDiagnostic -and (-not $PreparedLocalTestSession -or -not $localTest -or -not $prepared.update_policy_capability_experiment)){throw 'UpdatePolicyDiagnostic requires prepared isolated capability-experiment fixtures.'}
+if($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticHours') -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic update intervals require UpdatePolicyDiagnostic.'}
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
 if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
@@ -88,7 +93,7 @@ function Make-TestFeed($Bundle) {
     $xml = Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $Bundle.Directory $r.update_feed.filename)))
     $xml.AppInstaller.Uri = ([uri](Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller')).AbsoluteUri
     $xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot $r.artifact.filename)).AbsoluteUri
-    $xml.AppInstaller.UpdateSettings.OnLaunch.HoursBetweenUpdateChecks = '0'
+    $xml.AppInstaller.UpdateSettings.OnLaunch.HoursBetweenUpdateChecks = if($UpdatePolicyDiagnostic){[string]$UpdatePolicyDiagnosticHours}else{'0'}
     $xml.Save((Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller'))
 }
 function Probe-InstalledData($Package, [string]$Mode) {
@@ -151,6 +156,22 @@ function Reject-Feed([string]$Name, [scriptblock]$Mutate) {
     try { Add-AppxPackage -AppInstallerFile -Path $path -ErrorAction Stop } catch { $rejected = $true }
     if (-not $rejected -or [string](Installed).Version -ne $before) { throw "Windows did not reject $Name safely." }
     Pass $Name
+}
+function Probe-UpdatePolicyDiagnostic($Package,[string]$Label) {
+    . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+    if(-not $record.Contains('update_policy_input_hours')){$record.update_policy_input_hours=[ordered]@{}}
+    $record.update_policy_input_hours[$Label]=(Get-SettingsUpdateSnapshot $Package.PackageFamilyName).HoursBetweenUpdateChecks
+    $output=Join-Path $root ('policy-'+$Label)
+    $code=Invoke-SettingsGateProcess (Join-Path $PSScriptRoot 'test_settings_platform.ps1') @('-PackagedUpdateProbe','-TestPackageFamilyName',$Package.PackageFamilyName,'-RunnerPath',$runner,'-OutputDirectory',$output) (Join-Path $root ('policy-'+$Label+'.log')) 6>$null
+    if($code -notin @(0,3)){throw 'Targeted update-policy diagnostic failed or restoration was not verified.'}
+    $result=Get-Content -LiteralPath (Join-Path $output 'update-native.json') -Raw | ConvertFrom-Json
+    if(-not $result.mutation_stage){throw 'Rebuild diagnostic fixtures: precise mutation-stage evidence is required.'}
+    $expectCapabilities=$Label -ceq 'capabilities'
+    if($result.package_management_declared -ne $expectCapabilities -or $result.package_query_declared -ne $expectCapabilities){throw 'Diagnostic capability declarations do not match the expected variant.'}
+    $record.update_policy_diagnostics[$Label]=$result
+    Write-Output ('G05 '+$Label+' status='+$result.status+' stage='+$result.mutation_stage+' hresult='+$result.hresult+' management='+$result.package_management_declared+' query='+$result.package_query_declared+' restored='+$result.restored)
+    if($result.native_control){Write-Output ('G05 '+$Label+' C++ context='+$result.native_control.packaged_context_matches+' noop='+$result.native_control.noop_verified+' off='+$result.native_control.off_verified+' on='+$result.native_control.on_verified+' stage='+$result.native_control.failure_stage+' hresult='+$result.native_control.hresult+' restored='+$result.native_control.restored)}
+    Close-OwnedTestInstances
 }
 try {
     if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build_app.ps1') }
@@ -232,6 +253,18 @@ try {
     $installedByThisRun = $true
     $installed = Wait-Version $previous.Identity.Version
     Pass 'clean_install'; Pass 'standard_user'
+    if($UpdatePolicyDiagnostic){
+        $record.mode='update_policy_diagnostic';$record.update_policy_diagnostics=[ordered]@{}
+        Probe-UpdatePolicyDiagnostic $installed 'baseline'
+        Make-TestFeed $candidate
+        Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
+        $installed=Wait-Version $candidate.Identity.Version
+        Probe-UpdatePolicyDiagnostic $installed 'capabilities'
+        . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+        $record.native_reference=Get-SettingsUpdateQualification $installed.PackageFamilyName
+        if($UpdatePolicyDiagnosticHours -gt 0){$record.zero_interval_control=Get-SettingsZeroIntervalControl $installed.PackageFamilyName}
+        $finished=$true
+    }else{
     New-Item -ItemType Directory -Path (Join-Path $data 'Packs'),(Join-Path $data 'settings') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $installed.InstallLocation 'Packs\da_lexicon.sqlite') -Destination (Join-Path $data 'Packs\da_lexicon.sqlite')
     [IO.File]::WriteAllText((Join-Path $data 'settings\settings-v1.json'),'{"schemaVersion":6,"selectedLanguageCode":"da-DK","readingSpeedDelta":0.25}')
@@ -418,6 +451,7 @@ try {
     }
     Pass 'uninstall_retention'
     $finished = $true
+    }
 } catch {
     $record.failure_category = $_.Exception.GetType().Name
     $record.failure_hresult = ('0x' + $_.Exception.HResult.ToString('X8'))
@@ -437,7 +471,7 @@ try {
         $ownedCert = Get-Item -LiteralPath ('Cert:\CurrentUser\My\' + $cert.Thumbprint) -ErrorAction SilentlyContinue
         if ($ownedCert -and $ownedCert.Subject -ceq $cert.Subject) { Remove-Item -LiteralPath ('Cert:\CurrentUser\My\' + $cert.Thumbprint) -DeleteKey -Force }
     }
-    $record.all_checks_passed = $finished -and @($checks.Values | Where-Object { $_ -ne $true }).Count -eq 0
+    $record.all_checks_passed = -not $UpdatePolicyDiagnostic -and $finished -and @($checks.Values | Where-Object { $_ -ne $true }).Count -eq 0
     $record.release_qualified = $false # isolated test identity never qualifies official production signing
     $record.completed = $finished
     $record.finished_at = [DateTimeOffset]::UtcNow.ToString('o')

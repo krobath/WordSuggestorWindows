@@ -16,6 +16,8 @@
     [switch]$FrameworkDependent,
     [switch]$LocalTestIdentity,
     [switch]$PrepareUntrustedLocalTest,
+    [switch]$TestUpdatePolicyCapabilities,
+    [string]$TestUpdatePolicyNativeControlPath,
     [string]$TestPackageName,
     [string]$LocalTestFeedDirectory
 )
@@ -27,6 +29,8 @@ Assert-PackageVersion $PackageVersion
 Assert-ReleaseText $DisplayVersion 128
 Assert-ReleaseText $BuildNumber 128
 $packageName = $script:ProductionPackageName
+if($TestUpdatePolicyCapabilities -and -not $LocalTestIdentity){throw 'Update-policy capability experiments require LocalTestIdentity.'}
+if($TestUpdatePolicyNativeControlPath -and -not $LocalTestIdentity){throw 'Native policy controls require LocalTestIdentity.'}
 if ($PrepareUntrustedLocalTest -and (-not $LocalTestIdentity -or $ReleaseStatus -ne 'pending')) { throw 'Untrusted preparation is only allowed for isolated pending local-test packages.' }
 if ($LocalTestIdentity) {
     if ($TestPackageName -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
@@ -103,10 +107,17 @@ try {
         finally { $graphics.Dispose(); $bitmap.Dispose() }
     }
 } finally { $icon.Dispose() }
+if($TestUpdatePolicyNativeControlPath){
+    $null=Assert-ReleaseFile $TestUpdatePolicyNativeControlPath
+    $diagnostics=Join-Path $stage 'Diagnostics'
+    New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
+    Copy-Item -LiteralPath $TestUpdatePolicyNativeControlPath -Destination (Join-Path $diagnostics 'UpdatePolicyControl.exe')
+}
 $manifest = [xml](Get-Content -LiteralPath (Join-Path $windowsRepo 'packaging\AppxManifest.xml') -Raw -Encoding UTF8)
 $manifest.Package.Identity.Version = $Version
 $manifest.Package.Identity.Name = $packageName
 $manifest.Package.Identity.Publisher = $Publisher
+if($TestUpdatePolicyCapabilities){Add-TestUpdatePolicyCapabilities $manifest ([bool]$LocalTestIdentity)}
 $manifest.Save((Join-Path $stage 'AppxManifest.xml'))
 # Record reproducible input identities without absolute machine paths or content.
 $coreRepo = Join-Path (Split-Path $windowsRepo -Parent) 'WordSuggestorCore'

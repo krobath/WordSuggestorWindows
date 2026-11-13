@@ -77,6 +77,13 @@ internal static class UpdateSettingsSmoke
         Check("real loose process has no fabricated installed identity",WindowsUpdateService.ReadInstalledRelease() is null && nativeState.Code=="not_installed" && nativeState.Policy is null && !nativeState.CanChange);
         var denied=await native.SetAsync(Policy(),true,default);
         Check("production write gate cannot be enabled by a fake snapshot",denied.Code=="qualification_required");
+        var nativeEvidence="{\"schema_version\":2,\"info_route\":\"current_package\",\"packaged_context_matches\":true,\"noop_verified\":false,\"off_verified\":false,\"on_verified\":false,\"restored\":true,\"failure_stage\":\"write_manual_noop\",\"hresult\":\"0x800706F7\",\"factory_hresult\":\"0x800706F7\",\"manual_options\":true}";
+        Check("native control preserves a bounded blocked result",WindowsUpdateQualification.ReadNativeControlEvidence(nativeEvidence).GetProperty("hresult").GetString()=="0x800706F7");
+        foreach(var bad in new[]{nativeEvidence.Replace("}",",\"document\":\"PRIVATE_TEXT\"}"),nativeEvidence.Replace("write_manual_noop","PRIVATE_TEXT"),nativeEvidence.Replace("\"hresult\":\"0x800706F7\"","\"hresult\":\"0x00000000\""),new string('x',8193)})
+        {
+            var rejected=false;try{WindowsUpdateQualification.ReadNativeControlEvidence(bad);}catch(Exception e)when(e is InvalidDataException or System.Text.Json.JsonException or InvalidOperationException){rejected=true;}
+            Check("native control rejects private, malformed or contradictory proof",rejected);
+        }
         Check("production qualification arguments rejected without touching package",await WindowsUpdateQualification.TryRunAsync(["--qualify-update-policy",Guid.NewGuid().ToString("N")])==3);
         Check("activation helper rejects production target",UpdatePackageActivation.Start("WordSuggestor.Windows.Beta_fixture!App",Guid.NewGuid().ToString("N"))==2);
         Console.WriteLine("EVIDENCE native update write qualification remains BLOCKED; tests use a simulated policy adapter, not native authority. Hello gate deferred by user.");

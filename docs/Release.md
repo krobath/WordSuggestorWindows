@@ -1,5 +1,19 @@
 # Windows beta packaging and release
 
+## G05 isolated native diagnosis (2026-11-13)
+
+Both installed baseline and capability variant fail at write_policy/0x800706F7;
+Windows cmdlet, PowerShell WinRT and native C++ controls fail identically,
+including factory/manual no-op and 0/6-hour comparisons. All
+settings remain unchanged/restored and temporary trust/install cleaned. Broad
+capabilities alone do not solve it, so production rights/template stay unchanged.
+New diagnostic-only guards and actual off/on proof requirements are implemented;
+build, app105, UpdateState31 and release131 pass. G05 stays read-only. The host is current GA Windows 11 26H2, not an
+established Insider/VM fault; native/data diagnosis continues on this same VM.
+See [measured diagnosis and exact isolated procedure](qualification/WSA-UX-029_g05_native_diagnosis.md).
+Earlier acceptance records retain their scope; no G05/public release PASS implied.
+
+
 ## Measured native installer and GUI acceptance (2026-11-13)
 
 The default combined user run completed: 22/24 native checks and all 56 installed
@@ -356,3 +370,23 @@ reader review retain their documented limits. Release gates still require native
 signed installation/update, real trusted identity and approved SSH configuration.
 No payment/licensing changes or macOS/Core/backend source edits are part of this
 Windows cleanup. Preparation has not changed certificate trust or published a feed.
+
+## Isolated G05 capability diagnostic
+
+Use prepare_msix_test -UpdatePolicyCapabilityExperiment and test_msix
+-UpdatePolicyDiagnostic only for the separate comparison described in the newest
+qualification link above. The package_app -TestUpdatePolicyCapabilities switch
+rejects production context. Marked experiment receipts cannot enter the default
+suite. Diagnostic completion always retains all_checks_passed=false and
+release_qualified=false. Neither added capabilities nor a successful fake adapter
+can enable the product G05 write gate. Off AND on readback plus original policy
+restoration are now required for any future native pass; legacy one-step evidence
+is insufficient. The measured 26300.9974 host fails all four write routes.
+
+For the native C++ control, add -BuildUpdatePolicyNativeControl to the marked
+preparation command (VS2022 C++/SDK prerequisites). Its helper is prohibited in
+production packaging and refuses production/unpackaged/elevated callers at runtime.
+-UpdatePolicyDiagnosticHours 6 tests the release interval without changing the
+normal full-suite timing or feed. Only diagnostic mode accepts this parameter.
+Current Windows 11 26H2/build 26300.9974 is GA; no VM replacement is a prerequisite.
+All measured write/no-op routes still fail, so G05 remains unqualified/read-only.

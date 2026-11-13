@@ -335,4 +335,71 @@ Check 'timed-out phase is explicit and never recorded idle' ($timeoutRecord.desk
 $tokens=$null;$syntaxErrors=$null
 $null=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'msix_desktop.ps1'),[ref]$tokens,[ref]$syntaxErrors)
 Check 'desktop orchestration PowerShell syntax' ($syntaxErrors.Count -eq 0)
+$capabilityTemplate=Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $repo 'packaging/AppxManifest.xml')))
+Check 'production template has no experimental package-management capabilities' (-not (@($capabilityTemplate.Package.Capabilities.ChildNodes)|Where-Object {$_.Name -like '*Capability' -and $_.GetAttribute('Name') -in @('packageManagement','packageQuery')}))
+Reject 'capability helper rejects production even if caller sets a test flag' {Add-TestUpdatePolicyCapabilities $capabilityTemplate $true}
+$capabilityTemplate.Package.Identity.Name='WordSuggestor.Windows.LocalTest.123456abcdef'
+$capabilityTemplate.Package.Identity.Publisher='CN=WordSuggestor Local Test 123456abcdef'
+Reject 'capability helper requires explicit local-test context' {Add-TestUpdatePolicyCapabilities $capabilityTemplate $false}
+Add-TestUpdatePolicyCapabilities $capabilityTemplate $true
+Check 'test capability variant declares precisely the two documented capabilities' (@($capabilityTemplate.Package.Capabilities.ChildNodes | Where-Object {$_.GetAttribute('Name') -in @('packageManagement','packageQuery')}).Count -eq 2)
+$capabilityTemplate.Package.Identity.Publisher='CN=Wrong'
+Reject 'test capability helper rejects publisher mismatch' {Add-TestUpdatePolicyCapabilities $capabilityTemplate $true}
+$capGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'package_app.ps1'),'-TestUpdatePolicyCapabilities') 20
+Check 'public packaging rejects capability experiment before publishing' ($capGuard.ExitCode -ne 0 -and ($capGuard.Output+$capGuard.Error).Contains('require LocalTestIdentity'))
+$diagGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicyDiagnostic') 20
+Check 'policy diagnostic requires a prepared isolated experiment before trust' ($diagGuard.ExitCode -ne 0 -and ($diagGuard.Output+$diagGuard.Error).Contains('requires prepared isolated capability-experiment'))
+. (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+$scheduleProof=[pscustomobject]@{steps=@([pscustomobject]@{enabled=$false;verified=$true;code='saved';stage='verify_after';hresult=$null},[pscustomobject]@{enabled=$true;verified=$true;code='saved';stage='verify_after';hresult=$null})}
+Check 'native qualification requires verified off and on modes' (Test-SettingsPolicyScheduleEvidence $scheduleProof)
+$scheduleProof.steps[1].enabled=$false
+Check 'repeating one mode cannot qualify both modes' (-not (Test-SettingsPolicyScheduleEvidence $scheduleProof))
+$scheduleProof.steps[1].enabled=$true;$scheduleProof.steps[1].verified=$false
+Check 'a saved code without actual native verification cannot qualify' (-not (Test-SettingsPolicyScheduleEvidence $scheduleProof))
+$scheduleProof.steps=@($scheduleProof.steps[0])
+Check 'legacy single-transition evidence cannot qualify off/on' (-not (Test-SettingsPolicyScheduleEvidence $scheduleProof))
+$experimentNonce=[guid]::NewGuid().ToString('N').Substring(0,12)
+$experimentRoot=Join-Path $repo ('.artifacts\msix-tests\prepared-'+$experimentNonce)
+New-Item -ItemType Directory -Path $experimentRoot | Out-Null
+[IO.File]::WriteAllText((Join-Path $experimentRoot 'prepared-session.json'),(@{schema_version=1;package_name=('WordSuggestor.Windows.LocalTest.'+$experimentNonce);trust_changed=$false;installed=$false;key_removed=$true;negative_bundle=$bundle;update_policy_capability_experiment=$true}|ConvertTo-Json))
+$experimentGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PreparedLocalTestSession',$experimentRoot) 20
+Check 'experimental capability receipts cannot enter default native qualification' ($experimentGuard.ExitCode -ne 0 -and ($experimentGuard.Output+$experimentGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+$nativeControlGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'package_app.ps1'),'-TestUpdatePolicyNativeControlPath','fixture.exe') 20
+Check 'native C++ control cannot enter production packaging' ($nativeControlGuard.ExitCode -ne 0 -and ($nativeControlGuard.Output+$nativeControlGuard.Error).Contains('Native policy controls require LocalTestIdentity'))
+$nativePrepareGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'prepare_msix_test.ps1'),'-UpdatePolicyNativeControlPath','fixture.exe') 20
+Check 'native C++ control preparation requires isolated diagnostic context' ($nativePrepareGuard.ExitCode -ne 0 -and ($nativePrepareGuard.Output+$nativePrepareGuard.Error).Contains('requires the isolated capability experiment'))
+$intervalGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicyDiagnosticHours','6') 20
+Check 'diagnostic interval cannot alter the normal release qualification flow' ($intervalGuard.ExitCode -ne 0 -and ($intervalGuard.Output+$intervalGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+$mockNames=@('Get-AppxPackage','Get-AppxPackageAutoUpdateSettings','Set-AppxPackageAutoUpdateSettings','Test-SettingsProcessElevated')
+$savedFunctions=@{}
+foreach($name in $mockNames){$existing=Get-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue;$savedFunctions[$name]=if($existing){$existing.ScriptBlock}else{$null}}
+try {
+    Set-Item Function:\Get-AppxPackage { [pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.123456abcdef';Publisher='CN=WordSuggestor Local Test 123456abcdef';PackageFamilyName='WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd'} }
+    Set-Item Function:\Test-SettingsProcessElevated { return $false }
+    Set-Item Function:\Get-AppxPackageAutoUpdateSettings { $script:zeroState | Select-Object * }
+    Set-Item Function:\Set-AppxPackageAutoUpdateSettings {
+        [CmdletBinding()]param($PackageFamilyName,$EnableAutomaticBackgroundTask,$CheckOnLaunch,$HoursBetweenUpdateChecks,$Version,$AppInstallerUri)
+        if($HoursBetweenUpdateChecks -eq 0 -and $script:rejectZero){
+            if($script:dirtyZeroFlags){$script:zeroState.CheckOnLaunch=$false}
+            throw [Runtime.InteropServices.COMException]::new('PRIVATE_NATIVE_ERROR',[int]0x800706f7)
+        }
+        $script:zeroState.HoursBetweenUpdateChecks=$HoursBetweenUpdateChecks
+        $script:zeroState.EnableAutomaticBackgroundTask=$EnableAutomaticBackgroundTask
+        $script:zeroState.CheckOnLaunch=$CheckOnLaunch
+    }
+    foreach($rejectZero in @($true,$false)){
+        $script:dirtyZeroFlags=$false
+        $script:rejectZero=$rejectZero
+        $script:zeroState=[pscustomobject]@{HoursBetweenUpdateChecks=6;EnableAutomaticBackgroundTask=$true;CheckOnLaunch=$true;Version='0.2.0.1';AppInstallerUri='file:///fixture.appinstaller'}
+        $zeroResult=Get-SettingsZeroIntervalControl 'WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd'
+        Check 'zero-interval experiment preserves original policy on rejection or acceptance' ($zeroResult.accepted -eq (-not $rejectZero) -and $zeroResult.restored -and $script:zeroState.HoursBetweenUpdateChecks -eq 6 -and ($rejectZero -eq ($zeroResult.hresult -ceq '0x800706F7')))
+    }
+    $script:rejectZero=$true;$script:dirtyZeroFlags=$true
+    $zeroResult=Get-SettingsZeroIntervalControl 'WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd'
+    Check 'zero-interval rejection restores scheduling-only side effects' (-not $zeroResult.accepted -and $zeroResult.restored -and $script:zeroState.CheckOnLaunch -and $script:zeroState.EnableAutomaticBackgroundTask -and $script:zeroState.HoursBetweenUpdateChecks -eq 6)
+}finally{
+    foreach($name in $mockNames){if($savedFunctions[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedFunctions[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
+}
+$nativeBuildGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'prepare_msix_test.ps1'),'-BuildUpdatePolicyNativeControl') 20
+Check 'automatic C++ build also requires isolated diagnostic context' ($nativeBuildGuard.ExitCode -ne 0 -and ($nativeBuildGuard.Output+$nativeBuildGuard.Error).Contains('requires the isolated capability experiment'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

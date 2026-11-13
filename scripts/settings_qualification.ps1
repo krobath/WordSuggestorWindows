@@ -86,6 +86,15 @@ function Assert-SettingsQualificationPackage([string]$FamilyName, $Package) {
     }
 }
 
+function Test-SettingsPolicyScheduleEvidence($Result) {
+    $steps=@($Result.steps)
+    if($steps.Count -ne 2){return $false}
+    foreach($step in $steps){
+        if($step.enabled -isnot [bool] -or $step.verified -isnot [bool] -or -not $step.verified -or $step.code -cne 'saved' -or $step.stage -cne 'verify_after' -or $step.hresult){return $false}
+    }
+    return $steps[0].enabled -ne $steps[1].enabled
+}
+
 function Get-SettingsUpdateSnapshot([string]$FamilyName) {
     $value = Get-AppxPackageAutoUpdateSettings -PackageFamilyName $FamilyName -ErrorAction Stop
     if (-not $value) { throw 'The test package has no App Installer association.' }
@@ -223,6 +232,37 @@ function Get-SettingsUpdateQualification([string]$FamilyName) {
         }
     }
     return $results
+}
+
+function Get-SettingsZeroIntervalControl([string]$FamilyName) {
+    $package=Get-AppxPackage | Where-Object PackageFamilyName -CEQ $FamilyName | Select-Object -First 1
+    Assert-SettingsQualificationPackage $FamilyName $package
+    if(Test-SettingsProcessElevated){throw 'Zero-interval control requires an ordinary-user LocalTest.'}
+    $before=Get-SettingsUpdateSnapshot $FamilyName
+    if($before.HoursBetweenUpdateChecks -lt 1){throw 'Positive original interval required.'}
+    $originalFingerprint=ConvertTo-SettingsUpdateFingerprint $before
+    $background=Get-SettingsUpdateFlag $before @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')
+    $launch=Get-SettingsUpdateFlag $before @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')
+    $restore=Get-SettingsUpdateArguments $FamilyName $before $background $launch
+    $zero=Get-SettingsUpdateArguments $FamilyName $before $background $launch
+    $zero.HoursBetweenUpdateChecks=0
+    $matchesOriginal={param($snapshot)
+        (ConvertTo-SettingsUpdateFingerprint $snapshot) -ceq $originalFingerprint -and
+            (Get-SettingsUpdateFlag $snapshot @('AutomaticBackgroundTaskUpdatesEnabled','EnableAutomaticBackgroundTask','AutomaticBackgroundTask')) -eq $background -and
+            (Get-SettingsUpdateFlag $snapshot @('CheckForUpdatesOnLaunch','CheckOnLaunch','OnLaunch')) -eq $launch
+    }
+    $accepted=$false;$errorCode=$null
+    try{Set-AppxPackageAutoUpdateSettings @zero -ErrorAction Stop | Out-Null;$accepted=$true}
+    catch{$failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException};$errorCode=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))}
+    finally{
+        $now=Get-SettingsUpdateSnapshot $FamilyName
+        if(-not (& $matchesOriginal $now)){
+            Set-AppxPackageAutoUpdateSettings @restore -ErrorAction Stop | Out-Null
+        }
+        $after=Get-SettingsUpdateSnapshot $FamilyName
+        if(-not (& $matchesOriginal $after)){throw 'Zero-interval control did not restore policy.'}
+    }
+    return [ordered]@{requested_hours=0;original_hours=$before.HoursBetweenUpdateChecks;accepted=$accepted;hresult=$errorCode;restored=$true}
 }
 
 function Get-SettingsSourceSnapshot([string]$Repository) {

@@ -1,5 +1,19 @@
 # WSA-UX-029: approved closing slices 12-15
 
+## G05 isolated native diagnosis (2026-11-13)
+
+Both installed baseline and capability variant fail at write_policy/0x800706F7;
+Windows cmdlet, PowerShell WinRT and native C++ controls fail identically,
+including factory/manual no-op and 0/6-hour comparisons. All
+settings remain unchanged/restored and temporary trust/install cleaned. Broad
+capabilities alone do not solve it, so production rights/template stay unchanged.
+New diagnostic-only guards and actual off/on proof requirements are implemented;
+build, app105, UpdateState31 and release131 pass. G05 stays read-only. The host is current GA Windows 11 26H2, not an
+established Insider/VM fault; native/data diagnosis continues on this same VM.
+See [measured diagnosis and exact isolated procedure](../qualification/WSA-UX-029_g05_native_diagnosis.md).
+Earlier acceptance records retain their scope; no G05/public release PASS implied.
+
+
 ## Measured native installer and GUI acceptance (2026-11-13)
 
 The default combined user run completed: 22/24 native checks and all 56 installed

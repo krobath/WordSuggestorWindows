@@ -32,7 +32,8 @@ if ($PackagedUpdateProbe) {
     if (-not $restored -or $result.schema_version -ne 1 -or $result.run_id -cne $runId -or $result.package_name -cne $package.Name -or
         $result.packaged_app_context -isnot [bool] -or -not $result.packaged_app_context -or $result.restored -isnot [bool] -or -not $result.restored) { throw 'Native result/restoration validation failed.' }
     $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $OutputDirectory 'update-native.json') -Encoding UTF8
-    if ($result.status -ceq 'passed' -and $result.changed -is [bool] -and $result.changed) { Write-Output 'PASS UPDATE NATIVE packaged change/read/restore; ordinary user; fixture identity/source/pause preserved.'; exit 0 }
+    if($result.mutation_stage){Write-Output ('UPDATE NATIVE stage='+$result.mutation_stage+' code='+$result.mutation_code+' hresult='+$result.hresult)}
+    if ($result.status -ceq 'passed' -and $result.changed -is [bool] -and $result.changed -and (Test-SettingsPolicyScheduleEvidence $result)) { Write-Output 'PASS UPDATE NATIVE packaged off/on/read/restore; ordinary user; fixture identity/source/pause preserved.'; exit 0 }
     if ($result.status -ceq 'blocked') { Write-Warning 'Native update mutation blocked; production G05 remains read-only.'; exit 3 }
     throw 'Native packaged update qualification failed.'
 }
