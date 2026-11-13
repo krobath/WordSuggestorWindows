@@ -409,4 +409,30 @@ Check 'Settings UI probe requires isolated diagnostic context before launch' ($s
 Reject 'Settings UI probe rejects production target before launch' {Get-SettingsUpdateUiEvidence 'WordSuggestor.Windows.Beta_fixture'}
 $comparisonGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-CompareUpdatePolicySchemas') 20
 Check 'cross-schema comparison cannot run outside the isolated diagnostic' ($comparisonGuard.ExitCode -ne 0 -and ($comparisonGuard.Output+$comparisonGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+$displayDocument=Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $repo 'packaging/AppxManifest.xml')))
+Reject 'diagnostic display helper rejects production identity' {Set-TestUpdatePolicyDisplayName $displayDocument $true}
+$displayDocument.Package.Identity.Name='WordSuggestor.Windows.LocalTest.123456abcdef'
+$displayDocument.Package.Identity.Publisher='CN=WordSuggestor Local Test 123456abcdef'
+Reject 'diagnostic display helper requires explicit LocalTest context' {Set-TestUpdatePolicyDisplayName $displayDocument $false}
+$identityBefore=$displayDocument.Package.Identity.OuterXml
+Set-TestUpdatePolicyDisplayName $displayDocument $true
+Check 'diagnostic package shows its unique nonce in app and publisher labels' ($displayDocument.Package.Properties.DisplayName -ceq 'WordSuggestor LocalTest 123456abcdef' -and $displayDocument.Package.Properties.PublisherDisplayName -ceq 'WordSuggestor LocalTest 123456abcdef' -and $displayDocument.SelectSingleNode('//*[local-name()="VisualElements"]').GetAttribute('DisplayName') -ceq 'WordSuggestor LocalTest 123456abcdef')
+Check 'diagnostic display labels do not alter the signed identity' ($displayDocument.Package.Identity.OuterXml -ceq $identityBefore)
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$targetNode=[pscustomobject]@{Current=[pscustomobject]@{Name='WordSuggestor LocalTest 123456abcdef';AutomationId='Target'}}
+$targetNode | Add-Member ScriptMethod GetCurrentPropertyValue {param($property) return $false}
+$toggleNode=[pscustomobject]@{Current=[pscustomobject]@{Name='Automatically update this app';AutomationId='AutoUpdate'}}
+$toggleNode | Add-Member ScriptMethod GetCurrentPropertyValue {param($property) return $true}
+$staleNode=[pscustomobject]@{}
+$staleNode | Add-Member ScriptProperty Current {throw [Runtime.InteropServices.COMException]::new('PRIVATE_UI_TEXT',[int]0x80040201)}
+$uiEvidence=Get-SettingsUiNodeEvidence @($staleNode,$targetNode,$toggleNode) '123456abcdef'
+Check 'one stale UI node does not discard verified target and update control' ($uiEvidence.page_target_verified -and $uiEvidence.update_toggle_found -and $uiEvidence.node_read_errors -eq 1 -and $uiEvidence.toggle_count -eq 1)
+$wrongUi=Get-SettingsUiNodeEvidence @($targetNode,$toggleNode) 'abcdef123456'
+Check 'unverified Settings page exposes no control IDs or counts' (-not $wrongUi.page_target_verified -and -not $wrongUi.update_toggle_found -and $wrongUi.toggle_count -eq 0 -and @($wrongUi.toggle_ids).Count -eq 0)
+Check 'UI diagnostics omit node captions and exception messages' (-not ($uiEvidence|ConvertTo-Json -Depth 4).Contains('PRIVATE_UI_TEXT') -and -not ($uiEvidence|ConvertTo-Json -Depth 4).Contains('Automatically update'))
+$uiFailure=Get-SettingsUiFailure 'read_nodes' ([InvalidOperationException]::new('PRIVATE_WRAPPER',[Runtime.InteropServices.COMException]::new('PRIVATE_INNER',[int]0x80004005)))
+Check 'UI failure reports fixed phase and underlying HRESULT only' ($uiFailure.error_stage -ceq 'read_nodes' -and $uiFailure.hresult -ceq '0x80004005' -and -not ($uiFailure|ConvertTo-Json).Contains('PRIVATE'))
+$uiOnlyGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicySettingsUiOnly') 20
+Check 'Settings UI only mode cannot bypass isolated diagnostic context' ($uiOnlyGuard.ExitCode -ne 0 -and ($uiOnlyGuard.Output+$uiOnlyGuard.Error).Contains('require UpdatePolicyDiagnostic'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

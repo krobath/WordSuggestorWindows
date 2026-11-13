@@ -46,6 +46,17 @@ function Get-ReleaseFileContract([string]$Path) {
     return [ordered]@{ filename=$item.Name; size_bytes=[long]$item.Length; sha256=(Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 
+function Set-TestUpdatePolicyDisplayName($Document,[bool]$LocalTest) {
+    if(-not $LocalTest -or $Document.Package.Identity.Name -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
+        $Document.Package.Identity.Publisher -cne ('CN=WordSuggestor Local Test '+$Document.Package.Identity.Name.Split('.')[-1])){throw 'Diagnostic display names require an isolated LocalTest identity.'}
+    $label='WordSuggestor LocalTest '+$Document.Package.Identity.Name.Split('.')[-1]
+    $Document.Package.Properties.DisplayName=$label
+    $Document.Package.Properties.PublisherDisplayName=$label
+    $visual=$Document.SelectSingleNode('//*[local-name()="VisualElements"]')
+    if(-not $visual){throw 'Diagnostic package visual element missing.'}
+    $visual.SetAttribute('DisplayName',$label)
+}
+
 function Add-TestUpdatePolicyCapabilities($Document,[bool]$LocalTest) {
     if(-not $LocalTest -or $Document.Package.Identity.Name -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
         $Document.Package.Identity.Publisher -cne ('CN=WordSuggestor Local Test '+$Document.Package.Identity.Name.Split('.')[-1])){throw 'Update-policy capability experiments require an isolated LocalTest identity.'}

@@ -1,7 +1,16 @@
 # WordSuggestorWindows — dokumentationsindeks
 
-2026-11-14: UAC was not visible on the VM. No new native result; use the
-[verified interactive continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md#interactive-continuation-verified-2026-11-14).
+## G05 measured input/schema result (2026-11-14)
+
+The operator completed the isolated run: all 21 input attempts still reject with
+0x800706F7, across baseline/capabilities and schemas 2018/2021. Original policy
+and cleanup verified. Settings UI remains unqualified; diagnostic labels/error
+metadata and a read-only UI-only follow-up are added. G05 stays read-only.
+See [measured matrix and next test](qualification/WSA-UX-029_g05_input_schema_acceptance.md).
+
+
+Earlier preparation (superseded by the measured result above): UAC was not visible
+from the agent. The [historical interactive continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md#interactive-continuation-verified-2026-11-14).
 
 ## G05 input/schema investigation (2026-11-13)
 

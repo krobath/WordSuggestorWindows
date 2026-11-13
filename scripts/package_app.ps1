@@ -117,6 +117,7 @@ $manifest = [xml](Get-Content -LiteralPath (Join-Path $windowsRepo 'packaging\Ap
 $manifest.Package.Identity.Version = $Version
 $manifest.Package.Identity.Name = $packageName
 $manifest.Package.Identity.Publisher = $Publisher
+if($TestUpdatePolicyNativeControlPath){Set-TestUpdatePolicyDisplayName $manifest ([bool]$LocalTestIdentity)}
 if($TestUpdatePolicyCapabilities){Add-TestUpdatePolicyCapabilities $manifest ([bool]$LocalTestIdentity)}
 $manifest.Save((Join-Path $stage 'AppxManifest.xml'))
 # Record reproducible input identities without absolute machine paths or content.

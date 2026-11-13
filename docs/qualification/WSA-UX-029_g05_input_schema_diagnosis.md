@@ -1,5 +1,9 @@
 # WSA-UX-029: G05 input and feed-schema investigation
 
+UPDATE 2026-11-14: the interactive run has now completed. Session b14042ba01ae
+is USED. See [actual measured results](WSA-UX-029_g05_input_schema_acceptance.md).
+The unused/not-run statements below describe earlier preparation only.
+
 Date: 2026-11-13. Base b70c61d plus this delivery. Windows-only diagnostic
 extension. The starting working tree was clean. Keep WPF, Core and pack contracts;
 no product write permission, public release or backend change is included.
@@ -152,7 +156,7 @@ Do not infer a VM fault or request replacement from the shared HRESULT alone.
 Windows local docs own this evidence. Shared Docs may link the measured outcome;
 macOS, Core, pack and backend code/contracts remain unchanged.
 
-## Interactive continuation verified 2026-11-14
+## Historical preparation snapshot, before the measured 2026-11-14 run
 
 Prepared session b14042ba01ae remains unused: no installed package, no profile
 files, no signing key or machine leaf trust, all four bundles present. Public
@@ -160,20 +164,6 @@ certificate expires 2026-11-20. Repository clean at 6e15f0f before this evidence
 update. The previous failed attempt has its cleanup request; a new invocation
 creates a NEW attempt directory and does not reuse that failed trust handshake.
 
-From an ordinary (NOT administrator) PowerShell on the VM:
-
-```powershell
-# Run from the WordSuggestorWindows checkout.
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-b14042ba01ae `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicyDiagnosticHours 6 `
-  -CompareUpdatePolicySchemas -UpdatePolicySettingsUiProbe -AllowTemporaryMachineTrust
-```
-
-Approve only the test PowerShell UAC prompt. Do not change Windows Settings during
-the read-only probe. If the prompt is still absent, stop after the error; do not
-repeat blindly or make the whole test elevated. Return the G05 lines and final
-qualification status/path. Diagnostic exit 3 is partial qualification, not a native
-G05 pass; the JSON matrix determines actual results. This interactive run is NOT
-yet performed as of this documentation update. Reprepare after certificate expiry
-or if any package/profile data appears; never reuse an installed test identity.
+This preparation snapshot is historical. The interactive run completed afterwards;
+b14042ba01ae is USED. Its former command is retired. Use only the fresh read-only
+UI follow-up documented in [the measured acceptance record](WSA-UX-029_g05_input_schema_acceptance.md#ready-read-only-ui-test).

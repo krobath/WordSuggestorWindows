@@ -13,6 +13,7 @@ param(
     [ValidateRange(0,255)][int]$UpdatePolicyDiagnosticHours=0,
     [ValidateSet('2018','2021')][string]$UpdatePolicyDiagnosticSchema='2018',
     [switch]$UpdatePolicySettingsUiProbe,
+    [switch]$UpdatePolicySettingsUiOnly,
     [switch]$CompareUpdatePolicySchemas,
     [switch]$AllowTemporaryMachineTrust
 )
@@ -47,7 +48,8 @@ $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
 if($UpdatePolicyDiagnostic -and (-not $PreparedLocalTestSession -or -not $localTest -or -not $prepared.update_policy_capability_experiment)){throw 'UpdatePolicyDiagnostic requires prepared isolated capability-experiment fixtures.'}
 if($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticHours') -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic update intervals require UpdatePolicyDiagnostic.'}
-if(($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticSchema') -or $UpdatePolicySettingsUiProbe -or $CompareUpdatePolicySchemas) -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic schema and Settings UI probes require UpdatePolicyDiagnostic.'}
+if(($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticSchema') -or $UpdatePolicySettingsUiProbe -or $UpdatePolicySettingsUiOnly -or $CompareUpdatePolicySchemas) -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic schema and Settings UI probes require UpdatePolicyDiagnostic.'}
+if($UpdatePolicySettingsUiOnly -and (-not $UpdatePolicySettingsUiProbe -or $CompareUpdatePolicySchemas)){throw 'Settings UI only mode requires its read-only probe and cannot compare schemas.'}
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
 if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
@@ -268,9 +270,12 @@ try {
         $record.mode='update_policy_diagnostic';$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
         if($UpdatePolicySettingsUiProbe){
             . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+            $record.settings_ui_package_version=[string]$installed.Version
+            $record.settings_ui_package_sha256=$previous.Manifest.release.artifact.sha256
             $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName
-            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found)
+            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors)
         }
+        if($UpdatePolicySettingsUiOnly){$record.mode='update_policy_settings_ui';$finished=$true}else{
         Probe-UpdatePolicyDiagnostic $installed 'baseline'
         Make-TestFeed $candidate
         Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
@@ -290,6 +295,7 @@ try {
             Probe-UpdatePolicyDiagnostic $installed ('schema_'+$UpdatePolicyDiagnosticSchema) $true
         }
         $finished=$true
+        }
     }else{
     New-Item -ItemType Directory -Path (Join-Path $data 'Packs'),(Join-Path $data 'settings') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $installed.InstallLocation 'Packs\da_lexicon.sqlite') -Destination (Join-Path $data 'Packs\da_lexicon.sqlite')
