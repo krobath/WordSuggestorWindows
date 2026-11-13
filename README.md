@@ -2,11 +2,12 @@
 
 ## Authorized native follow-up (2026-11-13)
 
-The first approved temporary-trust run passed trusted signing and ordinary-user
-clean installation, and the installed Core returned a positive identity/version-
-bound result. The harness rejected the activation/result handoff; its receipt check
-is corrected and passes local gates. The second UAC was canceled. Installed
-N+1/rollback/policy acceptance is still open; cleanup of package/trust is verified.
+Approved native runs passed trusted signing, ordinary-user clean installation
+and the corrected installed Core/user-word receipt gate. Fixture seeding then hit
+WindowsApps execution protection for a loose test process. The seeder now uses
+the verified MSIX extraction and checks Core/pack hashes against the installation;
+local extraction/readback passes. The next UAC was canceled. Installed N+1,
+rollback and policy remain unqualified; package/trust cleanup is verified.
 See [exact results and next action](docs/qualification/WSA-UX-029_slice14_native_followup.md).
 Earlier pending-approval/no-install statements are historical preparation results.
 

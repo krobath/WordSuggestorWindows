@@ -100,6 +100,20 @@ function Probe-InstalledData($Package, [string]$Mode) {
     $record.probe_result_present=$true
     Write-Output 'PASS MSIX packaged Core/DA and user-word probe'
 }
+function Get-RetentionPayload($Bundle,$Package) {
+    # Loose test processes cannot execute a packaged binary in WindowsApps.
+    # Extract only the already verified signed MSIX; do not change its ACLs.
+    $payload=Join-Path $root ('retention-'+$Bundle.Identity.Version)
+    $makeAppx=Get-ReleaseSdkTool 'makeappx'
+    $null=& $makeAppx unpack /p (Join-Path $Bundle.Directory $Bundle.Manifest.release.artifact.filename) /d $payload /o 2>&1
+    if($LASTEXITCODE -ne 0){throw 'Signed retention payload extraction failed.'}
+    foreach($file in @('Core\WordSuggestorSuggestCLI.exe','Packs\da_lexicon.sqlite')) {
+        if((Get-FileHash -LiteralPath (Join-Path $payload $file) -Algorithm SHA256).Hash -cne
+           (Get-FileHash -LiteralPath (Join-Path $Package.InstallLocation $file) -Algorithm SHA256).Hash){throw 'Retention tool differs from installed signed payload.'}
+    }
+    Write-Host 'PASS MSIX retention fixture Core/pack bytes match installed signed payload'
+    return $payload
+}
 function Reject-Feed([string]$Name, [scriptblock]$Mutate) {
     $xml = Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller')))
     & $Mutate $xml
@@ -188,7 +202,8 @@ try {
     Pass 'core_suggestions'
     $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
     if($localTest) {
-        & $runner --retention-data seed $data $installed.InstallLocation
+        $retentionPayload=Get-RetentionPayload $previous $installed
+        & $runner --retention-data seed $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Installed-data fixture seeding failed.'}
         Pass 'seed_extended_user_data'
     }
@@ -242,21 +257,23 @@ namespace WordSuggestor {
     Probe-InstalledData $installed 'check'
     Pass 'data_retention'
     if($localTest) {
-        & $runner --retention-data check $data $installed.InstallLocation
+        $retentionPayload=Get-RetentionPayload $candidate $installed
+        & $runner --retention-data check $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Extended user data failed installed update readback.'}
         Pass 'extended_user_data_readback'
     }
     if($RollbackBundleDirectory) {
         $rollback=Test-ReleaseBundle $RollbackBundleDirectory -LocalTest:$localTest -VerifySignature
         if($rollback.Identity.Name -cne $candidate.Identity.Name -or $rollback.Identity.Publisher -cne $candidate.Identity.Publisher -or [version]$rollback.Identity.Version -le [version]$candidate.Identity.Version){throw 'Rollback must retain identity/publisher and increase version.'}
-        & $runner --retention-data dirty $data $installed.InstallLocation
+        & $runner --retention-data dirty $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Dirty recovery fixture unavailable.'}
         $draftHash=(Get-FileHash -LiteralPath (Join-Path $data 'editor\workspace-v1.json') -Algorithm SHA256).Hash
         Make-TestFeed $rollback
         Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
         $installed=Wait-Version $rollback.Identity.Version
         if((Get-FileHash -LiteralPath (Join-Path $data 'editor\workspace-v1.json') -Algorithm SHA256).Hash -cne $draftHash){throw 'Higher-version rollback changed dirty drafts.'}
-        & $runner --retention-data check-dirty $data $installed.InstallLocation
+        $retentionPayload=Get-RetentionPayload $rollback $installed
+        & $runner --retention-data check-dirty $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Higher-version rollback data readback failed.'}
         $record.rollback_version=$rollback.Identity.Version;Pass 'higher_version_rollback';Pass 'dirty_draft_retention'
     }

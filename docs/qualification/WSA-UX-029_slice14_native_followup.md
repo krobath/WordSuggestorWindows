@@ -1,5 +1,39 @@
 # WSA-UX-029 slice 14: authorized native installation follow-up
 
+## Latest rerun (2026-11-13, base 0da9334)
+
+User resumed the native test and approved UAC. Attempt
+`.artifacts/msix-tests/3076da95dba94228970ac531d5e08f3b` passed clean_install,
+standard_user and core_suggestions through the corrected fresh receipt gate
+(probe_exit_code=0, probe_result_present=true). It then failed synthetic fixture
+seeding: the unpackaged smoke process cannot CreateProcess the protected
+WindowsApps/Core executable (Win32 error 5). The installed app itself had already
+successfully executed that Core. This is a test setup boundary, not evidence of
+an installed engine failure. No WindowsApps permissions were changed.
+
+The harness now unpacks each already verified signed MSIX with existing MakeAppx
+into its ignored session directory, compares extracted Core executable and bundled
+pack SHA-256 against the installed files, and uses that payload for synthetic
+seed/check/check-dirty. App/Core/user-word proof still comes from the installed
+app via fresh receipts. Learned-overlay readback is through the byte-matched
+extracted Core; this is not an extra native learned-word UI claim. Actual native
+execution of the new hash comparison still requires the next installation run.
+
+The previous synthetic profile is preserved in that attempt's retained-profile.
+Package and temporary trust cleanup are independently verified. Next attempt
+`.artifacts/msix-tests/da237d1c8fb64cacb92b8e71f2515ddf` was canceled in UAC;
+no certificate was added and no package installed. Overall both records remain
+completed=false / all_checks_passed=false / release_qualified=false.
+
+Local correction validation: release gates PASS 68; MakeAppx extracted the actual
+signed .2 MSIX, Core matches build-info SHA, and real Core/store seed/check/dirty/
+check-dirty all PASS on a fresh synthetic profile. No installation or trust change
+in that independent software check. Raw logs `.artifacts/native-retention-release.log`,
+`native-retention-payload.log`, `slice14-native-receipt-rerun.log` and
+`slice14-native-retention-rerun.log`. Earlier receipt-failure history below is retained.
+N to N+1, automatic update, policy, rollback and installed retention remain NOT RUN.
+
+
 Date: 2026-11-13. Base aa450f5. The user explicitly approved temporary leaf trust
 and installation on this PC. No production signer, publication or Hello consent
 was inferred. App/MSIX bytes and macOS/backend/Core/pack sources are unchanged.
@@ -61,8 +95,9 @@ Raw evidence: `.artifacts/native-receipt-{build,release,app,safety}.log`.
 
 ## Next action
 
-The user has been asked whether to open a new UAC dialog after Windows canceled
-the second one, or park the native test. Do not retry that dialog until answered.
+The latest UAC was reported canceled by Windows. The user has been asked whether
+to open a new dialog with the corrected fixture or park the native test. Do not
+retry that dialog until answered.
 When resumed, use the same prepared final app series and corrected test runner:
 
 ```powershell
