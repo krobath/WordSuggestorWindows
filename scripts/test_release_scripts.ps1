@@ -172,4 +172,21 @@ if (Test-Path -LiteralPath $backend) {
     if ($LASTEXITCODE -ne 0) { throw 'Pinned backend contract validation failed.' }
     $script:passed++
 } else { throw 'Pinned backend contract reference is required.' }
+# New local preparation never weakens the production trust gate or installs by default.
+$shell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$myBefore=@(Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue).Count
+$trustBefore=@(Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue).Count
+$dry=Invoke-ReleaseProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'prepare_msix_test.ps1'),'-WhatIf') 15
+Check 'local preparation WhatIf succeeds without provisioning' ($dry.ExitCode -eq 0)
+Check 'WhatIf leaves signer and device trust stores unchanged' (@(Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue).Count -eq $myBefore -and @(Get-ChildItem Cert:\LocalMachine\TrustedPeople -ErrorAction SilentlyContinue).Count -eq $trustBefore)
+$blocked=Invoke-ReleaseProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-SkipBuild') 15
+Check 'native installation defaults to BLOCKED without mutation' ($blocked.ExitCode -eq 3)
+foreach($extra in @(@('-PrepareUntrustedLocalTest'),@('-PrepareUntrustedLocalTest','-LocalTestIdentity','-ReleaseStatus','active'))) {
+ $rejected=Invoke-ReleaseProcess $shell (@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'package_app.ps1'))+$extra) 15
+ Check 'untrusted preparation cannot become production or active' ($rejected.ExitCode -ne 0)
+}
+foreach($script in @('package_app.ps1','prepare_msix_test.ps1','test_msix.ps1')) {
+ $tokens=$null;$parseErrors=$null;$null=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $script),[ref]$tokens,[ref]$parseErrors)
+ Check ($script+' syntax') ($parseErrors.Count -eq 0)
+}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

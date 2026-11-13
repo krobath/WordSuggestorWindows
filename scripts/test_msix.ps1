@@ -1,6 +1,8 @@
 ﻿param(
     [string]$PreviousBundleDirectory,
     [string]$CandidateBundleDirectory,
+    [string]$RollbackBundleDirectory,
+    [string]$PreparedLocalTestSession,
     [switch]$LocalTestIdentity,
     [string]$CoreCliPath,
     [switch]$SkipBuild,
@@ -10,11 +12,27 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'dotnet_env.ps1')
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
+if ($PreparedLocalTestSession) {
+    if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
+    $preparedRoot=[IO.Path]::GetFullPath($PreparedLocalTestSession)
+    $allowed=[IO.Path]::GetFullPath((Join-Path $windowsRepo '.artifacts\msix-tests'))+'\'
+    if(-not $preparedRoot.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($preparedRoot) -cnotmatch '^prepared-[a-f0-9]{12}$'){throw 'Prepared session must be an owned local-test directory.'}
+    $prepared=([IO.File]::ReadAllText((Join-Path $preparedRoot 'prepared-session.json'))|ConvertFrom-Json)
+    if($prepared.schema_version -ne 1 -or $prepared.package_name -cne ('WordSuggestor.Windows.LocalTest.'+[IO.Path]::GetFileName($preparedRoot).Substring(9)) -or $prepared.trust_changed -ne $false -or $prepared.installed -ne $false -or $prepared.key_removed -ne $true){throw 'Prepared session is not safe for qualification.'}
+    foreach($path in @($prepared.previous_bundle,$prepared.candidate_bundle,$prepared.rollback_bundle)) {
+        if(-not $path -or -not ([IO.Path]::GetFullPath($path)).StartsWith(($windowsRepo+'\.artifacts\release\'),[StringComparison]::OrdinalIgnoreCase)){throw 'Prepared bundle is outside release artifacts.'}
+        $input=Test-ReleaseBundle $path -LocalTest
+        if($input.Identity.Name -cne $prepared.package_name -or $input.Identity.Publisher -cne $prepared.publisher){throw 'Prepared identity/publisher mismatch.'}
+    }
+    $PreviousBundleDirectory=$prepared.previous_bundle;$CandidateBundleDirectory=$prepared.candidate_bundle;$RollbackBundleDirectory=$prepared.rollback_bundle
+    $LocalTestIdentity=$true
+}
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run qualification as an ordinary user; only the test leaf-trust helper elevates.' }
 if ([bool]$PreviousBundleDirectory -ne [bool]$CandidateBundleDirectory) { throw 'Provide both production bundles, or neither for isolated local testing.' }
 $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
+if ($RollbackBundleDirectory -and -not $localTest) { throw 'Synthetic rollback/draft qualification requires an isolated LocalTest identity.' }
 if ($localTest -and -not $AllowTemporaryMachineTrust) {
     Write-Warning 'BLOCKED MSIX: isolated local qualification changes machine TrustedPeople. Review the runbook and explicitly pass -AllowTemporaryMachineTrust in a disposable test environment; no certificate or package was changed.'
     exit 3
@@ -129,6 +147,16 @@ try {
             $CandidateBundleDirectory = Build-LocalBundle '0.2.0.2' | Select-Object -Last 1
         }
     }
+    if($PreparedLocalTestSession) {
+        foreach($path in @($PreviousBundleDirectory,$CandidateBundleDirectory,$RollbackBundleDirectory)) {
+            $input=Test-ReleaseBundle $path -LocalTest
+            $attestation=Test-MsixSignature (Join-Path $input.Directory $input.Manifest.release.artifact.filename) $input.Identity.Publisher
+            $actualSigner=(Get-AuthenticodeSignature -LiteralPath (Join-Path $input.Directory $input.Manifest.release.artifact.filename)).SignerCertificate
+            if($actualSigner.Thumbprint -ine $prepared.certificate_thumbprint){throw 'Prepared signing identity changed.'}
+            $input.Manifest.release.signing=$attestation
+            [IO.File]::WriteAllText((Join-Path $input.Directory 'release-manifest.json'),($input.Manifest|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
+        }
+    }
     $previous = Test-ReleaseBundle $PreviousBundleDirectory -LocalTest:$localTest -VerifySignature
     $candidate = Test-ReleaseBundle $CandidateBundleDirectory -LocalTest:$localTest -VerifySignature
     $ownedPackageName = $candidate.Identity.Name
@@ -152,14 +180,21 @@ try {
     $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
     Probe-InstalledData $installed 'add'
     Pass 'core_suggestions'
+    $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
+    if($localTest) {
+        & $runner --retention-data seed $data $installed.InstallLocation
+        if($LASTEXITCODE -ne 0){throw 'Installed-data fixture seeding failed.'}
+        Pass 'seed_extended_user_data'
+    }
     $sentinels = @('settings\settings-v1.json','Packs\da_lexicon.sqlite','UserWords\local_lexicon_overlay_v2.json')
+    if($localTest){$sentinels+=@('editor\workspace-v1.json','learning\word-choices-v1.json','UnknownWords\learned-v1.json','UnknownWords\sharing-v1.json','fixtures\one.txt','fixtures\two.txt')}
     $hashes = @{}
     foreach ($file in $sentinels) { $hashes[$file] = (Get-FileHash -LiteralPath (Join-Path $data $file) -Algorithm SHA256).Hash }
     Make-TestFeed $candidate
     # A real automatic check is attempted through the registered App Installer
     # association. No artificial package or feed is sent to the public server.
     $env:WORDSUGGESTOR_DATA_ROOT = $data
-    $env:WORDSUGGESTOR_WINDOWS_STARTUP_TEXT = $null # The automatic-update fixture must start with an empty, clean editor.
+    $env:WORDSUGGESTOR_WINDOWS_STARTUP_TEXT = $null # The automatic-update fixture contains only clean, saved synthetic tabs.
     # Shell activation participates in App Installer's launch/update lifecycle;
     # starting a loose executable directly would not prove automatic checks.
     $null = Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('shell:AppsFolder\' + $installed.PackageFamilyName + '!App') -WindowStyle Hidden -PassThru
@@ -200,20 +235,47 @@ namespace WordSuggestor {
     }
     Probe-InstalledData $installed 'check'
     Pass 'data_retention'
-    $env:WORDSUGGESTOR_EXPECT_PACKAGE_VERSION = $candidate.Identity.Version
+    if($localTest) {
+        & $runner --retention-data check $data $installed.InstallLocation
+        if($LASTEXITCODE -ne 0){throw 'Extended user data failed installed update readback.'}
+        Pass 'extended_user_data_readback'
+    }
+    if($RollbackBundleDirectory) {
+        $rollback=Test-ReleaseBundle $RollbackBundleDirectory -LocalTest:$localTest -VerifySignature
+        if($rollback.Identity.Name -cne $candidate.Identity.Name -or $rollback.Identity.Publisher -cne $candidate.Identity.Publisher -or [version]$rollback.Identity.Version -le [version]$candidate.Identity.Version){throw 'Rollback must retain identity/publisher and increase version.'}
+        & $runner --retention-data dirty $data $installed.InstallLocation
+        if($LASTEXITCODE -ne 0){throw 'Dirty recovery fixture unavailable.'}
+        $draftHash=(Get-FileHash -LiteralPath (Join-Path $data 'editor\workspace-v1.json') -Algorithm SHA256).Hash
+        Make-TestFeed $rollback
+        Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
+        $installed=Wait-Version $rollback.Identity.Version
+        if((Get-FileHash -LiteralPath (Join-Path $data 'editor\workspace-v1.json') -Algorithm SHA256).Hash -cne $draftHash){throw 'Higher-version rollback changed dirty drafts.'}
+        & $runner --retention-data check-dirty $data $installed.InstallLocation
+        if($LASTEXITCODE -ne 0){throw 'Higher-version rollback data readback failed.'}
+        $record.rollback_version=$rollback.Identity.Version;Pass 'higher_version_rollback';Pass 'dirty_draft_retention'
+    }
+    if($localTest) {
+        . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+        $policyCode=Invoke-SettingsGateProcess (Join-Path $PSScriptRoot 'test_settings_platform.ps1') @('-PackagedUpdateProbe','-TestPackageFamilyName',$installed.PackageFamilyName,'-RunnerPath',$runner,'-OutputDirectory',(Join-Path $root 'update-policy')) (Join-Path $root 'update-policy.log') 6>$null
+        $checks.update_policy_write_read_restore=$policyCode -eq 0
+        if($policyCode -notin @(0,3)){throw 'Installed native policy qualification failed.'}
+        if($policyCode -eq 3){Write-Output 'BLOCKED MSIX native update-policy mutation; G05 remains read-only.'}else{Pass 'update_policy_write_read_restore'}
+    }
+    $env:WORDSUGGESTOR_EXPECT_PACKAGE_VERSION = [string]$installed.Version
     $env:WORDSUGGESTOR_TEST_DATA_ROOT = Join-Path $data ('GuiSmoke\' + [guid]::NewGuid().ToString('N'))
     & (Join-Path $PSScriptRoot 'test_gui.ps1') -SkipBuild -AppId ($installed.PackageFamilyName + '!App')
     Pass 'desktop_smoke'; Pass 'installed_relaunch'
     Reject-Feed 'wrong_identity' { param($xml) $xml.AppInstaller.MainPackage.Name = 'Other.Unrelated.App' }
     Reject-Feed 'wrong_publisher' { param($xml) $xml.AppInstaller.MainPackage.Publisher = 'CN=Unrelated Publisher' }
-    Reject-Feed 'offline_feed' { param($xml) $xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot 'missing.msix')).AbsoluteUri }
+    Reject-Feed 'offline_feed' { param($xml) $next=([version](Installed).Version);$v=[version]::new($next.Major,$next.Minor,$next.Build,($next.Revision+1));$xml.AppInstaller.Version=$v.ToString();$xml.AppInstaller.MainPackage.Version=$v.ToString();$xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot 'missing.msix')).AbsoluteUri }
     $badFeed = Join-Path $feedRoot 'invalid.appinstaller'
     [IO.File]::WriteAllText($badFeed,'<invalid')
     $rejected = $false
     try { Add-AppxPackage -AppInstallerFile -Path $badFeed -ErrorAction Stop } catch { $rejected = $true }
     if (-not $rejected) { throw 'Malformed App Installer accepted.' }; Pass 'invalid_feed'
     $tampered = Join-Path $root 'tampered.msix'
-    Copy-Item -LiteralPath (Join-Path $candidate.Directory $candidate.Manifest.release.artifact.filename) -Destination $tampered
+    $currentBundle=if($rollback){$rollback}else{$candidate}
+    Copy-Item -LiteralPath (Join-Path $currentBundle.Directory $currentBundle.Manifest.release.artifact.filename) -Destination $tampered
     $stream = [IO.File]::Open($tampered,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite)
     try { $stream.Position = 100; $byte = $stream.ReadByte(); $stream.Position = 100; $stream.WriteByte([byte]($byte -bxor 1)) } finally { $stream.Dispose() }
     $signTool = Get-ReleaseSdkTool 'signtool'; $null = & $signTool verify /pa /all /v $tampered 2>&1
@@ -223,10 +285,10 @@ namespace WordSuggestor {
     if (-not $rejected) { throw 'Tampered MSIX accepted.' }; Pass 'tampered_package'
     $rejected = $false
     try { Add-AppxPackage -Path (Join-Path $previous.Directory $previous.Manifest.release.artifact.filename) -ErrorAction Stop } catch { $rejected = $true }
-    if (-not $rejected -or (Installed).Version -ne $candidate.Identity.Version) { throw 'Ordinary update allowed an older package.' }
+    if (-not $rejected -or (Installed).Version -ne $installed.Version) { throw 'Ordinary update allowed an older package.' }
     Pass 'older_version_rejected'
-    Add-AppxPackage -Path (Join-Path $candidate.Directory $candidate.Manifest.release.artifact.filename) -ErrorAction Stop
-    if ((Installed).Version -ne $candidate.Identity.Version) { throw 'Same-version operation changed installed version.' }
+    Add-AppxPackage -Path (Join-Path $currentBundle.Directory $currentBundle.Manifest.release.artifact.filename) -ErrorAction Stop
+    if ((Installed).Version -ne $installed.Version) { throw 'Same-version operation changed installed version.' }
     Pass 'same_version_unchanged'
     Remove-AppxPackage -Package (Installed).PackageFullName -ErrorAction Stop
     foreach ($file in $sentinels) { if (-not (Test-Path -LiteralPath (Join-Path $data $file))) { throw 'Uninstall removed retained user data.' } }
@@ -251,9 +313,13 @@ namespace WordSuggestor {
         $ownedCert = Get-Item -LiteralPath ('Cert:\CurrentUser\My\' + $cert.Thumbprint) -ErrorAction SilentlyContinue
         if ($ownedCert -and $ownedCert.Subject -ceq $cert.Subject) { Remove-Item -LiteralPath ('Cert:\CurrentUser\My\' + $cert.Thumbprint) -DeleteKey -Force }
     }
+    $record.all_checks_passed = $finished -and @($checks.Values | Where-Object { $_ -ne $true }).Count -eq 0
+    $record.release_qualified = $false # isolated test identity never qualifies official production signing
     $record.completed = $finished
     $record.finished_at = [DateTimeOffset]::UtcNow.ToString('o')
     $recordPath = Join-Path $root 'msix-qualification.json'
     [IO.File]::WriteAllText($recordPath,($record | ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     Write-Output "MSIX qualification record: $recordPath"
 }
+
+if ($finished -and -not $record.all_checks_passed) { Write-Warning 'Partial native qualification: see the false checks; production gates remain closed.'; exit 3 }

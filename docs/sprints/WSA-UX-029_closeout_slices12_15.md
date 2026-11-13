@@ -21,3 +21,15 @@ Next for users: automatic lookup during writing, then separately consented shari
 when the macOS-owned backend is ready, then verified update/install behavior and
 final human acceptance. No automatic ranking changes, public upload or official
 beta publication follow merely from implementation or software tests.
+
+## Delivery checkpoints
+
+- Slice 12: committed Windows 9966143 / Core ebd2424; physical editor/Notepad PASS.
+- Slice 13: committed Windows 888058b / Core 0278cbc; Windows client ready,
+  real receiver/activation pending macOS backend owner. No backend changes here.
+- Slice 14: tooling/test artifacts delivered; signed but untrusted series, no
+  installed/native acceptance without explicit trust approval. See slice14 evidence.
+- Slice 15: independent final regression and acceptance record follows.
+
+These checkpoints do not close sprint_complete or release_qualified. Missing
+hardware/receiver/signing/installed evidence remains an acceptance dependency.

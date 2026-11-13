@@ -15,6 +15,7 @@
     [switch]$SkipCoreBuild,
     [switch]$FrameworkDependent,
     [switch]$LocalTestIdentity,
+    [switch]$PrepareUntrustedLocalTest,
     [string]$TestPackageName,
     [string]$LocalTestFeedDirectory
 )
@@ -26,10 +27,15 @@ Assert-PackageVersion $PackageVersion
 Assert-ReleaseText $DisplayVersion 128
 Assert-ReleaseText $BuildNumber 128
 $packageName = $script:ProductionPackageName
+if ($PrepareUntrustedLocalTest -and (-not $LocalTestIdentity -or $ReleaseStatus -ne 'pending')) { throw 'Untrusted preparation is only allowed for isolated pending local-test packages.' }
 if ($LocalTestIdentity) {
     if ($TestPackageName -cnotmatch '^WordSuggestor\.Windows\.LocalTest\.[a-f0-9]{12}$' -or
         $Publisher -cne ('CN=WordSuggestor Local Test ' + $TestPackageName.Split('.')[-1]) -or -not $LocalTestFeedDirectory -or -not $CertificateThumbprint) {
         throw 'Local testing requires a separate test package, test publisher, local feed directory and certificate.'
+    }
+    if ($PrepareUntrustedLocalTest) {
+        $testCert=Get-Item -LiteralPath ('Cert:\CurrentUser\My\'+$CertificateThumbprint) -ErrorAction Stop
+        if(-not $testCert.HasPrivateKey -or $testCert.Subject -cne $Publisher -or $testCert.NotAfter -gt [DateTime]::Now.AddDays(10)){throw 'Expected the provisioned short-lived isolated test key.'}
     }
     $packageName = $TestPackageName
     $testFeedPath = [IO.Path]::GetFullPath($LocalTestFeedDirectory)
@@ -117,7 +123,18 @@ if ($CertificateThumbprint) {
     if ($LocalTestIdentity) { & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 $package }
     else { & $signTool sign /sha1 $CertificateThumbprint /fd SHA256 /tr $TimestampUri.AbsoluteUri /td SHA256 $package }
     if ($LASTEXITCODE -ne 0) { throw 'Package signing failed.' }
-    $attestation = Test-MsixSignature $package $Publisher
+    if ($PrepareUntrustedLocalTest) {
+        $signature = Get-AuthenticodeSignature -LiteralPath $package
+        if (-not $signature.SignerCertificate -or $signature.SignerCertificate.Subject -cne $Publisher -or
+            $signature.SignerCertificate.Thumbprint -ine $CertificateThumbprint -or
+            $signature.Status -in @([System.Management.Automation.SignatureStatus]::HashMismatch,[System.Management.Automation.SignatureStatus]::NotSigned)) {
+            throw 'Prepared local package does not contain the expected test signature.'
+        }
+        # Deliberately no trust attestation. Only a later full SignTool verification
+        # after explicit fixture trust can qualify this local-only bundle.
+        $attestation = [ordered]@{ publisher=$Publisher; identity=''; signature_verified=$false;
+            verification_result='not_checked'; verified_at=''; verification_tool='Trust pending: isolated local preparation' }
+    } else { $attestation = Test-MsixSignature $package $Publisher }
     if ($FeedBaseUri) {
         $feed = $FeedBaseUri.AbsoluteUri.TrimEnd('/')
         $escapedPublisher = [System.Security.SecurityElement]::Escape($Publisher)
@@ -140,7 +157,7 @@ if ($CertificateThumbprint) {
             release_notes=@($ReleaseNotes); known_issues=@($KnownIssues);
             artifact=(Get-ReleaseFileContract $package); update_feed=(Get-ReleaseFileContract $feedPath); signing=$attestation } }
         [IO.File]::WriteAllText((Join-Path $bundle 'release-manifest.json'),($release | ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))
-        $null = Test-ReleaseBundle $bundle -LocalTest:$LocalTestIdentity -VerifySignature
+        $null = Test-ReleaseBundle $bundle -LocalTest:$LocalTestIdentity -VerifySignature:(-not $PrepareUntrustedLocalTest)
     }
 }
 Get-FileHash -LiteralPath $package -Algorithm SHA256 | Select-Object Hash

@@ -1,6 +1,6 @@
 # Windows beta packaging and release
 
-Updated 2026-11-12, WSA-RT-017_windows_beta_publication_tooling.
+Updated 2026-11-13, WSA-RT-017_windows_beta_publication_tooling.
 This runbook describes implemented local tooling. Production signing, native
 installation/update and public publication are not qualified by the cleanup.
 See [measured results and remaining gates](qualification/WSA-RT-017_release_cleanup.md).
@@ -139,6 +139,35 @@ hash fails, and missing reference fails rather than silently skipping validation
 
 ## Native test qualification without production credentials
 
+Prepare reviewable signed test artifacts first, without installation/device trust:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\prepare_msix_test.ps1 -WhatIf
+powershell -ExecutionPolicy Bypass -File scripts\prepare_msix_test.ps1
+```
+
+Preparation reuses package_app and emits N=0.2.0.1, N+1=.2, rollback=.3 with one
+isolated identity, bundled Core/pack and an ephemeral seven-day non-exportable
+key. Finally the private key is deleted. Only the public certificate remains.
+The bundles are signed but untrusted, signature_verified=false. They cannot pass
+normal trusted verification or the production uploader. No PFX/password is used.
+
+After explicit operator approval on the disposable test environment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreparedLocalTestSession '<printed prepared-session directory>' -SkipBuild -AllowTemporaryMachineTrust
+```
+
+Build the smoke runner first if needed using build_app.ps1. Test trust is a
+machine-wide leaf exception even though the signer/installation is isolated.
+Microsoft documents the App Installer LocalMachine TrustedPeople requirement in
+[its troubleshooting guide](https://learn.microsoft.com/en-us/windows/msix/app-installer/troubleshoot-appinstaller-issues).
+Never import this certificate as a root. The harness verifies actual trust before
+updating local attestations, checks N to N+1/extended stores/dirty recovery and .3
+rollback, and records any false native automatic-update/policy gate as exit 3.
+Software probes alone cannot enable G05 or qualify an official release.
+See [the measured preparation result](qualification/WSA-UX-029_slice14.md).
+
 Use a disposable ordinary-user test account/VM with an active unlocked desktop.
 Without trusted signing, the explicit local fixture procedure is:
 
@@ -272,4 +301,4 @@ browser fields/Google Docs, elevated targets, mixed-DPI hardware and human scree
 reader review retain their documented limits. Release gates still require native
 signed installation/update, real trusted identity and approved SSH configuration.
 No payment/licensing changes or macOS/Core/backend source edits are part of this
-Windows cleanup. Development has not changed certificate trust or published a feed.
+Windows cleanup. Preparation has not changed certificate trust or published a feed.

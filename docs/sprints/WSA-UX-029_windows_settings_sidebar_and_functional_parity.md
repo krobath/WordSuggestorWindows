@@ -1,5 +1,16 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## WSA-UX-029 slice 14 - signed local fixtures, native acceptance pending (2026-11-13)
+
+The existing MSIX flow now prepares three isolated signed test packages without
+installing or changing device trust. The update harness covers extended data,
+higher-version rollback and packaged policy qualification. Build, 56 release
+checks, 54 standalone payload GUI checks and synthetic Core/store readback pass.
+Installed update/rollback and G05 remain unqualified pending explicit trust
+approval; no production signer/feed/publication exists. See [actual evidence](../qualification/WSA-UX-029_slice14.md)
+and [release procedure](../Release.md). macOS/backend/shared sources unchanged.
+
+
 ## WSA-UX-029 slice 13 - sharing client ready, receiver pending (2026-11-13)
 
 The Windows client prepares the unchanged Core handoff, persists an account-bound
