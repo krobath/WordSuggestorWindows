@@ -40,6 +40,7 @@ internal static class Program
             try
             {
                 if (args.Contains("--update-native")) { Console.WriteLine("BLOCKED UPDATE NATIVE: use test_settings_platform.ps1 -PackagedUpdateProbe with an installed trusted isolated LocalTest package; no production mutation."); code = 3; return; }
+                else if (args.Contains("--automatic-word")) await AutomaticWordSmoke.Run(FindRepo());
                 else if (args.Contains("--unknown-word")) await UnknownWordSmoke.Run(FindRepo(), false);
                 else if (args.Contains("--unknown-word-ui")) await UnknownWordSmoke.Run(FindRepo(), true);
                 else if (args.Contains("--advanced-state")) await AdvancedSettingsSmoke.Run(false);

@@ -31,6 +31,7 @@ public sealed record CoreCapabilities
     public bool OperationalDiagnostics { get; init; }
     public bool UnknownWordLookup { get; init; }
     public bool UnknownWordSharing { get; init; }
+    public bool CompletedWordBoundaries { get; init; }
     public bool CommittedWordAssessment { get; init; }
     public bool ExplicitUnknownWordImport { get; init; }
     public bool LearnedWordOverlay { get; init; }

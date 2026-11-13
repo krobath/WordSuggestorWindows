@@ -418,7 +418,7 @@
   "AdvancedCoreTransportOnly": "Denne motorversion giver kun forbindelsesstatus. Opdatér motoren for at få diagnoseoversigter.",
   "AdvancedCoreUnavailable": "Forslagmotoren er utilgængelig lige nu. Dens forbindelsesstatus kan stadig registreres uden tekst.",
   "UnknownOpen": "Slå ukendt ord op…",
-  "UnknownExplicitOnly": "Skriv ét dansk ord, du selv vil slå op. Kun eksplicitte opslag er aktiveret; automatisk registrering og deling er slået fra.",
+  "UnknownExplicitOnly": "Manuelle opslag virker separat. Automatiske opslag under skrivning kræver et ekstra tilvalg i Indstillinger > Avanceret. Deling er ikke aktiveret.",
   "UnknownAllow": "Tillad onlineopslag af ukendte ord",
   "UnknownConsent": "Ved et eksplicit opslag sendes det valgte ord til ordregister.dk, eventuelt ordnet.dk som fallback. Godkendte ordbogsresultater gemmes lokalt og bruges i forslag. Dokumenttekst deles ikke. Du kan slå tilladelsen fra og slette de importerede ord igen. Vil du tillade dette?",
   "UnknownLookup": "Slå op og gem",
@@ -436,5 +436,7 @@
   "UnknownUnavailable": "Opslaget eller den lokale lagring er ikke tilgængelig. Eksisterende ord bevares.",
   "UnknownCancelled": "Opslaget er afbrudt.",
   "UnknownClearConfirm": "Vil du slette alle eksplicit importerede ord og deres lokale backup? Dine manuelt tilføjede brugerord bevares.",
-  "UnknownCleared": "De importerede ord er slettet."
+  "UnknownCleared": "De importerede ord er slettet.",
+  "UnknownAutomatic": "Slå ukendte ord op under skrivning",
+  "UnknownAutomaticConsent": "Vil du tillade automatiske onlineopslag af afsluttede danske ord i editoren og understøttet Notepad? De enkelte ord sendes til ordregister.dk eller ordnet.dk. Ingen omgivende dokumenttekst sendes til ordbogen. Resultater gemmes lokalt. Dette er et ekstra samtykke ud over manuelle opslag."
 }

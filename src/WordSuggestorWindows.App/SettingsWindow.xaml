@@ -253,6 +253,7 @@
                                 <ui:SettingsRow Header="{DynamicResource WS.Settings.A07.Title}" ControlId="A07" Description="{DynamicResource WS.Settings.A07.Help}">
                                     <CheckBox x:Name="UnknownWordSharingCheckBox" AutomationProperties.Name="{DynamicResource WS.Settings.A07.Title}" IsEnabled="False" IsChecked="False"/>
                                 </ui:SettingsRow>
+                                <CheckBox x:Name="AutomaticUnknownWordCheckBox" Content="{DynamicResource WS.Settings.UnknownAutomatic}" AutomationProperties.Name="{DynamicResource WS.Settings.UnknownAutomatic}" AutomationProperties.AutomationId="UnknownAutomatic" Margin="12,8" IsEnabled="False"/>
                                 <TextBlock x:Name="UnknownWordSupportStatus" Text="{DynamicResource WS.Settings.AdvancedUnknownUnavailable}" Style="{StaticResource SettingsNote}"/>
                                 <Button x:Name="UnknownWordOpenButton" Content="{DynamicResource WS.Settings.UnknownOpen}" IsEnabled="False" HorizontalAlignment="Left" Padding="8,5" AutomationProperties.AutomationId="UnknownWordOpen"/>
                                 <TextBlock Text="{DynamicResource WS.Settings.AdvancedPrivacy}" Style="{StaticResource SettingsNote}"/>

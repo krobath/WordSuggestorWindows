@@ -148,6 +148,7 @@ public partial class MainWindow : Window
         _textToSpeechService.PrecisePlaybackStarted += TextToSpeechServiceOnPrecisePlaybackStarted;
         _textToSpeechService.BoundaryCueReceived += TextToSpeechServiceOnBoundaryCueReceived;
         InitializeSpeechLifecycle();
+        InitializeUnknownWords();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -179,6 +180,7 @@ public partial class MainWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        DisposeUnknownWords();
         DisposeSpeechLifecycle();
         _workspaceSaveTimer.Stop();
         _workspaceSaveTimer.Tick -= WorkspaceSaveTimerOnTick;
@@ -402,6 +404,7 @@ public partial class MainWindow : Window
         var speechSnapshot = _globalSuggestionCaptureService.CurrentSnapshot;
         Dispatcher.BeginInvoke(() =>
         {
+            ObserveUnknownExternal(speechSnapshot);
             HandleExternalTypingSpeech(speechSnapshot);
             ObserveExternalSuggestionInput(speechSnapshot);
             _viewModel.ExternalSuggestionSuffix = speechSnapshot is null ? "" : EditorCommit.Suffix(speechSnapshot.Text, speechSnapshot.Start, speechSnapshot.End);
@@ -1243,6 +1246,7 @@ public partial class MainWindow : Window
 
     private void SwitchEditorDocument(EditorDocumentTab document, bool captureCurrent = true)
     {
+        _automaticWords?.Cancel();_unknownInput=null;
         _dictationTabId = null;
         _speechToTextService.Stop();
         _viewModel.SetSpeechToTextListening(false, "Fane skiftet.");
@@ -1353,6 +1357,7 @@ public partial class MainWindow : Window
         CaptureActiveEditorState();
         ScheduleWorkspaceSave();
 
+        ObserveUnknownEditorInput();
         OnEditorSpeechTextChanged();
         ObserveSuggestionEditorInput();
         UpdateOverlayPosition();
@@ -1365,6 +1370,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        _automaticWords?.Revalidate();
         OnSpeechSelectionChanged();
         _isUpdatingEditorSelection = true;
         try { _viewModel.UpdateEditorSelection(GetTextOffset(EditorTextBox.Selection.Start), GetTextOffset(EditorTextBox.Selection.End)); }
@@ -1376,6 +1382,8 @@ public partial class MainWindow : Window
 
     internal void EditorTextBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if(Keyboard.Modifiers==ModifierKeys.None)
+        {if(e.Key==Key.Return)RememberUnknownInput("\r\n");else if(e.Key==Key.Space)RememberUnknownInput(" ");else if(e.Key==Key.Tab)RememberUnknownInput("\t");}
         RegisterSuggestionKey(e);
         if (TryHandleControlDigitSuggestion(e) || TryHandleControlPaging(e))
         {

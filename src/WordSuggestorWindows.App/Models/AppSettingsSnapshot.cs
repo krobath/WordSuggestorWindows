@@ -67,6 +67,8 @@ public sealed class AppSettingsSnapshot
 
     public bool IsPanelParityLoggingEnabled { get; set; }
     public bool IsUnknownWordLookupEnabled { get; set; }
+    public bool IsAutomaticUnknownWordLookupEnabled { get; set; }
+    public int UnknownWordAutomaticConsentVersion { get; set; }
     public int UnknownWordLookupConsentVersion { get; set; }
 
     public AppSettingsSnapshot Clone() =>
@@ -108,6 +110,8 @@ public sealed class AppSettingsSnapshot
             IsCoreDebugLoggingEnabled = IsCoreDebugLoggingEnabled,
             IsPanelParityLoggingEnabled = IsPanelParityLoggingEnabled,
             IsUnknownWordLookupEnabled = IsUnknownWordLookupEnabled,
+            IsAutomaticUnknownWordLookupEnabled = IsAutomaticUnknownWordLookupEnabled,
+            UnknownWordAutomaticConsentVersion = UnknownWordAutomaticConsentVersion,
             UnknownWordLookupConsentVersion = UnknownWordLookupConsentVersion
         };
 }

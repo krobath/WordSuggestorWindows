@@ -23,11 +23,13 @@ internal sealed partial class SettingsFormController : IDisposable
     private readonly CancellationTokenSource _updateCancellation = new();
     private string? _statusKey;
     private readonly Func<bool> _confirmUnknownLookup;
+    private readonly Func<bool> _confirmAutomaticLookup;
 
     public SettingsFormController(Window host, MainWindowViewModel viewModel, bool live = false,
-        WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null, Func<bool>? confirmUnknownLookup = null)
+        WindowsUpdateCoordinator? updates = null, IWindowsUpdateHandoff? updateHandoff = null, Func<bool>? confirmUnknownLookup = null, Func<bool>? confirmAutomaticLookup = null)
     {
         _host = host; _viewModel = viewModel; _live = live;
+        _confirmAutomaticLookup=confirmAutomaticLookup??(()=>MessageBox.Show(host,SettingsText.Get("UnknownAutomaticConsent"),"WordSuggestor",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)==MessageBoxResult.Yes);
         _confirmUnknownLookup = confirmUnknownLookup ?? (() => UnknownWordConsent.Request(host));
         _updates = updates ?? new(); _updateHandoff = updateHandoff ?? new WindowsUpdateHandoff();
         _original = viewModel.LoadSettingsSnapshot().Clone(); _settings = _original.Clone();

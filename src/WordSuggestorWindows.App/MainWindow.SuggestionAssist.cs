@@ -63,6 +63,7 @@ public partial class MainWindow
     private void PreviewSuggestionInput(object sender, TextCompositionEventArgs e)
     {
         if (!ReferenceEquals(sender, EditorTextBox) || Keyboard.Modifiers.HasFlag(ModifierKeys.Control) || Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) return;
+        RememberUnknownInput(e.Text);
         var text = GetEditorPlainText(); var start = GetTextOffset(EditorTextBox.Selection.Start); var end = GetTextOffset(EditorTextBox.Selection.End);
         _directInput = (EditorTextBox, text[..start] + e.Text + text[end..], e.Text);
     }

@@ -6,6 +6,15 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed partial class WordSuggestorCoreCliSuggestionProvider
 {
+    public async Task<CoreQueryResult<CoreCompletedToken>> CompletedWordAsync(string prefix, int textOffset, CoreRequestContext scope, CancellationToken token = default)
+    {
+        if(prefix.Length>512||textOffset<0)throw new ArgumentException("Invalid bounded context.");
+        var caps=await GetCapabilitiesAsync(cancellationToken:token);
+        if(!caps.CompletedWordBoundaries)throw new NotSupportedException("Core boundary contract is unavailable.");
+        var response=await QueryAsync("completedWord",prefix,scope,null,null,null,token,textOffset:textOffset);
+        if(response.CompletedToken is not {SchemaVersion:1} result||result.Start.HasValue!=result.Length.HasValue||result.Start is int start&&(result.Length is not >0||result.Length>128||!ValidRange(prefix,start,result.Length.Value)))throw InvalidProtocol();
+        return Result(response,result);
+    }
     public Task<CoreQueryResult<CoreUnknownWordResult>> LookupUnknownWordAsync(string surface, CoreRequestContext scope, int consentVersion, CancellationToken token = default) =>
         UnknownWordQuery("lookupUnknownWord", surface, scope, null, consentVersion, token);
     public Task<CoreQueryResult<CoreUnknownWordResult>> PrepareLearnedWordAsync(string surface, JsonElement proposal, CoreRequestContext scope, int consentVersion, CancellationToken token = default) =>

@@ -1,5 +1,17 @@
 # Current Windows beta track — 2026-11-10
 
+## WSA-UX-029 slice 12 - verified typing lookup (2026-11-13)
+
+Automatic Danish lookup now works in the native editor and supported Notepad with
+separate opt-in, Core-owned word boundaries, rate limits and late-write protection.
+A06 is implemented; A07 remains unavailable pending the macOS-owned backend. Schema
+8 never promotes manual consent into automatic permission. See [contract](AutomaticUnknownWords.md),
+[qualification](qualification/WSA-UX-029_slice12.md) and the approved
+[remaining four-slice scope](sprints/WSA-UX-029_closeout_slices12_15.md).
+Earlier dated entries below are historical. Hello remains user-deferred; sprint
+and release acceptance remain open. No macOS app/library or backend files changed.
+
+
 ## WSA-UX-029 slice 11 — explicit unknown-word import, 2026-11-13
 
 Users can explicitly look up and import one Danish word through Settings > Advanced

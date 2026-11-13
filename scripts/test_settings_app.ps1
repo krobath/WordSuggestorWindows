@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'AutomaticWords', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -69,7 +69,7 @@ if ($Mode -in @('Core', 'All')) {
     & $runner --core-settings
     if ($LASTEXITCODE -ne 0) { throw "Settings Core adapter smoke failed ($LASTEXITCODE)." }
 }
-if ($Mode -in @('CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'All')) {
+if ($Mode -in @('CommittedWord', 'All')) {
     & $runner --committed-word
     if ($LASTEXITCODE -ne 0) { throw "Committed-word assessment smoke failed ($LASTEXITCODE)." }
 }
@@ -93,4 +93,9 @@ if ($Mode -in @('UnknownWords', 'All')) {
 if ($Mode -in @('UnknownWordsUi', 'All')) {
     & $runner --unknown-word-ui
     if ($LASTEXITCODE -ne 0) { throw "Unknown-word desktop smoke failed ($LASTEXITCODE)." }
+}
+
+if ($Mode -in @('AutomaticWords', 'All')) {
+ & $runner --automatic-word
+ if ($LASTEXITCODE -ne 0) { throw "Automatic word smoke failed ($LASTEXITCODE)." }
 }

@@ -3,7 +3,7 @@
   "platform": "windows",
   "reference_commit": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
   "windows_base": "d39afaa",
-  "core_revision": "5cd7503097f3e12d336bf6829f00fab83917f11d",
+  "core_revision": "ebd2424384649128a967867cf1ed3189de937d8c",
   "sprint_complete": false,
   "release_qualified": false,
   "controls": [
@@ -562,9 +562,9 @@
     {
       "id": "A06",
       "category": "advanced",
-      "implementation": "partial",
-      "automation_suite": "UnknownWordsUi",
-      "evidence_document": "WSA-UX-029_slice11.md",
+      "implementation": "implemented",
+      "automation_suite": "AutomaticWords",
+      "evidence_document": "WSA-UX-029_slice12.md",
       "manual_qualification": "not_run"
     },
     {

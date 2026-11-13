@@ -418,7 +418,7 @@
   "AdvancedCoreTransportOnly": "This engine version provides connection status only. Update the engine for diagnostic summaries.",
   "AdvancedCoreUnavailable": "The engine is unavailable right now. Its connection status can still be recorded without text.",
   "UnknownOpen": "Look up unknown word…",
-  "UnknownExplicitOnly": "Enter one Danish word to look up explicitly. Automatic observation and sharing are disabled.",
+  "UnknownExplicitOnly": "Manual lookup works separately. Automatic lookup while typing requires an additional option in Settings > Advanced. Sharing is disabled.",
   "UnknownAllow": "Allow online unknown-word lookup",
   "UnknownConsent": "An explicit lookup sends the chosen word to ordregister.dk, with ordnet.dk as fallback. Validated dictionary results are stored locally and used in suggestions. Document text is not shared. You can revoke permission and clear imported words. Allow this?",
   "UnknownLookup": "Look up and save",
@@ -436,5 +436,7 @@
   "UnknownUnavailable": "Lookup or local storage is unavailable. Existing words are preserved.",
   "UnknownCancelled": "Lookup cancelled.",
   "UnknownClearConfirm": "Clear all explicitly imported words and their local backup? Manually added user words are preserved.",
-  "UnknownCleared": "Imported words cleared."
+  "UnknownCleared": "Imported words cleared.",
+  "UnknownAutomatic": "Look up unknown words while typing",
+  "UnknownAutomaticConsent": "Allow automatic online lookup of completed Danish words in the editor and supported Notepad? Individual words are sent to ordregister.dk or ordnet.dk. Surrounding document text is not sent to the dictionary. Results are stored locally. This is separate consent from manual lookup."
 }
