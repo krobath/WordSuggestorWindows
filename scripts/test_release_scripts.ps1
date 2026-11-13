@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -220,4 +220,6 @@ try {
     Check 'activation waits for delayed positive Core receipt' ((Wait-ReleaseProbeResult $delayed $probe.package_name $probe.package_version 5).ok)
     if(-not $writerProcess.WaitForExit(5000)){throw 'Synthetic receipt writer did not exit.'}
 } finally {if(-not $writerProcess.HasExited){$writerProcess.Kill()};$writerProcess.Dispose()}
+$manualOnly=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-SkipAutomaticUpdateProbe','-PreviousBundleDirectory',$bundle,'-CandidateBundleDirectory',$bundle) 15
+Check 'manual-only qualification cannot apply to a production identity' ($manualOnly.ExitCode -ne 0 -and ($manualOnly.Output+$manualOnly.Error).Contains('restricted to isolated LocalTest fixtures'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

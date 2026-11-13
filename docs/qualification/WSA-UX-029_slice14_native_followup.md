@@ -1,5 +1,11 @@
 # WSA-UX-029 slice 14: authorized native installation follow-up
 
+Latest: [native update lifecycle evidence](WSA-UX-029_slice14_update_lifecycle.md)
+now records successful automatic/manual .2 updates and data retention, rollback
+blocked by package-in-use, and the pending UAC visibility question. Earlier
+not-run statements below are historical checkpoints.
+
+
 ## Latest rerun (2026-11-13, base 0da9334)
 
 User resumed the native test and approved UAC. Attempt

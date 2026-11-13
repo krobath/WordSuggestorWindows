@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$PreviousBundleDirectory,
     [string]$CandidateBundleDirectory,
     [string]$RollbackBundleDirectory,
@@ -6,12 +6,14 @@
     [switch]$LocalTestIdentity,
     [string]$CoreCliPath,
     [switch]$SkipBuild,
+    [switch]$SkipAutomaticUpdateProbe,
     [switch]$AllowTemporaryMachineTrust
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'dotnet_env.ps1')
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
+. (Join-Path $PSScriptRoot 'app_process.ps1')
 if ($PreparedLocalTestSession) {
     if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
     $preparedRoot=[IO.Path]::GetFullPath($PreparedLocalTestSession)
@@ -32,6 +34,7 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
 if ([bool]$PreviousBundleDirectory -ne [bool]$CandidateBundleDirectory) { throw 'Provide both production bundles, or neither for isolated local testing.' }
 $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
+if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if ($RollbackBundleDirectory -and -not $localTest) { throw 'Synthetic rollback/draft qualification requires an isolated LocalTest identity.' }
 if ($localTest -and -not $AllowTemporaryMachineTrust) {
     Write-Warning 'BLOCKED MSIX: isolated local qualification changes machine TrustedPeople. Review the runbook and explicitly pass -AllowTemporaryMachineTrust in a disposable test environment; no certificate or package was changed.'
@@ -99,6 +102,20 @@ function Probe-InstalledData($Package, [string]$Mode) {
     $null=Wait-ReleaseProbeResult $resultPath $Package.Name ([string]$Package.Version)
     $record.probe_result_present=$true
     Write-Output 'PASS MSIX packaged Core/DA and user-word probe'
+}
+function Close-OwnedTestInstances {
+    foreach ($auto in @(Get-Process -Name WordSuggestorWindows.App -ErrorAction SilentlyContinue)) {
+        if($auto.HasExited){continue}
+        $executable=$auto.MainModule.FileName
+        $directoryName=[IO.Path]::GetFileName([IO.Path]::GetDirectoryName($executable))
+        if(-not $directoryName.StartsWith(($ownedPackageName+'_'),[StringComparison]::Ordinal)){continue}
+        # A newly relaunched update may not have created its toolbar yet. A
+        # completed probe may instead be exiting without ever showing a window.
+        if($auto.WaitForExit(500)){continue}
+        try {$null=$auto.WaitForInputIdle(10000)}
+        catch [InvalidOperationException] {if($auto.HasExited){continue};throw}
+        if(-not $auto.HasExited){Close-WordSuggestorAppGracefully $auto $executable 15}
+    }
 }
 function Get-RetentionPayload($Bundle,$Package) {
     # Loose test processes cannot execute a packaged binary in WindowsApps.
@@ -200,6 +217,7 @@ try {
     $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
     Probe-InstalledData $installed 'add'
     Pass 'core_suggestions'
+    Close-OwnedTestInstances
     $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
     if($localTest) {
         $retentionPayload=Get-RetentionPayload $previous $installed
@@ -218,36 +236,18 @@ try {
     $env:WORDSUGGESTOR_WINDOWS_STARTUP_TEXT = $null # The automatic-update fixture contains only clean, saved synthetic tabs.
     # Shell activation participates in App Installer's launch/update lifecycle;
     # starting a loose executable directly would not prove automatic checks.
+    if(-not $SkipAutomaticUpdateProbe) {
     $null = Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('shell:AppsFolder\' + $installed.PackageFamilyName + '!App') -WindowStyle Hidden -PassThru
     Start-Sleep -Seconds 3
-    if (-not ('WordSuggestor.TestDesktopClose' -as [type])) {
-        Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-namespace WordSuggestor {
-    public static class TestDesktopClose {
-        delegate bool Callback(IntPtr window, IntPtr parameter);
-        [DllImport("user32.dll")] static extern bool EnumWindows(Callback callback, IntPtr parameter);
-        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
-        [DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
-        public static void Close(int process) { EnumWindows(delegate(IntPtr window, IntPtr unused) {
-            uint id; GetWindowThreadProcessId(window, out id);
-            if (id == process) PostMessage(window, 0x0010, IntPtr.Zero, IntPtr.Zero);
-            return true;
-        }, IntPtr.Zero); }
-    }
-}
-'@
-    }
-    foreach ($auto in @(Get-Process -Name WordSuggestorWindows.App -ErrorAction SilentlyContinue)) {
-        $directoryName = [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($auto.MainModule.FileName))
-        if ($directoryName.StartsWith(($ownedPackageName + '_'),[StringComparison]::Ordinal)) {
-            [WordSuggestor.TestDesktopClose]::Close($auto.Id)
-            if (-not $auto.WaitForExit(5000)) { throw 'Own empty test instance did not close gracefully.' }
-        }
-    }
+    Close-OwnedTestInstances
     try { $installed = Wait-Version $candidate.Identity.Version 60; Pass 'automatic_update' }
     catch { $checks.automatic_update = $false; Write-Output 'PENDING MSIX automatic background/on-launch update did not complete in the observation window.' }
+    } else {
+        $checks.automatic_update=$false
+        $record.automatic_update_not_run_reason='explicit_local_manual_probe'
+        Write-Output 'NOT RUN MSIX automatic update: explicit isolated manual qualification; not a complete release gate.'
+    }
+    Close-OwnedTestInstances
     Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
     $installed = Wait-Version $candidate.Identity.Version
     Pass 'manual_update'; Pass 'n_to_n1'
@@ -255,6 +255,7 @@ namespace WordSuggestor {
         if ((Get-FileHash -LiteralPath (Join-Path $data $file) -Algorithm SHA256).Hash -cne $hashes[$file]) { throw 'Installed update changed a user-data sentinel.' }
     }
     Probe-InstalledData $installed 'check'
+    Close-OwnedTestInstances
     Pass 'data_retention'
     if($localTest) {
         $retentionPayload=Get-RetentionPayload $candidate $installed
@@ -265,6 +266,9 @@ namespace WordSuggestor {
     if($RollbackBundleDirectory) {
         $rollback=Test-ReleaseBundle $RollbackBundleDirectory -LocalTest:$localTest -VerifySignature
         if($rollback.Identity.Name -cne $candidate.Identity.Name -or $rollback.Identity.Publisher -cne $candidate.Identity.Publisher -or [version]$rollback.Identity.Version -le [version]$candidate.Identity.Version){throw 'Rollback must retain identity/publisher and increase version.'}
+        # App Installer can relaunch after the earlier version observation. Finish
+        # that normal lifecycle before writing an offline dirty-draft fixture.
+        Close-OwnedTestInstances
         & $runner --retention-data dirty $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Dirty recovery fixture unavailable.'}
         $draftHash=(Get-FileHash -LiteralPath (Join-Path $data 'editor\workspace-v1.json') -Algorithm SHA256).Hash
@@ -288,6 +292,7 @@ namespace WordSuggestor {
     $env:WORDSUGGESTOR_TEST_DATA_ROOT = Join-Path $data ('GuiSmoke\' + [guid]::NewGuid().ToString('N'))
     & (Join-Path $PSScriptRoot 'test_gui.ps1') -SkipBuild -AppId ($installed.PackageFamilyName + '!App')
     Pass 'desktop_smoke'; Pass 'installed_relaunch'
+    Close-OwnedTestInstances
     Reject-Feed 'wrong_identity' { param($xml) $xml.AppInstaller.MainPackage.Name = 'Other.Unrelated.App' }
     Reject-Feed 'wrong_publisher' { param($xml) $xml.AppInstaller.MainPackage.Publisher = 'CN=Unrelated Publisher' }
     Reject-Feed 'offline_feed' { param($xml) $next=([version](Installed).Version);$v=[version]::new($next.Major,$next.Minor,$next.Build,($next.Revision+1));$xml.AppInstaller.Version=$v.ToString();$xml.AppInstaller.MainPackage.Version=$v.ToString();$xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot 'missing.msix')).AbsoluteUri }

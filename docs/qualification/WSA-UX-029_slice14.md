@@ -2,13 +2,13 @@
 
 ## Authorized native follow-up (2026-11-13)
 
-Approved native runs passed trusted signing, ordinary-user clean installation
-and the corrected installed Core/user-word receipt gate. Fixture seeding then hit
-WindowsApps execution protection for a loose test process. The seeder now uses
-the verified MSIX extraction and checks Core/pack hashes against the installation;
-local extraction/readback passes. The next UAC was canceled. Installed N+1,
-rollback and policy remain unqualified; package/trust cleanup is verified.
-See [exact results and next action](WSA-UX-029_slice14_native_followup.md).
+Native tests now verify automatic and actual manual .1-to-.2 updates, installed
+Core/user words, and retained settings/tabs/learning/sharing fixtures. Rollback
+remains blocked by Windows package-in-use; automatic timing was not repeatable
+within every observation window. The harness reuses normal owned-app shutdown
+and offers an explicit LocalTest-only manual lane that never qualifies automatic
+updates. Package/trust cleanup is verified. Full native/release acceptance stays open.
+See [exact results and next action](WSA-UX-029_slice14_update_lifecycle.md).
 Earlier pending-approval/no-install statements are historical preparation results.
 
 
