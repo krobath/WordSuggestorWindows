@@ -1,5 +1,18 @@
 # Windows beta packaging and release
 
+## Installer dialog follow-up (2026-11-13)
+
+The full user run reached rollback but failed Notepad GUI with an update dialog
+still open. The test now detects Microsoft App Installer by runtime process
+identity, pauses for operator Cancel and requires stable idle before later phases.
+Interactive completion never qualifies automatic update. Native Notepad focus is
+verified before input; diagnostics distinguish installer/foreground/text failures.
+Build, app 105 and release 112 pass. Standalone GUI is NOT PASS: Explorer retained
+foreground; installed end-to-end rerun is pending. G05/Hello/public beta remain open.
+See [evidence, prepared fixture and exact rerun instructions](qualification/WSA-UX-029_slice14_installer_dialogs.md).
+Earlier dated sections below retain their historical scope.
+
+
 ## Package integrity follow-up (2026-11-13)
 
 Current Settings and fresh build pass (0 warnings/errors); the reported
@@ -238,6 +251,15 @@ draft/session retention across the actual update, unknown signer rejection,
 interrupted update and supported OS/DPI/accessibility hardware manually. A signed
 candidate's payload can be rechecked with `test_release_candidate.ps1`.
 Hello PIN/biometric acceptance stays user-deferred; software mocks do not close it.
+
+The complete harness may pause with ACTION MSIX for up to 120s while an App
+Installer window is visible. Cancel the WordSuggestor fixture dialog; the test
+never clicks consent/update buttons. Version observation with any such dialog
+stays automatic_update=false; manual qualification continues only after stable
+idle. GUI MSIX starting marks the hands-off phase. EnvironmentBlocked.AppInstaller
+stops before GUI; NotepadForegroundUnavailable distinguishes denied focus from an
+unsupported native edit target. Per-boundary fixed metadata is in the qualification
+JSON. See the newest procedure above; do not rerun a used nonce.
 
 ## Private staging, pending registration and activation
 

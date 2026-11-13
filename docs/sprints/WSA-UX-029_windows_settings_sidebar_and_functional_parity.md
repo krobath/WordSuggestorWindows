@@ -1,5 +1,18 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## Installer dialog follow-up (2026-11-13)
+
+The full user run reached rollback but failed Notepad GUI with an update dialog
+still open. The test now detects Microsoft App Installer by runtime process
+identity, pauses for operator Cancel and requires stable idle before later phases.
+Interactive completion never qualifies automatic update. Native Notepad focus is
+verified before input; diagnostics distinguish installer/foreground/text failures.
+Build, app 105 and release 112 pass. Standalone GUI is NOT PASS: Explorer retained
+foreground; installed end-to-end rerun is pending. G05/Hello/public beta remain open.
+See [evidence, prepared fixture and exact rerun instructions](../qualification/WSA-UX-029_slice14_installer_dialogs.md).
+Earlier dated sections below retain their historical scope.
+
+
 ## Package integrity follow-up (2026-11-13)
 
 Current Settings and fresh build pass (0 warnings/errors); the reported

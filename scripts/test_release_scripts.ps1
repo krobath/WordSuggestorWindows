@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
 . (Join-Path $PSScriptRoot 'msix_integrity.ps1')
+. (Join-Path $PSScriptRoot 'msix_desktop.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $root = Join-Path $repo ('.artifacts\tests\release-' + [guid]::NewGuid().ToString('N'))
 $bundle = Join-Path $root 'bundle'
@@ -301,4 +302,37 @@ Check 'payload corruption targets compressed DLL data' ($payloadMutation.entry -
 Check 'payload corruption retains the signed footprint and block map' ((Read-IntegrityEntry $originalIntegrity 'AppxSignature.p7x') -ceq (Read-IntegrityEntry $payloadCorruption 'AppxSignature.p7x') -and (Read-IntegrityEntry $originalIntegrity 'AppxBlockMap.xml') -ceq (Read-IntegrityEntry $payloadCorruption 'AppxBlockMap.xml'))
 Check 'payload mutation changes archive bytes' ((Get-FileHash -LiteralPath $originalIntegrity).Hash -cne (Get-FileHash -LiteralPath $payloadCorruption).Hash)
 Reject 'payload fixture never overwrites an existing artifact' {New-MsixPayloadCorruption $originalIntegrity $payloadCorruption}
+$clearDesktopJson='{"schema_version":1,"visible_installer_windows":0,"installer_foreground":false,"foreground_process_id":400}'
+$clearDesktop=Read-MsixDesktopResult $clearDesktopJson
+$blockedDesktop=Read-MsixDesktopResult '{"schema_version":1,"visible_installer_windows":1,"installer_foreground":false,"foreground_process_id":400}'
+Check 'desktop probe parses fixed metadata without content' ($clearDesktop.visible_installer_windows -eq 0)
+foreach($bad in @($clearDesktopJson.Replace('"schema_version":1','"schema_version":"1"'),
+    $clearDesktopJson.Replace('"visible_installer_windows":0','"visible_installer_windows":-1'),
+    $clearDesktopJson.Replace('"visible_installer_windows":0','"visible_installer_windows":257'),
+    $clearDesktopJson.Replace('"installer_foreground":false','"installer_foreground":true'),
+    $clearDesktopJson.Replace('"installer_foreground":false','"installer_foreground":"false"'),
+    $clearDesktopJson.Replace('}',',"document":"PRIVATE_TEXT"}'))){
+    Reject 'invalid or content-bearing desktop result rejected' {Read-MsixDesktopResult $bad}
+}
+Reject 'desktop probe output bounded' {Read-MsixDesktopResult ('x'*4097)}
+Check 'unattended version observation can qualify automatic update' ((Get-MsixAutomaticDecision '0.2.0.2' '0.2.0.2' $clearDesktop) -ceq 'updated')
+Check 'old version cannot qualify automatic update' ((Get-MsixAutomaticDecision '0.2.0.1' '0.2.0.2' $clearDesktop) -ceq 'pending')
+Check 'dialog with new version never becomes automatic PASS' ((Get-MsixAutomaticDecision '0.2.0.2' '0.2.0.2' $blockedDesktop) -ceq 'interactive_dialog')
+Check 'background installer blocks even when not foreground' ((Get-MsixAutomaticDecision '0.2.0.1' '0.2.0.2' $blockedDesktop) -ceq 'interactive_dialog')
+$idleRecord=[ordered]@{}
+Wait-MsixInstallerIdle { $clearDesktop } $idleRecord 'clear' 2
+Check 'clear desktop records stable idle without operator action' ($idleRecord.installer_desktop.clear.idle -and -not $idleRecord.installer_desktop.clear.dialog_observed)
+$script:desktopSampleCount=0
+Wait-MsixInstallerIdle { $script:desktopSampleCount++;if($script:desktopSampleCount -le 2){$blockedDesktop}else{$clearDesktop} } $idleRecord 'operator_closed' 3
+Check 'dialog closure resumes only after stable idle and records intervention' ($idleRecord.installer_desktop.operator_closed.idle -and $idleRecord.installer_desktop.operator_closed.dialog_observed)
+$lateRecord=[ordered]@{checks=[ordered]@{automatic_update=$true}}
+$script:desktopSampleCount=0
+Wait-MsixInstallerIdle { $script:desktopSampleCount++;if($script:desktopSampleCount -le 2){$blockedDesktop}else{$clearDesktop} } $lateRecord 'after_manual_update' 3
+Check 'late installer dialog revokes earlier unattended qualification' (-not $lateRecord.checks.automatic_update -and $lateRecord.automatic_update_not_completed_reason -ceq 'interactive_app_installer' -and $lateRecord.installer_desktop.after_manual_update.idle)
+$timeoutRecord=[ordered]@{}
+Reject 'dialog timeout stops before subsequent phase' {Wait-MsixInstallerIdle { $blockedDesktop } $timeoutRecord 'before_gui' 1}
+Check 'timed-out phase is explicit and never recorded idle' ($timeoutRecord.desktop_blocked_phase -ceq 'before_gui' -and -not $timeoutRecord.installer_desktop.before_gui.idle)
+$tokens=$null;$syntaxErrors=$null
+$null=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'msix_desktop.ps1'),[ref]$tokens,[ref]$syntaxErrors)
+Check 'desktop orchestration PowerShell syntax' ($syntaxErrors.Count -eq 0)
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

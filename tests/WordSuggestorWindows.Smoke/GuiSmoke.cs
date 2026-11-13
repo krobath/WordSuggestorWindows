@@ -14,6 +14,7 @@ internal static class GuiSmoke
 
     public static async Task Run(string repo, bool editorOnly = false)
     {
+        DesktopEnvironmentProbe.AssertInstallerIdle("gui_start");
         var appId = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_APP_ID");
         var data = Environment.GetEnvironmentVariable("WORDSUGGESTOR_TEST_DATA_ROOT") ?? Path.Combine(repo, ".artifacts", "tests", "gui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(data);
@@ -38,6 +39,8 @@ internal static class GuiSmoke
         using var app = Launch();
         Process? recoveredApp = null;
         IntPtr notepadHandle = IntPtr.Zero;
+        uint notepadProcess = 0;
+        var notepadTargetVerified = false;
         var originalForeground = GetForegroundWindow();
         GetCursorPos(out var originalCursor);
         try
@@ -52,12 +55,11 @@ internal static class GuiSmoke
             var notepad = await WaitValue(() => DesktopWindows().FirstOrDefault(w =>
                 w.Current.Name.Contains(Path.GetFileNameWithoutExtension(path), StringComparison.OrdinalIgnoreCase)));
             notepadHandle = new IntPtr(notepad.Current.NativeWindowHandle);
-            SetForegroundWindow(notepadHandle);
-            var edit = notepad.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit))
-                .Cast<AutomationElement>().FirstOrDefault(e => !e.Current.IsOffscreen);
-            edit?.SetFocus();
-            await Task.Delay(400);
-            snapshot = Adapter.ReadFocused();
+            GetWindowThreadProcessId(notepadHandle, out notepadProcess);
+            var focusRequested = SetForegroundWindow(notepadHandle);
+            snapshot = await VerifiedNotepadTarget(notepadHandle, notepadProcess, notepad, focusRequested);
+            notepadTargetVerified = true;
+            Check("Notepad foreground and text-field focus verified", true);
             Check("Notepad native adapter available", snapshot is not null);
             Console.WriteLine($"Notepad version: {FileVersionInfo.GetVersionInfo(Process.GetProcessById((int)snapshot!.ProcessId).MainModule!.FileName!).FileVersion}");
             SetSelection(snapshot.Control, snapshot.Text.Length, snapshot.Text.Length);
@@ -382,10 +384,19 @@ internal static class GuiSmoke
             if (notepadHandle != IntPtr.Zero)
             {
                 // Save the synthetic smoke document so Notepad closes without a save prompt.
-                SetForegroundWindow(notepadHandle);
-                Key(0x11, false); Key(0x53, false); Key(0x53, true); Key(0x11, true);
-                await Task.Delay(150);
-                PostMessageW(notepadHandle, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                GetWindowThreadProcessId(notepadHandle, out var currentProcess);
+                if (currentProcess == notepadProcess)
+                {
+                    SetForegroundWindow(notepadHandle);
+                    if (notepadTargetVerified && GetForegroundWindow() == notepadHandle && Adapter.ReadFocused() is { } cleanupTarget && cleanupTarget.Window == notepadHandle && cleanupTarget.ProcessId == notepadProcess)
+                    {
+                        Key(0x11, false); Key(0x53, false); Key(0x53, true); Key(0x11, true);
+                        await Task.Delay(150);
+                    }
+                    // An exact-window close is safe even when foreground was denied.
+                    // Any save prompt remains for the operator; never type into it.
+                    PostMessageW(notepadHandle, 0x0010, IntPtr.Zero, IntPtr.Zero);
+                }
             }
             if (!app.HasExited)
             {
@@ -397,6 +408,41 @@ internal static class GuiSmoke
             SetForegroundWindow(originalForeground);
             SetCursorPos(originalCursor.X, originalCursor.Y);
         }
+    }
+
+    private static async Task<ExternalTextSnapshot> VerifiedNotepadTarget(IntPtr window, uint process,
+        AutomationElement notepad, bool focusRequested)
+    {
+        var clock = Stopwatch.StartNew();
+        AutomationElement? edit = null;
+        while (clock.Elapsed < TimeSpan.FromSeconds(3))
+        {
+            DesktopEnvironmentProbe.AssertInstallerIdle("notepad_focus");
+            // The top-level window can appear before its UIA text provider.
+            // Preserve nullable-UIA support: native focus is the final authority.
+            if (edit is null)
+            {
+                edit = notepad.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit))
+                    .Cast<AutomationElement>().FirstOrDefault(e => !e.Current.IsOffscreen);
+                if (edit is not null)
+                {
+                    try { edit.SetFocus(); }
+                    catch (InvalidOperationException) { /* Diagnose actual focus below. */ }
+                }
+            }
+            // ReadFocused verifies native GUI-thread focus and the supported
+            // edit control. UIA focus reporting is diagnostic, not authority.
+            if (GetForegroundWindow() == window)
+            {
+                var snapshot = Adapter.ReadFocused();
+                if (snapshot is not null && snapshot.Window == window && snapshot.ProcessId == process && GetForegroundWindow() == window)
+                    return snapshot;
+            }
+            await Task.Delay(100);
+        }
+        var state = DesktopEnvironmentProbe.Read();
+        var foregroundMatches = GetForegroundWindow() == window;
+        throw new InvalidOperationException($"GUI.{(foregroundMatches ? "NotepadTextTargetUnavailable" : "NotepadForegroundUnavailable")} focus_request_accepted={focusRequested} foreground_matches={foregroundMatches} uia_text_field_available={edit is not null} uia_text_field_focused={edit?.Current.HasKeyboardFocus == true} foreground_pid={state.foreground_process_id} installer_windows={state.visible_installer_windows}. No test input was sent.");
     }
 
     private static AutomationElement[] DesktopWindows() => AutomationElement.RootElement.FindAll(TreeScope.Children, System.Windows.Automation.Condition.TrueCondition).Cast<AutomationElement>().ToArray();
@@ -479,6 +525,7 @@ internal static class GuiSmoke
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT point);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr handle);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint process);
     [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr handle, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")] private static extern IntPtr SendMessageW(IntPtr handle, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", EntryPoint = "SendMessageW", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessageText(IntPtr handle, uint msg, IntPtr wParam, string text);

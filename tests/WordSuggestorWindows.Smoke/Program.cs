@@ -14,6 +14,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.FirstOrDefault() == "--installer-desktop-state") return DesktopEnvironmentProbe.PrintState();
         if (args.Contains("--tts-fake-worker")) return SpeechSettingsSmoke.FakeWorker();
         if (UnknownWordSmoke.IsChild(args)) return UnknownWordSmoke.Bridge(args);
         if (CommittedWordAssessmentSmoke.IsChild(args)) return CommittedWordAssessmentSmoke.FakeBridge();
@@ -93,6 +94,7 @@ internal static class Program
 
     private static async Task RunTests()
     {
+        _passed += DesktopEnvironmentSmoke.Run();
         _passed += await UpdateSmoke.Run();
         var repo = FindRepo();
         _testRoot = Path.Combine(repo, ".artifacts", "tests", Guid.NewGuid().ToString("N"));

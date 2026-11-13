@@ -1,5 +1,9 @@
 # WSA-UX-029: package integrity and reported build failure
 
+For the later user-run popup/GUI failure and the NEW prepared rerun, use
+[installer dialog qualification](WSA-UX-029_slice14_installer_dialogs.md).
+Integrity results below are historical measurements, not the current rerun command.
+
 Date: 2026-11-13. Base Windows commit d539adc. Windows-only packaging,
 qualification tooling and implementation documentation; no Core, pack, macOS,
 backend or shared Docs edits. No production signing or publication.

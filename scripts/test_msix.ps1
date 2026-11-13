@@ -16,6 +16,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_common.ps1')
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
 . (Join-Path $PSScriptRoot 'msix_integrity.ps1')
+. (Join-Path $PSScriptRoot 'msix_desktop.ps1')
 . (Join-Path $PSScriptRoot 'app_process.ps1')
 if ($PreparedLocalTestSession) {
     if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory -or $NegativeBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
@@ -153,6 +154,8 @@ function Reject-Feed([string]$Name, [scriptblock]$Mutate) {
 }
 try {
     if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build_app.ps1') }
+    $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
+    $readDesktop = { Get-MsixDesktopState $runner }
     if ($localTest) {
         $shortId = $id.Substring(0,12)
         if ($providedBundles) {
@@ -223,6 +226,7 @@ try {
     $record.negative_package_version=$negative.Identity.Version
     $record.negative_package_sha256=$negative.Manifest.release.artifact.sha256
     $record.bundle_directory = $candidate.Directory
+    Wait-MsixInstallerIdle $readDesktop $record 'before_install'
     Make-TestFeed $previous
     Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
     $installedByThisRun = $true
@@ -254,19 +258,47 @@ try {
     # Shell activation participates in App Installer's launch/update lifecycle;
     # starting a loose executable directly would not prove automatic checks.
     if(-not $SkipAutomaticUpdateProbe) {
-    $null = Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('shell:AppsFolder\' + $installed.PackageFamilyName + '!App') -WindowStyle Hidden -PassThru
-    Start-Sleep -Seconds 3
-    Close-OwnedTestInstances
-    try { $installed = Wait-Version $candidate.Identity.Version 60; Pass 'automatic_update' }
-    catch { $checks.automatic_update = $false; Write-Output 'PENDING MSIX automatic background/on-launch update did not complete in the observation window.' }
+        Wait-MsixInstallerIdle $readDesktop $record 'before_automatic_update'
+        $null = Start-Process -FilePath "$env:SystemRoot\explorer.exe" -ArgumentList ('shell:AppsFolder\' + $installed.PackageFamilyName + '!App') -WindowStyle Hidden -PassThru
+        Start-Sleep -Seconds 3
+        $initialDesktop=& $readDesktop
+        $automaticDialogObserved=$initialDesktop.visible_installer_windows -gt 0
+        if(-not $automaticDialogObserved){Close-OwnedTestInstances}
+        $automaticClock=[Diagnostics.Stopwatch]::StartNew()
+        $automaticVersionObserved=$false
+        $checks.automatic_update=$false
+        while($automaticClock.Elapsed.TotalSeconds -lt 60){
+            $desktop=& $readDesktop
+            $observed=Installed
+            $decision=Get-MsixAutomaticDecision ([string]$observed.Version) $candidate.Identity.Version $desktop
+            if($automaticDialogObserved -or $decision -ceq 'interactive_dialog'){
+                $record.automatic_update_not_completed_reason='interactive_app_installer'
+                Write-Output 'PENDING MSIX automatic update requires an App Installer dialog; operator handling is not an automatic-update PASS.'
+                break
+            }
+            if($decision -ceq 'updated'){$installed=$observed;$automaticVersionObserved=$true;break}
+            Start-Sleep -Milliseconds 250
+        }
+        if(-not $automaticVersionObserved -and -not $record.Contains('automatic_update_not_completed_reason')){
+            $record.automatic_update_not_completed_reason='observation_timeout'
+            Write-Output 'PENDING MSIX automatic background/on-launch update did not complete in the observation window.'
+        }
     } else {
         $checks.automatic_update=$false
         $record.automatic_update_not_run_reason='explicit_local_manual_probe'
         Write-Output 'NOT RUN MSIX automatic update: explicit isolated manual qualification; not a complete release gate.'
     }
+    Wait-MsixInstallerIdle $readDesktop $record 'before_manual_update'
+    if(-not $SkipAutomaticUpdateProbe -and $automaticVersionObserved){
+        if($record.installer_desktop.before_manual_update.dialog_observed){
+            $record.automatic_update_not_completed_reason='interactive_app_installer'
+            Write-Output 'PENDING MSIX automatic update: an App Installer dialog required operator handling after version observation.'
+        }else{Pass 'automatic_update'}
+    }
     Close-OwnedTestInstances
     Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
     $installed = Wait-Version $candidate.Identity.Version
+    Wait-MsixInstallerIdle $readDesktop $record 'after_manual_update'
     Pass 'manual_update'; Pass 'n_to_n1'
     foreach ($file in $sentinels) {
         if ((Get-FileHash -LiteralPath (Join-Path $data $file) -Algorithm SHA256).Hash -cne $hashes[$file]) { throw 'Installed update changed a user-data sentinel.' }
@@ -285,6 +317,7 @@ try {
         if($rollback.Identity.Name -cne $candidate.Identity.Name -or $rollback.Identity.Publisher -cne $candidate.Identity.Publisher -or [version]$rollback.Identity.Version -le [version]$candidate.Identity.Version){throw 'Rollback must retain identity/publisher and increase version.'}
         # App Installer can relaunch after the earlier version observation. Finish
         # that normal lifecycle before writing an offline dirty-draft fixture.
+        Wait-MsixInstallerIdle $readDesktop $record 'before_rollback'
         Close-OwnedTestInstances
         & $runner --retention-data dirty $data $retentionPayload
         if($LASTEXITCODE -ne 0){throw 'Dirty recovery fixture unavailable.'}
@@ -308,6 +341,10 @@ try {
     $env:WORDSUGGESTOR_EXPECT_PACKAGE_VERSION = [string]$installed.Version
     $env:WORDSUGGESTOR_TEST_DATA_ROOT = Join-Path $data ('GuiSmoke\' + [guid]::NewGuid().ToString('N'))
     if(-not $SkipInstalledGuiProbe) {
+        $checks.installer_ui_idle=$false
+        Wait-MsixInstallerIdle $readDesktop $record 'before_gui'
+        Pass 'installer_ui_idle'
+        Write-Output 'GUI MSIX starting: leave mouse/keyboard idle until qualification completes.'
         & (Join-Path $PSScriptRoot 'test_gui.ps1') -SkipBuild -AppId ($installed.PackageFamilyName + '!App')
         Pass 'desktop_smoke'; Pass 'installed_relaunch'
     } else {
