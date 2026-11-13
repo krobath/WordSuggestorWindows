@@ -1,5 +1,14 @@
 # Windows smoke and qualification
 
+## G05 input/schema investigation (2026-11-13)
+
+Seven native input controls, same-identity schema comparison and a read-only
+Settings probe are implemented. Build/app105/UpdateState35/release135 pass.
+The native attempt stopped at UAC BEFORE installation; the new comparisons are
+NOT RUN and G05 remains unqualified/read-only. No VM cause is established.
+See [exact evidence, research and continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md).
+
+
 ## G05 isolated native diagnosis (2026-11-13)
 
 Both installed baseline and capability variant fail at write_policy/0x800706F7;

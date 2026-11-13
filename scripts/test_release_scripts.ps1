@@ -402,4 +402,11 @@ try {
 }
 $nativeBuildGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'prepare_msix_test.ps1'),'-BuildUpdatePolicyNativeControl') 20
 Check 'automatic C++ build also requires isolated diagnostic context' ($nativeBuildGuard.ExitCode -ne 0 -and ($nativeBuildGuard.Output+$nativeBuildGuard.Error).Contains('requires the isolated capability experiment'))
+$schemaGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicyDiagnosticSchema','2021') 20
+Check 'diagnostic schema cannot alter the normal release flow' ($schemaGuard.ExitCode -ne 0 -and ($schemaGuard.Output+$schemaGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+$settingsUiGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicySettingsUiProbe') 20
+Check 'Settings UI probe requires isolated diagnostic context before launch' ($settingsUiGuard.ExitCode -ne 0 -and ($settingsUiGuard.Output+$settingsUiGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+Reject 'Settings UI probe rejects production target before launch' {Get-SettingsUpdateUiEvidence 'WordSuggestor.Windows.Beta_fixture'}
+$comparisonGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-CompareUpdatePolicySchemas') 20
+Check 'cross-schema comparison cannot run outside the isolated diagnostic' ($comparisonGuard.ExitCode -ne 0 -and ($comparisonGuard.Output+$comparisonGuard.Error).Contains('require UpdatePolicyDiagnostic'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

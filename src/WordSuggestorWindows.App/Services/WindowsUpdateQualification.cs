@@ -98,8 +98,8 @@ public static class WindowsUpdateQualification
     {
         if (raw.Length > 8192) throw new InvalidDataException("Native control output exceeded limit.");
         using var document = JsonDocument.Parse(raw); var value = document.RootElement;
-        var names = new[] { "schema_version", "packaged_context_matches", "noop_verified", "off_verified", "on_verified", "restored", "failure_stage", "hresult", "factory_hresult", "manual_options", "info_route" };
-        if (value.EnumerateObject().Count() != names.Length || names.Any(n => !value.TryGetProperty(n, out _)) || value.GetProperty("schema_version").GetInt32() != 2 || value.GetProperty("info_route").GetString() != "current_package")
+        var names = new[] { "schema_version", "packaged_context_matches", "noop_verified", "off_verified", "on_verified", "restored", "failure_stage", "hresult", "factory_hresult", "manual_options", "info_route", "input_cases" };
+        if (value.EnumerateObject().Count() != names.Length || names.Any(n => !value.TryGetProperty(n, out _)) || value.GetProperty("schema_version").GetInt32() != 3 || value.GetProperty("info_route").GetString() != "current_package")
             throw new InvalidDataException("Native control schema rejected.");
         foreach (var name in names.Skip(1).Take(5)) { _ = value.GetProperty(name).GetBoolean(); }
         _ = value.GetProperty("manual_options").GetBoolean();
@@ -112,6 +112,21 @@ public static class WindowsUpdateQualification
             (value.GetProperty("hresult").GetString() == "0x00000000" &&
             (!value.GetProperty("packaged_context_matches").GetBoolean() || !value.GetProperty("on_verified").GetBoolean() || value.GetProperty("failure_stage").GetString() != "none")))
             throw new InvalidDataException("Native control outcomes inconsistent.");
+        var cases = value.GetProperty("input_cases");
+        var caseNames = new[] { "no_prompt", "minimal", "minimal_no_version", "update_uri", "repair_uri", "both_uris", "no_repair" };
+        if (cases.GetArrayLength() > caseNames.Length || (cases.GetArrayLength() > 0 && !value.GetProperty("packaged_context_matches").GetBoolean())) throw new InvalidDataException("Input cases rejected.");
+        var index = 0;
+        foreach (var item in cases.EnumerateArray())
+        {
+            var fields = new[] { "name", "accepted", "restored", "stage", "hresult" };
+            if (item.EnumerateObject().Count() != fields.Length || fields.Any(n => !item.TryGetProperty(n, out _)) || item.GetProperty("name").GetString() != caseNames[index++]) throw new InvalidDataException("Input case schema rejected.");
+            var accepted = item.GetProperty("accepted").GetBoolean(); var restored = item.GetProperty("restored").GetBoolean();
+            var stage = item.GetProperty("stage").GetString(); var code = item.GetProperty("hresult").GetString() ?? "";
+            if (stage is not ("create_options" or "write_policy" or "read_after" or "completed") || !System.Text.RegularExpressions.Regex.IsMatch(code, "^0x[A-F0-9]{8}$") ||
+                (code == "0x00000000" && (!accepted || stage != "completed")) ||
+                (stage == "completed" && (!accepted || code != "0x00000000")) ||
+                (!restored && value.GetProperty("restored").GetBoolean())) throw new InvalidDataException("Input case outcomes rejected.");
+        }
         return value.Clone();
     }
 }

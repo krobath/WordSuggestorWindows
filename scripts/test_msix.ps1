@@ -11,6 +11,9 @@ param(
     [switch]$SkipInstalledGuiProbe,
     [switch]$UpdatePolicyDiagnostic,
     [ValidateRange(0,255)][int]$UpdatePolicyDiagnosticHours=0,
+    [ValidateSet('2018','2021')][string]$UpdatePolicyDiagnosticSchema='2018',
+    [switch]$UpdatePolicySettingsUiProbe,
+    [switch]$CompareUpdatePolicySchemas,
     [switch]$AllowTemporaryMachineTrust
 )
 $ErrorActionPreference = 'Stop'
@@ -44,6 +47,7 @@ $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
 if($UpdatePolicyDiagnostic -and (-not $PreparedLocalTestSession -or -not $localTest -or -not $prepared.update_policy_capability_experiment)){throw 'UpdatePolicyDiagnostic requires prepared isolated capability-experiment fixtures.'}
 if($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticHours') -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic update intervals require UpdatePolicyDiagnostic.'}
+if(($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticSchema') -or $UpdatePolicySettingsUiProbe -or $CompareUpdatePolicySchemas) -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic schema and Settings UI probes require UpdatePolicyDiagnostic.'}
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
 if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
@@ -90,7 +94,9 @@ function Build-LocalBundle([string]$Version) {
 function Make-TestFeed($Bundle) {
     $r = $Bundle.Manifest.release
     Copy-Item -LiteralPath (Join-Path $Bundle.Directory $r.artifact.filename) -Destination $feedRoot
-    $xml = Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $Bundle.Directory $r.update_feed.filename)))
+    $feedText=[IO.File]::ReadAllText((Join-Path $Bundle.Directory $r.update_feed.filename))
+    if($UpdatePolicyDiagnostic -and $UpdatePolicyDiagnosticSchema -eq '2021'){$feedText=$feedText.Replace('http://schemas.microsoft.com/appx/appinstaller/2018','http://schemas.microsoft.com/appx/appinstaller/2021')}
+    $xml = Read-ReleaseXml $feedText
     $xml.AppInstaller.Uri = ([uri](Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller')).AbsoluteUri
     $xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot $r.artifact.filename)).AbsoluteUri
     $xml.AppInstaller.UpdateSettings.OnLaunch.HoursBetweenUpdateChecks = if($UpdatePolicyDiagnostic){[string]$UpdatePolicyDiagnosticHours}else{'0'}
@@ -157,20 +163,25 @@ function Reject-Feed([string]$Name, [scriptblock]$Mutate) {
     if (-not $rejected -or [string](Installed).Version -ne $before) { throw "Windows did not reject $Name safely." }
     Pass $Name
 }
-function Probe-UpdatePolicyDiagnostic($Package,[string]$Label) {
+function Probe-UpdatePolicyDiagnostic($Package,[string]$Label,[bool]$Capabilities=($Label -ceq 'capabilities')) {
     . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
     if(-not $record.Contains('update_policy_input_hours')){$record.update_policy_input_hours=[ordered]@{}}
     $record.update_policy_input_hours[$Label]=(Get-SettingsUpdateSnapshot $Package.PackageFamilyName).HoursBetweenUpdateChecks
+    if(-not $record.Contains('update_policy_feed_schemas')){$record.update_policy_feed_schemas=[ordered]@{}}
+    $feedDocument=Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller')))
+    $record.update_policy_feed_schemas[$Label]=$feedDocument.DocumentElement.NamespaceURI
     $output=Join-Path $root ('policy-'+$Label)
     $code=Invoke-SettingsGateProcess (Join-Path $PSScriptRoot 'test_settings_platform.ps1') @('-PackagedUpdateProbe','-TestPackageFamilyName',$Package.PackageFamilyName,'-RunnerPath',$runner,'-OutputDirectory',$output) (Join-Path $root ('policy-'+$Label+'.log')) 6>$null
     if($code -notin @(0,3)){throw 'Targeted update-policy diagnostic failed or restoration was not verified.'}
     $result=Get-Content -LiteralPath (Join-Path $output 'update-native.json') -Raw | ConvertFrom-Json
     if(-not $result.mutation_stage){throw 'Rebuild diagnostic fixtures: precise mutation-stage evidence is required.'}
-    $expectCapabilities=$Label -ceq 'capabilities'
+    if($CompareUpdatePolicySchemas -and ($result.native_control.schema_version -ne 3 -or @($result.native_control.input_cases).Count -ne 7)){throw 'Rebuild diagnostic fixtures: the seven-case native input control is required for schema comparison.'}
+    $expectCapabilities=$Capabilities
     if($result.package_management_declared -ne $expectCapabilities -or $result.package_query_declared -ne $expectCapabilities){throw 'Diagnostic capability declarations do not match the expected variant.'}
     $record.update_policy_diagnostics[$Label]=$result
     Write-Output ('G05 '+$Label+' status='+$result.status+' stage='+$result.mutation_stage+' hresult='+$result.hresult+' management='+$result.package_management_declared+' query='+$result.package_query_declared+' restored='+$result.restored)
     if($result.native_control){Write-Output ('G05 '+$Label+' C++ context='+$result.native_control.packaged_context_matches+' noop='+$result.native_control.noop_verified+' off='+$result.native_control.off_verified+' on='+$result.native_control.on_verified+' stage='+$result.native_control.failure_stage+' hresult='+$result.native_control.hresult+' restored='+$result.native_control.restored)}
+    foreach($case in @($result.native_control.input_cases | Where-Object {$_})){Write-Output ('G05 '+$Label+' input='+$case.name+' accepted='+$case.accepted+' stage='+$case.stage+' hresult='+$case.hresult+' restored='+$case.restored)}
     Close-OwnedTestInstances
 }
 try {
@@ -254,7 +265,12 @@ try {
     $installed = Wait-Version $previous.Identity.Version
     Pass 'clean_install'; Pass 'standard_user'
     if($UpdatePolicyDiagnostic){
-        $record.mode='update_policy_diagnostic';$record.update_policy_diagnostics=[ordered]@{}
+        $record.mode='update_policy_diagnostic';$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
+        if($UpdatePolicySettingsUiProbe){
+            . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
+            $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName
+            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found)
+        }
         Probe-UpdatePolicyDiagnostic $installed 'baseline'
         Make-TestFeed $candidate
         Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
@@ -263,6 +279,16 @@ try {
         . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
         $record.native_reference=Get-SettingsUpdateQualification $installed.PackageFamilyName
         if($UpdatePolicyDiagnosticHours -gt 0){$record.zero_interval_control=Get-SettingsZeroIntervalControl $installed.PackageFamilyName}
+        if($CompareUpdatePolicySchemas){
+            if(-not $RollbackBundleDirectory){throw 'Schema comparison requires the prepared higher-version third fixture.'}
+            $comparison=Test-ReleaseBundle $RollbackBundleDirectory -LocalTest -VerifySignature
+            $UpdatePolicyDiagnosticSchema=if($UpdatePolicyDiagnosticSchema -eq '2018'){'2021'}else{'2018'}
+            $record.comparison_schema=$UpdatePolicyDiagnosticSchema
+            Make-TestFeed $comparison
+            Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
+            $installed=Wait-Version $comparison.Identity.Version
+            Probe-UpdatePolicyDiagnostic $installed ('schema_'+$UpdatePolicyDiagnosticSchema) $true
+        }
         $finished=$true
     }else{
     New-Item -ItemType Directory -Path (Join-Path $data 'Packs'),(Join-Path $data 'settings') -Force | Out-Null
@@ -462,8 +488,10 @@ try {
         if ($remaining -and $remaining.Publisher -ceq $candidate.Identity.Publisher) { Remove-AppxPackage -Package $remaining.PackageFullName -ErrorAction Continue }
     }
     foreach ($name in $environmentBefore.Keys) { [Environment]::SetEnvironmentVariable($name,$environmentBefore[$name],'Process') }
+    # Signal even when RunAs throws before returning its process object. A late
+    # helper for this owned session must immediately remove its temporary leaf.
+    if($localTest){[IO.File]::WriteAllText((Join-Path $root 'cleanup.request'),'cleanup')}
     if ($trustProcess) {
-        [IO.File]::WriteAllText((Join-Path $root 'cleanup.request'),'cleanup')
         try { $null = $trustProcess.WaitForExit(10000) } catch { }
         $record.test_trust_cleaned = Test-Path -LiteralPath (Join-Path $root 'trust-cleaned.json')
     }

@@ -265,6 +265,43 @@ function Get-SettingsZeroIntervalControl([string]$FamilyName) {
     return [ordered]@{requested_hours=0;original_hours=$before.HoursBetweenUpdateChecks;accepted=$accepted;hresult=$errorCode;restored=$true}
 }
 
+function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
+    $package=Get-AppxPackage | Where-Object PackageFamilyName -CEQ $FamilyName | Select-Object -First 1
+    Assert-SettingsQualificationPackage $FamilyName $package
+    if(Test-SettingsProcessElevated){throw 'Settings UI diagnosis requires an ordinary-user LocalTest.'}
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $result=[ordered]@{page_target_verified=$false;update_toggle_found=$false;toggle_count=0;toggle_ids=@();status='page_not_verified'}
+    # Interactive, read-only: never click, toggle, reset, uninstall or stop Settings.
+    Start-Process ('ms-settings:appsfeatures-app?'+$FamilyName) | Out-Null
+    $deadline=[DateTime]::UtcNow.AddSeconds(12)
+    do {
+        foreach($process in @(Get-Process -Name SystemSettings -ErrorAction SilentlyContinue)){
+            if($process.Path -ine (Join-Path $env:SystemRoot 'ImmersiveControlPanel\SystemSettings.exe') -or -not $process.MainWindowHandle){continue}
+            try{
+                $window=[Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+                $nodes=$window.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
+                $nonce=$package.Name.Split('.')[-1]
+                foreach($node in $nodes){if($node.Current.Name.Contains($nonce)){$result.page_target_verified=$true;break}}
+                if(-not $result.page_target_verified){continue}
+                $ids=@()
+                foreach($node in $nodes){
+                    if(-not $node.GetCurrentPropertyValue([Windows.Automation.AutomationElement]::IsTogglePatternAvailableProperty)){continue}
+                    $result.toggle_count++
+                    $controlId=$node.Current.AutomationId
+                    if($controlId -cmatch '^[A-Za-z][A-Za-z0-9._-]{0,100}$'){$ids+=$controlId}
+                    if($node.Current.Name -match '(auto.*updat|updat.*auto|automat.*opdater|opdater.*automat)'){$result.update_toggle_found=$true}
+                }
+                $result.toggle_ids=@($ids | Select-Object -Unique -First 32)
+                $result.status=if($result.update_toggle_found){'read_only_control_found'}else{'no_update_toggle_exposed'}
+                return $result
+            }catch{$result.status='ui_probe_unavailable'}
+        }
+        Start-Sleep -Milliseconds 300
+    }while([DateTime]::UtcNow -lt $deadline)
+    return $result
+}
+
 function Get-SettingsSourceSnapshot([string]$Repository) {
     $head = & git -C $Repository rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Cannot read source revision.' }
