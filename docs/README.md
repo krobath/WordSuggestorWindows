@@ -1,5 +1,8 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+2026-11-14: UAC was not visible on the VM. No new native result; use the
+[verified interactive continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md#interactive-continuation-verified-2026-11-14).
+
 ## G05 input/schema investigation (2026-11-13)
 
 Seven native input controls, same-identity schema comparison and a read-only

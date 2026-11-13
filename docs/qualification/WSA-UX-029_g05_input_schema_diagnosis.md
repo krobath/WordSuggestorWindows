@@ -97,8 +97,11 @@ Actual attempt bdd73080436f4996a10b8f033c75b188 started 2026-11-13T22:40:08Z,
 finished 22:42:13Z. Windows RunAs returned cancellation before trust-ready and
 before installation. The recorded outer exception was InvalidOperationException /
 0x80131509; this is the UAC launch failure, NOT the native setter's 0x800706F7.
-The reason for the OS cancellation is not established; no repeated UAC attempt
-was launched. Operator visibility/approval is still to be clarified.
+On 2026-11-14 the operator confirmed that the UAC dialog was NOT visible on the
+VM. This does not mean the operator rejected it, and does not identify a VM or
+native setter fault. No further agent-launched UAC attempt was made. Next run the
+same prepared, never-installed session from an interactive ordinary-user PowerShell
+on the VM, so the trust prompt can be handled locally.
 
 | Native item | Actual result |
 |---|---|
@@ -148,3 +151,29 @@ Do not infer a VM fault or request replacement from the shared HRESULT alone.
 
 Windows local docs own this evidence. Shared Docs may link the measured outcome;
 macOS, Core, pack and backend code/contracts remain unchanged.
+
+## Interactive continuation verified 2026-11-14
+
+Prepared session b14042ba01ae remains unused: no installed package, no profile
+files, no signing key or machine leaf trust, all four bundles present. Public
+certificate expires 2026-11-20. Repository clean at 6e15f0f before this evidence
+update. The previous failed attempt has its cleanup request; a new invocation
+creates a NEW attempt directory and does not reuse that failed trust handshake.
+
+From an ordinary (NOT administrator) PowerShell on the VM:
+
+```powershell
+# Run from the WordSuggestorWindows checkout.
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
+  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-b14042ba01ae `
+  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicyDiagnosticHours 6 `
+  -CompareUpdatePolicySchemas -UpdatePolicySettingsUiProbe -AllowTemporaryMachineTrust
+```
+
+Approve only the test PowerShell UAC prompt. Do not change Windows Settings during
+the read-only probe. If the prompt is still absent, stop after the error; do not
+repeat blindly or make the whole test elevated. Return the G05 lines and final
+qualification status/path. Diagnostic exit 3 is partial qualification, not a native
+G05 pass; the JSON matrix determines actual results. This interactive run is NOT
+yet performed as of this documentation update. Reprepare after certificate expiry
+or if any package/profile data appears; never reuse an installed test identity.
