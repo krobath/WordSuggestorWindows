@@ -8,6 +8,8 @@ namespace WordSuggestorWindows.App;
 public partial class MainWindow
 {
     private AutomaticWordLearning? _automaticWords;
+    private UnknownWordSharingClient? _wordSharing;
+    private readonly System.Windows.Threading.DispatcherTimer _sharingRetryTimer=new(){Interval=TimeSpan.FromSeconds(30)};
     private (RichTextBox Editor,string Expected,int Caret,long Time)? _unknownInput;
     private ExternalTextSnapshot? _unknownExternalBaseline;
     private long _unknownGeneration;
@@ -16,10 +18,28 @@ public partial class MainWindow
     {
         if(_viewModel.UnknownWordCore is ICoreCompletedWordAdapter boundary)
             _automaticWords=new(boundary,_viewModel.UnknownWordCore,_viewModel.SettingsService,new());
+        if(UnknownWordSharingDeployment.Qualified&&_viewModel.UnknownWordCore is ICoreUnknownWordHandoffAdapter handoff)
+        {
+            _wordSharing=new(handoff,new AccountUnknownWordSharingSender(_viewModel.AccountSession),()=>_viewModel.LoadSettingsSnapshot() is {IsUnknownWordLookupEnabled:true,IsUnknownWordCrowdHandoffEnabled:true,UnknownWordSharingConsentVersion:1} permission&&permission.UnknownWordSharingConsentUserId==_viewModel.AccountSession.Profile?.UserId,()=>UnknownWordSharingDeployment.Qualified,WindowsDataPaths.Root);
+            LearnedWordStore.Changed+=LearnedWordsChanged;
+            _sharingRetryTimer.Tick+=SharingRetryTick;_sharingRetryTimer.Start();
+        }
         _viewModel.SettingsChanged+=UnknownSettingsChanged;
         _editorWindow.Deactivated+=UnknownEditorDeactivated;
     }
-    private void UnknownSettingsChanged(object? sender,AppSettingsSnapshot settings){_unknownGeneration++;_automaticWords?.Cancel();_unknownInput=null;_unknownExternalBaseline=null;}
+    private void UnknownSettingsChanged(object? sender,AppSettingsSnapshot settings){_unknownGeneration++;_automaticWords?.Cancel();_unknownInput=null;_unknownExternalBaseline=null;_wordSharing?.Cancel();if(!settings.IsUnknownWordCrowdHandoffEnabled&&_wordSharing is not null)_= _wordSharing.RevokeAsync();}
+    private async void SharingRetryTick(object? sender,EventArgs args)=>await SynchronizeWordSharing();
+    private async void LearnedWordsChanged(object? sender,string path)
+    {
+        if(_wordSharing is null||path!=LearnedWordStore.PathFor(WindowsDataPaths.Root))return;
+        _wordSharing.Cancel();await SynchronizeWordSharing();
+    }
+    private async Task SynchronizeWordSharing()
+    {
+        if(_wordSharing is null)return;
+        var status=await _wordSharing.SynchronizeAsync(new(Guid.NewGuid(),_unknownGeneration),WindowsUpdateService.DisplayVersion);
+        if(status is "account_mismatch" or "rejected" or "login_or_permission_required" or "retry_exhausted" or "unavailable")_viewModel.SetStatusMessage(SettingsText.Get("UnknownSharingUnavailable"));
+    }
     private void UnknownEditorDeactivated(object? sender,EventArgs args){_automaticWords?.Revalidate();_unknownInput=null;}
     private void RememberUnknownInput(string inserted)
     {
@@ -61,6 +81,8 @@ public partial class MainWindow
     }
     private void DisposeUnknownWords()
     {
+        _sharingRetryTimer.Stop();_sharingRetryTimer.Tick-=SharingRetryTick;
+        LearnedWordStore.Changed-=LearnedWordsChanged;_wordSharing?.Dispose();
         _unknownGeneration++;_automaticWords?.Dispose();_viewModel.SettingsChanged-=UnknownSettingsChanged;_editorWindow.Deactivated-=UnknownEditorDeactivated;
     }
 }

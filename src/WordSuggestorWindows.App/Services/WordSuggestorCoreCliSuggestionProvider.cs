@@ -6,7 +6,7 @@ using WordSuggestorWindows.App.Models;
 
 namespace WordSuggestorWindows.App.Services;
 
-public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider, ICoreSettingsAdapter, ICoreUnknownWordAdapter, ICoreCompletedWordAdapter
+public sealed partial class WordSuggestorCoreCliSuggestionProvider : ISuggestionProvider, ICoreSettingsAdapter, ICoreUnknownWordAdapter, ICoreCompletedWordAdapter, ICoreUnknownWordHandoffAdapter
 {
     private readonly string _baseDirectory;
     private readonly string? _workspaceRoot;

@@ -8,6 +8,7 @@ namespace WordSuggestorWindows.App.Services;
 // lexical data/merging. Only this separate learned file is replaced, never user words.
 public sealed class LearnedWordStore
 {
+    public static event EventHandler<string>? Changed;
     public const int MaximumBytes = 1_048_576;
     public string StorePath { get; }
     public LearnedWordStore(string? root = null) => StorePath = PathFor(root ?? WindowsDataPaths.Root);
@@ -65,6 +66,7 @@ public sealed class LearnedWordStore
             CheckExisting(); CheckBackup();
             if (File.Exists(StorePath)) File.Replace(temp, StorePath, StorePath + ".bak");
             else File.Move(temp, StorePath);
+            Changed?.Invoke(this,StorePath);
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
@@ -76,5 +78,6 @@ public sealed class LearnedWordStore
         token.ThrowIfCancellationRequested();
         if (File.Exists(StorePath + ".bak")) File.Delete(StorePath + ".bak");
         if (File.Exists(StorePath)) File.Delete(StorePath);
+        Changed?.Invoke(this,StorePath);
     }
 }

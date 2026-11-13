@@ -407,7 +407,7 @@
   "A06.Title": "Unknown word lookup (local learning)",
   "A06.Help": "Allows online lookup when you explicitly choose one Danish word in the dialog. The word is sent to ordregister.dk, with ordnet.dk as fallback. Core validates and stores the result locally. Automatic observation and sharing are disabled. Manual user words remain separate.",
   "A07.Title": "Share unknown word learning (consent)",
-  "A07.Help": "A separate choice for future sharing of unknown word learning entries. Requires unknown word lookup. This Windows version provides no sharing or upload for these entries.",
+  "A07.Help": "The Windows client is prepared, but sharing is disabled until the backend receiver and security contract are implemented and approved. Separate account-bound consent will be required.",
   "AdvancedUnknownUnavailable": "Unknown word lookup and sharing are not yet available on Windows. Adding user words manually remains separate. These controls send no words.",
   "AdvancedPrivacy": "Diagnostics stay on this PC. All diagnostic switches are off by default. Files are bounded and are not sent automatically.",
   "AdvancedDisabled": "Diagnostic collection is off. Existing diagnostic files are preserved.",
@@ -438,5 +438,7 @@
   "UnknownClearConfirm": "Clear all explicitly imported words and their local backup? Manually added user words are preserved.",
   "UnknownCleared": "Imported words cleared.",
   "UnknownAutomatic": "Look up unknown words while typing",
-  "UnknownAutomaticConsent": "Allow automatic online lookup of completed Danish words in the editor and supported Notepad? Individual words are sent to ordregister.dk or ordnet.dk. Surrounding document text is not sent to the dictionary. Results are stored locally. This is separate consent from manual lookup."
+  "UnknownAutomaticConsent": "Allow automatic online lookup of completed Danish words in the editor and supported Notepad? Individual words are sent to ordregister.dk or ordnet.dk. Surrounding document text is not sent to the dictionary. Results are stored locally. This is separate consent from manual lookup.",
+  "UnknownSharingConsent": "Share existing imported Danish words and their dictionary metadata with the WordSuggestor backend under the current account? Document text, failed lookups and credentials are excluded. You can revoke consent and clear pending sharing. Data already received by the server cannot be recalled from the app.",
+  "UnknownSharingUnavailable": "Sharing imported words is unavailable. Check the account and consent. Turn sharing off to clear the pending queue."
 }

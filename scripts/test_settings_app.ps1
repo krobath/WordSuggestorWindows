@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'AutomaticWords', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
+    [ValidateSet('State', 'Ui', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'AutomaticWords', 'UnknownSharing', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
     [string]$RunnerPath
 )
@@ -98,4 +98,9 @@ if ($Mode -in @('UnknownWordsUi', 'All')) {
 if ($Mode -in @('AutomaticWords', 'All')) {
  & $runner --automatic-word
  if ($LASTEXITCODE -ne 0) { throw "Automatic word smoke failed ($LASTEXITCODE)." }
+}
+
+if ($Mode -in @('UnknownSharing', 'All')) {
+ & $runner --unknown-sharing
+ if ($LASTEXITCODE -ne 0) { throw "Unknown sharing smoke failed ($LASTEXITCODE)." }
 }

@@ -3,7 +3,7 @@
   "platform": "windows",
   "reference_commit": "ba18b451372dd2e3f125e557c5db45894f4e1ae3",
   "windows_base": "d39afaa",
-  "core_revision": "ebd2424384649128a967867cf1ed3189de937d8c",
+  "core_revision": "0278cbc515580f6f9c9e18020e5ed753d9fc7b11",
   "sprint_complete": false,
   "release_qualified": false,
   "controls": [
@@ -571,8 +571,8 @@
       "id": "A07",
       "category": "advanced",
       "implementation": "unavailable",
-      "automation_suite": "AdvancedUi",
-      "evidence_document": "WSA-UX-029_slice9.md",
+      "automation_suite": "UnknownSharing/AdvancedUi",
+      "evidence_document": "WSA-UX-029_slice13.md",
       "manual_qualification": "unavailable"
     },
     {

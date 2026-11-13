@@ -16,6 +16,8 @@ public sealed class AccountSessionCoordinator : INotifyPropertyChanged, IDisposa
     private readonly string _device;
     private CancellationTokenSource _lifetime = new();
     private long _generation;
+    private CancellationTokenSource _sharingLifetime = new();
+    public string Origin => _backend.Origin;
     private AccountTokens? _tokens;
     private AccountRecovery? _recovery;
     private DateTimeOffset _expires;
@@ -225,6 +227,15 @@ public sealed class AccountSessionCoordinator : INotifyPropertyChanged, IDisposa
     { if (_tokens is null || profile.UserId != _tokens.User.Id || profile.Email != _tokens.User.Email || profile.DisplayName?.Length > 255) throw new AccountFailure("invalid_response"); }
     private static void ValidatePersonalization(AccountPersonalization p)
     { if (p.SchemaName != "profile_personalization_v1" || p.ProfileVersion < 0) throw new AccountFailure("invalid_response"); }
+    public async Task SubmitUnknownWordHandoffAsync(JsonElement payload,string idempotencyKey,CancellationToken token)
+    {
+        if(!UnknownWordSharingDeployment.Qualified||UnknownWordSharingDeployment.EndpointPath is not {} path||!Config.Supports(UnknownWordSharingDeployment.Capability))throw new AccountFailure("unsupported");
+        if(!IsSignedIn||Busy)throw new AccountFailure("login_required");
+        var identity=_tokens;
+        using var linked=CancellationTokenSource.CreateLinkedTokenSource(token,_lifetime.Token,_sharingLifetime.Token);
+        await Send<bool>(HttpMethod.Post,path,payload,linked.Token,true,idempotencyKey);
+        if(!ReferenceEquals(identity,_tokens)||!IsSignedIn)throw new OperationCanceledException();
+    }
     private async Task<T> Send<T>(HttpMethod method, string path, object? body, CancellationToken token, bool authenticated = false, string? idempotency = null)
     {
         var result = await _backend.SendAsync<T>(method, path, body, authenticated ? _tokens?.AccessToken ?? throw new AccountFailure("login_required") : null, token, idempotency);
@@ -262,6 +273,7 @@ public sealed class AccountSessionCoordinator : INotifyPropertyChanged, IDisposa
     private async Task<bool> Run(Func<CancellationToken, Task> action, string success = "ready")
     {
         if (_disposed || Busy) return false;
+        _sharingLifetime.Cancel();_sharingLifetime.Dispose();_sharingLifetime=new();
         Busy = true; var generation = _generation; var token = _lifetime.Token; StatusCode = "connecting"; Notify();
         try { await action(token); token.ThrowIfCancellationRequested(); if (generation != _generation) return false; StatusCode = success; return true; }
         catch (OperationCanceledException) { if (generation == _generation) StatusCode = "cancelled"; return false; }
@@ -282,5 +294,5 @@ public sealed class AccountSessionCoordinator : INotifyPropertyChanged, IDisposa
     }
     private void Notify() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     public void Dispose()
-    { if (_disposed) return; _disposed = true; _generation++; _lifetime.Cancel(); _lifetime.Dispose(); _vault.Dispose(); ClearMemory(); if (_sessionSwitch is not null) Microsoft.Win32.SystemEvents.SessionSwitch -= _sessionSwitch; if (_backend is IDisposable disposable) disposable.Dispose(); }
+    { if (_disposed) return; _disposed = true; _sharingLifetime.Cancel();_sharingLifetime.Dispose(); _generation++; _lifetime.Cancel(); _lifetime.Dispose(); _vault.Dispose(); ClearMemory(); if (_sessionSwitch is not null) Microsoft.Win32.SystemEvents.SessionSwitch -= _sessionSwitch; if (_backend is IDisposable disposable) disposable.Dispose(); }
 }

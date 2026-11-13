@@ -6,6 +6,15 @@ namespace WordSuggestorWindows.App.Services;
 
 public sealed partial class WordSuggestorCoreCliSuggestionProvider
 {
+    public async Task<CoreQueryResult<CoreUnknownWordHandoff>> PrepareUnknownWordHandoffAsync(CoreRequestContext scope,int consentVersion,string clientVersion,CancellationToken token=default)
+    {
+        if(consentVersion!=1||string.IsNullOrWhiteSpace(clientVersion)||clientVersion.Length>128||clientVersion.Any(char.IsControl))throw new ArgumentException("Invalid sharing consent or client metadata.");
+        if(!(await GetCapabilitiesAsync(cancellationToken:token)).UnknownWordHandoffPreparation)throw new NotSupportedException("Core handoff preparation unavailable.");
+        var response=await QueryAsync("prepareUnknownWordHandoff","",scope,null,null,null,token,handoffConsent:consentVersion,clientVersion:clientVersion);
+        if(response.UnknownWordHandoff is not {SchemaVersion:1} value||value.Status is not("prepared" or "empty" or "consent_required" or "unsupported_language" or "invalid_metadata" or "store_full"))throw InvalidProtocol();
+        if(value.Status=="prepared")_=UnknownWordHandoffPacket.Parse(value.Body??throw InvalidProtocol());else if(value.Body is not null)throw InvalidProtocol();
+        return Result(response,value);
+    }
     public async Task<CoreQueryResult<CoreCompletedToken>> CompletedWordAsync(string prefix, int textOffset, CoreRequestContext scope, CancellationToken token = default)
     {
         if(prefix.Length>512||textOffset<0)throw new ArgumentException("Invalid bounded context.");

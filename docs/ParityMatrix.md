@@ -1,5 +1,16 @@
 # Windows evidence-based parity matrix
 
+## WSA-UX-029 slice 13 - sharing client ready, receiver pending (2026-11-13)
+
+The Windows client prepares the unchanged Core handoff, persists an account-bound
+idempotent queue and reuses secure account HTTPS transport. Schema 9 adds separate
+profile-bound consent; all real sharing stays source-gated/off. The user assigned
+the receiver to the macOS backend agent. See [client contract](UnknownWordSharing.md),
+[backend prompt](handoffs/WSA-UX-029_slice13_backend_agent_prompt.md) and
+[qualification](qualification/WSA-UX-029_slice13.md). A07 remains unavailable;
+mock success is not deployed-backend acceptance. Earlier entries are historical.
+
+
 ## WSA-UX-029 slice 12 - verified typing lookup (2026-11-13)
 
 Automatic Danish lookup now works in the native editor and supported Notepad with

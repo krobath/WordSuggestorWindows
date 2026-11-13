@@ -407,7 +407,7 @@
   "A06.Title": "Ukendt ord-opslag (lokal læring)",
   "A06.Help": "Tillader onlineopslag, når du selv vælger ét dansk ord i dialogen. Ordet sendes til ordregister.dk, eventuelt ordnet.dk. Core validerer resultatet, som gemmes lokalt. Automatisk registrering og deling er ikke aktiveret. Manuel tilføjelse af brugerord er separat.",
   "A07.Title": "Del ukendt ord-læring (samtykke)",
-  "A07.Help": "Et særskilt tilvalg til senere deling af læringsposter fra ukendte ord. Kræver ukendt ord-opslag. Ingen deling eller upload er tilgængelig fra denne Windows-udgave.",
+  "A07.Help": "Windows-klienten er klargjort, men deling er deaktiveret, indtil backendens modtager og sikkerhedskontrakt er implementeret og godkendt. Et separat kontobundet samtykke bliver påkrævet.",
   "AdvancedUnknownUnavailable": "Opslag og deling af ukendte ord er endnu ikke tilgængeligt i Windows. Manuel tilføjelse til brugerord fungerer separat. Disse kontroller sender ingen ord.",
   "AdvancedPrivacy": "Diagnoser gemmes kun på denne PC. Alle diagnosekontakter er slået fra som standard. Filerne er begrænsede og sendes ikke automatisk.",
   "AdvancedDisabled": "Diagnoseopsamling er slået fra. Eksisterende diagnosefiler bevares.",
@@ -438,5 +438,7 @@
   "UnknownClearConfirm": "Vil du slette alle eksplicit importerede ord og deres lokale backup? Dine manuelt tilføjede brugerord bevares.",
   "UnknownCleared": "De importerede ord er slettet.",
   "UnknownAutomatic": "Slå ukendte ord op under skrivning",
-  "UnknownAutomaticConsent": "Vil du tillade automatiske onlineopslag af afsluttede danske ord i editoren og understøttet Notepad? De enkelte ord sendes til ordregister.dk eller ordnet.dk. Ingen omgivende dokumenttekst sendes til ordbogen. Resultater gemmes lokalt. Dette er et ekstra samtykke ud over manuelle opslag."
+  "UnknownAutomaticConsent": "Vil du tillade automatiske onlineopslag af afsluttede danske ord i editoren og understøttet Notepad? De enkelte ord sendes til ordregister.dk eller ordnet.dk. Ingen omgivende dokumenttekst sendes til ordbogen. Resultater gemmes lokalt. Dette er et ekstra samtykke ud over manuelle opslag.",
+  "UnknownSharingConsent": "Vil du dele allerede importerede danske ord og deres ordbogsmetadata med WordSuggestor-backenden under den aktuelle konto? Ingen dokumenttekst, mislykkede opslag eller adgangsoplysninger deles. Du kan tilbagekalde samtykket og rydde ventende deling. Data, serveren allerede har modtaget, kan ikke tilbagekaldes fra appen.",
+  "UnknownSharingUnavailable": "Deling af importerede ord er ikke tilgængelig. Kontrollér konto og samtykke. Slå deling fra for at rydde den ventende kø."
 }

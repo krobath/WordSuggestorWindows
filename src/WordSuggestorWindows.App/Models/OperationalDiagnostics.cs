@@ -5,7 +5,7 @@ namespace WordSuggestorWindows.App.Models;
 public enum DiagnosticCategory { App, Placement, Panel, Core, Performance }
 public enum DiagnosticEvent { SettingsApplied, LocalSession, ExternalSession, CommitAccepted, CommitRejected, SuggestionsReady, SuggestionsUnavailable, OverlayHidden, OverlayLocal, OverlayExternal, CaretConfirmed, StaticPlacement, CaretFallback, NativeEditVerified, NativeEditRejected, CoreUnavailable, CorePackUnavailable, CoreCompleted, CoreFailed, CoreCancelled, CoreTimedOut, CoreRejected, CoreSummary, Aggregate }
 public enum DiagnosticMetric { None, Suggestions, CoreRoundtrip, OverlayPlacement, NativeCommit }
-public enum DiagnosticOperation { None, Legacy, Capabilities, Suggest, Domains, DomainSuggestions, WordInfo, Analyze, Document, SmartFollowup, LivePeriod, AssessCommittedWord, LookupUnknownWord, MergeLearnedWord, CompletedWord }
+public enum DiagnosticOperation { None, Legacy, Capabilities, Suggest, Domains, DomainSuggestions, WordInfo, Analyze, Document, SmartFollowup, LivePeriod, AssessCommittedWord, LookupUnknownWord, MergeLearnedWord, CompletedWord, PrepareUnknownWordHandoff }
 public enum DiagnosticHealth { Disabled, Ready, WriteUnavailable }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

@@ -4,7 +4,7 @@ namespace WordSuggestorWindows.App.Models;
 // consent are not inferred or created by this migration.
 public static class SettingsSchema
 {
-    public const int CurrentVersion = 8;
+    public const int CurrentVersion = 9;
 
     public static AppSettingsSnapshot Upgrade(AppSettingsSnapshot source)
     {
@@ -20,6 +20,8 @@ public static class SettingsSchema
         if (!result.IsUnknownWordLookupEnabled) result.UnknownWordLookupConsentVersion = 0;
         if(source.SchemaVersion<8||result.UnknownWordAutomaticConsentVersion!=1||!result.IsAutomaticUnknownWordLookupEnabled||!result.IsUnknownWordLookupEnabled)
         {result.IsAutomaticUnknownWordLookupEnabled=false;result.UnknownWordAutomaticConsentVersion=0;}
+        if(source.SchemaVersion<9||result.UnknownWordSharingConsentVersion!=1||result.UnknownWordSharingConsentUserId<=0||!result.IsUnknownWordCrowdHandoffEnabled||!result.IsUnknownWordLookupEnabled)
+        {result.IsUnknownWordCrowdHandoffEnabled=false;result.UnknownWordSharingConsentVersion=0;result.UnknownWordSharingConsentUserId=0;}
         if (source.SchemaVersion == 1)
         {
             // Old Windows profiles had no interface preference or permission.

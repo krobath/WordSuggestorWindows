@@ -136,7 +136,7 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     }
 
     private async Task<SettingsEnvelope> QueryAsync(string operation, string text, CoreRequestContext context, object? options,
-        string? catalogPath, string? domainId, CancellationToken cancellationToken, JsonElement? learnedProposal = null, int? lookupConsentVersion = null, int? textOffset = null)
+        string? catalogPath, string? domainId, CancellationToken cancellationToken, JsonElement? learnedProposal = null, int? lookupConsentVersion = null, int? textOffset = null, int? handoffConsent = null, string? clientVersion = null)
     {
         if (context.DocumentId == Guid.Empty || context.Generation < 0 || text.Length > 16000) throw new ArgumentException("Invalid Core request scope or size.");
         var language = RequireLanguagePack();
@@ -151,13 +151,13 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
             includeOperationalDiagnostics = includeDiagnostics ? true : (bool?)null,
             packPath = language.PackPath, text, maxResults = 40, context, options, catalogPath, domainId,
             userWordsPath = operation is "suggest" or "assessCommittedWord" or "completedWord" or "lookupUnknownWord" or "mergeLearnedWord" ? Path.Combine(_localDataRoot, "UserWords", "local_lexicon_overlay_v2.json") : null,
-            learnedWordsPath = capabilities.LearnedWordOverlay && operation is "suggest" or "assessCommittedWord" or "completedWord" or "lookupUnknownWord" or "mergeLearnedWord" ? LearnedWordStore.PathFor(_localDataRoot) : null,
-            textOffset, lookupConsent = lookupConsentVersion, learnedProposal };
+            learnedWordsPath = capabilities.LearnedWordOverlay && operation is "prepareUnknownWordHandoff" or "suggest" or "assessCommittedWord" or "completedWord" or "lookupUnknownWord" or "mergeLearnedWord" ? LearnedWordStore.PathFor(_localDataRoot) : null,
+            handoffConsent, clientVersion, textOffset, lookupConsent = lookupConsentVersion, learnedProposal };
         // Produce a JsonElement with null option fields omitted. Unknown/nonapplicable
         // options are rejected by Core instead of being silently ignored.
         var payload = JsonSerializer.SerializeToElement(request, ExtendedJson);
         var output = await ExchangeAsync(payload, "--stdio-json-v2", cancellationToken, WindowsDiagnostics.Operation(operation), operation == "lookupUnknownWord" ? TimeSpan.FromSeconds(15) : null);
-        if (operation is "completedWord" or "assessCommittedWord" or "lookupUnknownWord" or "mergeLearnedWord") ValidateAssessmentEnvelope(output, operation);
+        if (operation is "prepareUnknownWordHandoff" or "completedWord" or "assessCommittedWord" or "lookupUnknownWord" or "mergeLearnedWord") ValidateAssessmentEnvelope(output, operation);
         var response = Decode<SettingsEnvelope>(output);
         if (response.Version != 2 || response.RequestId != id || response.Context != context || response.Language != language.LanguageCode) throw InvalidProtocol();
         if (response.OperationalDiagnostics is { } trace && !trace.ValidFor(operation, response.ErrorCode is not null) || includeDiagnostics && response.OperationalDiagnostics is null)
@@ -179,9 +179,9 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
                 return names.Distinct(StringComparer.Ordinal).Count() == names.Length && names.All(n => allowed.Contains(n, StringComparer.Ordinal));
             }
             var root = document.RootElement;
-            if (!Closed(root, ["version", "requestId", "context", "language", "errorCode", "warningCode", operation == "completedWord" ? "completedToken" : operation == "assessCommittedWord" ? "committedWord" : "unknownWord", "operationalDiagnostics"]) ||
+            if (!Closed(root, ["version", "requestId", "context", "language", "errorCode", "warningCode", operation == "prepareUnknownWordHandoff" ? "unknownWordHandoff" : operation == "completedWord" ? "completedToken" : operation == "assessCommittedWord" ? "committedWord" : "unknownWord", "operationalDiagnostics"]) ||
                 root.TryGetProperty("context", out var context) && !Closed(context, ["documentId", "generation"]) ||
-                root.TryGetProperty(operation == "completedWord" ? "completedToken" : operation == "assessCommittedWord" ? "committedWord" : "unknownWord", out var result) && !Closed(result, operation == "completedWord" ? ["schemaVersion", "start", "length"] : operation == "assessCommittedWord" ? ["schemaVersion", "disposition"] : ["schemaVersion", "status", "proposal", "snapshot"])) throw InvalidProtocol();
+                root.TryGetProperty(operation == "prepareUnknownWordHandoff" ? "unknownWordHandoff" : operation == "completedWord" ? "completedToken" : operation == "assessCommittedWord" ? "committedWord" : "unknownWord", out var result) && !Closed(result, operation == "prepareUnknownWordHandoff" ? ["schemaVersion", "status", "body"] : operation == "completedWord" ? ["schemaVersion", "start", "length"] : operation == "assessCommittedWord" ? ["schemaVersion", "disposition"] : ["schemaVersion", "status", "proposal", "snapshot"])) throw InvalidProtocol();
         }
         catch (JsonException) { throw InvalidProtocol(); }
     }
@@ -200,5 +200,5 @@ public sealed partial class WordSuggestorCoreCliSuggestionProvider
     private sealed record CapabilityEnvelope(int Version, string RequestId, string? ErrorCode, CoreCapabilities? Capabilities);
     private sealed record SettingsEnvelope(int Version, string RequestId, CoreRequestContext? Context, string? Language,
         string? ErrorCode, string? WarningCode, CoreCandidate[]? Suggestions, CoreDomain[]? Domains,
-        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics, CoreCommittedWordAssessment? CommittedWord, CoreUnknownWordResult? UnknownWord, CoreCompletedToken? CompletedToken);
+        CoreSurfaceAnalysis[]? Analyses, CoreFamilyForm[]? Families, CoreDiagnostic[]? Diagnostics, CoreFollowup? Followup, CorePeriodDecision? PeriodDecision, CoreDocumentReadings? Document, CoreOperationalDiagnostics? OperationalDiagnostics, CoreCommittedWordAssessment? CommittedWord, CoreUnknownWordResult? UnknownWord, CoreCompletedToken? CompletedToken, CoreUnknownWordHandoff? UnknownWordHandoff);
 }

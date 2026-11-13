@@ -67,6 +67,9 @@ public sealed class AppSettingsSnapshot
 
     public bool IsPanelParityLoggingEnabled { get; set; }
     public bool IsUnknownWordLookupEnabled { get; set; }
+    public bool IsUnknownWordCrowdHandoffEnabled { get; set; }
+    public long UnknownWordSharingConsentUserId { get; set; }
+    public int UnknownWordSharingConsentVersion { get; set; }
     public bool IsAutomaticUnknownWordLookupEnabled { get; set; }
     public int UnknownWordAutomaticConsentVersion { get; set; }
     public int UnknownWordLookupConsentVersion { get; set; }
@@ -110,6 +113,9 @@ public sealed class AppSettingsSnapshot
             IsCoreDebugLoggingEnabled = IsCoreDebugLoggingEnabled,
             IsPanelParityLoggingEnabled = IsPanelParityLoggingEnabled,
             IsUnknownWordLookupEnabled = IsUnknownWordLookupEnabled,
+            IsUnknownWordCrowdHandoffEnabled = IsUnknownWordCrowdHandoffEnabled,
+            UnknownWordSharingConsentUserId = UnknownWordSharingConsentUserId,
+            UnknownWordSharingConsentVersion = UnknownWordSharingConsentVersion,
             IsAutomaticUnknownWordLookupEnabled = IsAutomaticUnknownWordLookupEnabled,
             UnknownWordAutomaticConsentVersion = UnknownWordAutomaticConsentVersion,
             UnknownWordLookupConsentVersion = UnknownWordLookupConsentVersion
