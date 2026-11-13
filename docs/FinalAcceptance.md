@@ -1,15 +1,15 @@
 # WSA-UX-029 final Windows acceptance procedure
 
-## Installer dialog follow-up (2026-11-13)
+## Measured native installer and GUI acceptance (2026-11-13)
 
-The full user run reached rollback but failed Notepad GUI with an update dialog
-still open. The test now detects Microsoft App Installer by runtime process
-identity, pauses for operator Cancel and requires stable idle before later phases.
-Interactive completion never qualifies automatic update. Native Notepad focus is
-verified before input; diagnostics distinguish installer/foreground/text failures.
-Build, app 105 and release 112 pass. Standalone GUI is NOT PASS: Explorer retained
-foreground; installed end-to-end rerun is pending. G05/Hello/public beta remain open.
-See [evidence, prepared fixture and exact rerun instructions](qualification/WSA-UX-029_slice14_installer_dialogs.md).
+The default combined user run completed: 22/24 native checks and all 56 installed
+GUI checks pass. Installer dialog detection/clearance, real editor/Notepad,
+manual update, dirty rollback, integrity negatives and uninstall data retention
+are verified together. Cleanup independently confirmed. Exit 3 remains correct:
+automatic update required dialog handling; G05 still returns 0x800706F7/read-only.
+No unchanged rerun is needed now; investigate those two native checks next.
+Production signing/HTTPS/public release and remaining human gates stay open;
+Hello user-deferred. See [exact evidence and next work](qualification/WSA-UX-029_slice14_installer_dialog_acceptance.md).
 Earlier dated sections below retain their historical scope.
 
 
@@ -74,7 +74,7 @@ Hello prompt/enrollment is triggered. Account transport/storage remain synthetic
 | Audio, microphone, snipping | Listen to real speech, dictate via mic, actual screen selection/permissions | Native adapter checks do not attest subjective audio/microphone/snipping |
 | Hello PIN/biometry | Real supported device/account, cancellation and protected recovery | USER-DEFERRED, do not run without later user resumption |
 | Real unknown-word sharing | macOS-owned receiver deployed, test-account consent/revoke/retry roundtrip | Windows source gate false, A07 unavailable |
-| Signed clean install/update/rollback | Approved test environment/trust, exact matching package evidence | LocalTest install/update/rollback + dirty draft, signature/payload integrity and uninstall retention verified; installed GUI previously verified; combined run/G05 still open |
+| Signed clean install/update/rollback | Approved test environment/trust, exact matching package evidence | Combined LocalTest install/manual update/rollback, integrity, retention and installed GUI 56 verified; unattended automatic update/G05 remain false |
 | G05 update preference | Packaged native policy write/read/restore, then reviewed source enablement | Native blocked 0x800706F7, no policy change; remains partial/read-only |
 | Official public beta | Approved stable signer, native gates, reviewed content, pinned SSH and O-052 flow | No production certificate or public upload here |
 | macOS runtime/download/Sparkle | Native macOS and actual public-flow tests by owning agent | Source/library/pack contracts unchanged here; runtime NOT RUN |

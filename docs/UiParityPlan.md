@@ -1,15 +1,15 @@
 # Current native Windows UX contract — 2026-11-10
 
-## Installer dialog follow-up (2026-11-13)
+## Measured native installer and GUI acceptance (2026-11-13)
 
-The full user run reached rollback but failed Notepad GUI with an update dialog
-still open. The test now detects Microsoft App Installer by runtime process
-identity, pauses for operator Cancel and requires stable idle before later phases.
-Interactive completion never qualifies automatic update. Native Notepad focus is
-verified before input; diagnostics distinguish installer/foreground/text failures.
-Build, app 105 and release 112 pass. Standalone GUI is NOT PASS: Explorer retained
-foreground; installed end-to-end rerun is pending. G05/Hello/public beta remain open.
-See [evidence, prepared fixture and exact rerun instructions](qualification/WSA-UX-029_slice14_installer_dialogs.md).
+The default combined user run completed: 22/24 native checks and all 56 installed
+GUI checks pass. Installer dialog detection/clearance, real editor/Notepad,
+manual update, dirty rollback, integrity negatives and uninstall data retention
+are verified together. Cleanup independently confirmed. Exit 3 remains correct:
+automatic update required dialog handling; G05 still returns 0x800706F7/read-only.
+No unchanged rerun is needed now; investigate those two native checks next.
+Production signing/HTTPS/public release and remaining human gates stay open;
+Hello user-deferred. See [exact evidence and next work](qualification/WSA-UX-029_slice14_installer_dialog_acceptance.md).
 Earlier dated sections below retain their historical scope.
 
 

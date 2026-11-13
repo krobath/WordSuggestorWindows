@@ -1,5 +1,14 @@
 # WSA-UX-029: isolate installer dialogs before GUI qualification
 
+## Later measured outcome: fixture USED, GUI PASS 56
+
+User run cfe870ce945c442eb1eec39d93a50a31 completed 22/24 native checks and all 56
+installed GUI checks; dialog observation and subsequent idle are verified. G05
+and unattended automatic update remain false; cleanup verified. See
+[measured acceptance and next work](WSA-UX-029_slice14_installer_dialog_acceptance.md).
+The preparation/software/standalone-blocked results below retain their historical
+scope. The prepared bb5e06fb7203 nonce is USED; do not rerun it.
+
 Date: 2026-11-13. Base Windows commit 1083002. Windows test orchestration and
 local docs only; application payload, Core, packs, backend, macOS and shared Docs
 unchanged. This follow-up prepares a rerun; it does not claim native acceptance.
@@ -88,7 +97,7 @@ Earlier native integrity/version/uninstall results remain historical evidence in
 [slice14_package_integrity](WSA-UX-029_slice14_package_integrity.md); no new full
 source regression or combined native PASS is claimed.
 
-## Prepared local fixture for the operator
+## Prepared local fixture (now USED)
 
 Session: .artifacts/msix-tests/prepared-bb5e06fb7203/prepared-session.json.
 Identity WordSuggestor.Windows.LocalTest.bb5e06fb7203, publisher
@@ -111,12 +120,14 @@ The unchanged pinned Core was reused from an earlier verified signed payload.
 1. Save work, close WordSuggestor and Notepad, and close old WordSuggestor App Installer dialogs
    with Cancel. Open ordinary PowerShell, not an administrator shell. Keep Windows
    logged in, unlocked and the remote session connected throughout the test.
-2. Change to the WordSuggestorWindows repository root. The fresh fixture above is
-   already prepared on this machine; do not rebuild it just to start the test.
-3. Run:
+2. Change to the WordSuggestorWindows repository root. A later rerun needs a NEW
+   fixture nonce; preserve the used bb5e06fb7203 data/receipts.
+3. Prepare a new series, copy its printed session path when prompted, then run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-bb5e06fb7203 -AllowTemporaryMachineTrust
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare_msix_test.ps1
+$testSession = Read-Host "Paste the newly printed Prepared local test session path"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 -PreparedLocalTestSession "$testSession" -AllowTemporaryMachineTrust
 Write-Host "Test exit code: $LASTEXITCODE"
 ```
 
@@ -149,9 +160,10 @@ No generated packages/certificates/keys belong in Git.
 
 ## Remaining product work
 
-The next actual evidence should show an installer popup detected, operator closure
-recorded and GUI reached only after idle; also verify the installed editor/Notepad
-flow. A dialog-dependent update remains interactive, not automatic acceptance.
+The later user run now proves popup detection, subsequent idle and installed
+editor/Notepad GUI 56. See the measured acceptance linked above. Investigate the
+two remaining native checks before another run. A dialog-dependent update remains
+interactive, not automatic acceptance.
 If foreground is denied even in the user's active session, use the new fixed
 metadata to distinguish target readiness from desktop focus restrictions.
 G05 0x800706F7 is a separate unresolved native-policy failure and stays read-only.
