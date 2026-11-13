@@ -62,6 +62,30 @@ function Get-MsixIdentity([string]$Path) {
     } finally { $zip.Dispose() }
 }
 
+function Wait-ReleaseProbeResult([string]$Path,[string]$ExpectedName,[string]$ExpectedVersion,
+    [ValidateRange(1,60)][int]$TimeoutSeconds=30) {
+    if([IO.Path]::GetFileName($Path) -cnotmatch '^qualification-[a-f0-9]{32}\.json$'){throw 'Reserved probe result name required.'}
+    $watch=[Diagnostics.Stopwatch]::StartNew()
+    while($watch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+        if(Test-Path -LiteralPath $Path -PathType Leaf) {
+            try {
+                $file=Get-Item -LiteralPath $Path
+                if($file.Length -gt 16384){throw 'Probe result too large.'}
+                $raw=[IO.File]::ReadAllText($Path)
+            } catch [IO.IOException] { Start-Sleep -Milliseconds 100; continue }
+            $result=$raw|ConvertFrom-Json -ErrorAction Stop
+            $fields=@('schema_version','ok','package_name','package_version','error_category')
+            Assert-ReleaseProperties $result $fields $fields 'installed probe'
+            if(($result.schema_version -isnot [int] -and $result.schema_version -isnot [long]) -or $result.schema_version -ne 1 -or
+                $result.ok -isnot [bool] -or -not $result.ok -or $result.package_name -cne $ExpectedName -or
+                $result.package_version -cne $ExpectedVersion -or $null -ne $result.error_category){throw 'Installed Core/data probe result rejected.'}
+            return $result
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw 'Installed Core/data probe result timed out.'
+}
+
 function Test-MsixSignature([string]$Path, [string]$ExpectedPublisher) {
     $signTool = Get-ReleaseSdkTool 'signtool'
     # Do not copy raw verifier output into diagnostics: it includes local paths.

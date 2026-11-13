@@ -1,5 +1,16 @@
 # WSA-UX-029 slice 15 - final Windows software acceptance
 
+## Authorized native follow-up (2026-11-13)
+
+The first approved temporary-trust run passed trusted signing and ordinary-user
+clean installation, and the installed Core returned a positive identity/version-
+bound result. The harness rejected the activation/result handoff; its receipt check
+is corrected and passes local gates. The second UAC was canceled. Installed
+N+1/rollback/policy acceptance is still open; cleanup of package/trust is verified.
+See [exact results and next action](WSA-UX-029_slice14_native_followup.md).
+Earlier pending-approval/no-install statements are historical preparation results.
+
+
 Date: 2026-11-13. Windows base b0d0eec, Core pinned to
 0278cbc515580f6f9c9e18020e5ed753d9fc7b11; macOS reference ba18b45.
 Final source-only snapshot regression: PASS all 14 sequential gates in one run.

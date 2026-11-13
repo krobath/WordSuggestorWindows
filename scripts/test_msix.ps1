@@ -83,15 +83,21 @@ function Make-TestFeed($Bundle) {
 }
 function Probe-InstalledData($Package, [string]$Mode) {
     $resultPath = Join-Path $data ('diagnostics\qualification-' + [guid]::NewGuid().ToString('N') + '.json')
+    if(Test-Path -LiteralPath $resultPath){throw 'Probe result must be fresh.'}
     $arguments = '--qualification-probe ' + $Mode + ' --qualification-root "' + $data + '" --qualification-result "' + $resultPath + '"'
     $process = Invoke-ReleaseProcess $runner @('--activate-app',($Package.PackageFamilyName + '!App'),$arguments) 30
-    if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $resultPath)) {
+    $record.probe_exit_code=$process.ExitCode
+    $record.probe_result_present=Test-Path -LiteralPath $resultPath
+    # This runner mode emits fixed activation metadata only, never app/user text.
+    $detail=($process.Output+"`n"+$process.Error)
+    if($detail -match 'FAIL package activation: ([A-Za-z0-9_.]+) (0x[A-F0-9]{8})') {
+        $record.activation_error_category=$Matches[1];$record.activation_hresult=$Matches[2]
+    }
+    if ($process.ExitCode -ne 0) {
         throw 'Installed package activation/Core probe failed.'
     }
-    $result = [IO.File]::ReadAllText($resultPath) | ConvertFrom-Json
-    if ($result.ok -isnot [bool] -or -not $result.ok -or $result.package_name -cne $Package.Name -or $result.package_version -cne [string]$Package.Version) {
-        throw ('Installed Core/data probe rejected: ' + $result.error_category)
-    }
+    $null=Wait-ReleaseProbeResult $resultPath $Package.Name ([string]$Package.Version)
+    $record.probe_result_present=$true
     Write-Output 'PASS MSIX packaged Core/DA and user-word probe'
 }
 function Reject-Feed([string]$Name, [scriptblock]$Mutate) {

@@ -24,13 +24,13 @@ internal static class Program
             try
             {
                 var pid = PackageActivation.Activate(args[1], args[2]);
-                Process activated;
-                try { activated = Process.GetProcessById(pid); } catch (ArgumentException) { return 0; }
-                using var process = activated;
-                if (!activated.WaitForExit(20000)) return 3;
-                return activated.ExitCode;
+                Console.WriteLine("PACKAGE ACTIVATION returned process " + pid);
+                // A short-lived packaged probe can exit before COM returns its PID.
+                // The caller requires a fresh identity/version-bound result file;
+                // activation success alone never qualifies the installed app/Core.
+                return 0;
             }
-            catch (Exception ex) { Console.Error.WriteLine("FAIL package activation: " + ex.GetType().Name); return 1; }
+            catch (Exception ex) { Console.Error.WriteLine("FAIL package activation: " + ex.GetType().Name + " 0x" + ex.HResult.ToString("X8")); return 1; }
         }
         if (args.FirstOrDefault() == "--activate-update-fixture") return args.Length == 3 ? UpdatePackageActivation.Start(args[1], args[2]) : 2;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };

@@ -1,5 +1,16 @@
 # WSA-UX-029 final Windows acceptance procedure
 
+## Authorized native follow-up (2026-11-13)
+
+The first approved temporary-trust run passed trusted signing and ordinary-user
+clean installation, and the installed Core returned a positive identity/version-
+bound result. The harness rejected the activation/result handoff; its receipt check
+is corrected and passes local gates. The second UAC was canceled. Installed
+N+1/rollback/policy acceptance is still open; cleanup of package/trust is verified.
+See [exact results and next action](qualification/WSA-UX-029_slice14_native_followup.md).
+Earlier pending-approval/no-install statements are historical preparation results.
+
+
 The software delivery covers closing slices 12-15. Full Settings parity and
 public beta acceptance remain open until the independent native/backend/human
 gates below have actual evidence. Never change `sprint_complete` or

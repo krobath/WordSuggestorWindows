@@ -189,4 +189,35 @@ foreach($script in @('package_app.ps1','prepare_msix_test.ps1','test_msix.ps1'))
  $tokens=$null;$parseErrors=$null;$null=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $script),[ref]$tokens,[ref]$parseErrors)
  Check ($script+' syntax') ($parseErrors.Count -eq 0)
 }
+$probePath=Join-Path $root ('qualification-'+[guid]::NewGuid().ToString('N')+'.json')
+$probe=[ordered]@{schema_version=1;ok=$true;package_name='WordSuggestor.Windows.LocalTest.0123456789ab';package_version='0.2.0.1';error_category=$null}
+function Save-Probe { [IO.File]::WriteAllText($probePath,($probe|ConvertTo-Json -Compress)) }
+Save-Probe
+Check 'installed Core receipt binds exact schema identity version and success' ((Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version).ok)
+Reject 'installed Core receipt rejects wrong identity' {Wait-ReleaseProbeResult $probePath 'Other.App' '0.2.0.1'}
+Reject 'installed Core receipt rejects wrong version' {Wait-ReleaseProbeResult $probePath $probe.package_name '0.2.0.2'}
+$probe.ok=$false;Save-Probe
+Reject 'negative Core result cannot qualify activation' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+$probe.ok=$true;$probe.schema_version='1';Save-Probe
+Reject 'probe schema version must be numeric' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+$probe.schema_version=1;$probe.error_category='SyntheticFailure';Save-Probe
+Reject 'success cannot carry an error' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+$probe.error_category=$null;$probe.content='PRIVATE_DOCUMENT';Save-Probe
+Reject 'probe does not admit content-bearing fields' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+$probe.Remove('content');[IO.File]::WriteAllText($probePath,'{invalid')
+Reject 'malformed probe result rejected' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+[IO.File]::WriteAllText($probePath,('x'*16385))
+Reject 'probe output bounded' {Wait-ReleaseProbeResult $probePath $probe.package_name $probe.package_version}
+Reject 'unreserved result filename rejected' {Wait-ReleaseProbeResult (Join-Path $root 'settings.json') $probe.package_name $probe.package_version}
+$missing=Join-Path $root ('qualification-'+[guid]::NewGuid().ToString('N')+'.json')
+Reject 'activation without fresh receipt times out' {Wait-ReleaseProbeResult $missing $probe.package_name $probe.package_version 1}
+$delayed=Join-Path $root ('qualification-'+[guid]::NewGuid().ToString('N')+'.json')
+$writerPath=Join-Path $root 'delayed-probe.ps1'
+$writer='param([string]$Target) Start-Sleep -Milliseconds 300; [IO.File]::WriteAllText($Target,''' + ($probe|ConvertTo-Json -Compress) + ''')'
+[IO.File]::WriteAllText($writerPath,$writer)
+$writerProcess=Start-Process -FilePath $powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$writerPath+'"'),'-Target',('"'+$delayed+'"')) -WindowStyle Hidden -PassThru
+try {
+    Check 'activation waits for delayed positive Core receipt' ((Wait-ReleaseProbeResult $delayed $probe.package_name $probe.package_version 5).ok)
+    if(-not $writerProcess.WaitForExit(5000)){throw 'Synthetic receipt writer did not exit.'}
+} finally {if(-not $writerProcess.HasExited){$writerProcess.Kill()};$writerProcess.Dispose()}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"
