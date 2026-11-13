@@ -41,6 +41,7 @@ internal static class Program
             {
                 if (args.Contains("--update-native")) { Console.WriteLine("BLOCKED UPDATE NATIVE: use test_settings_platform.ps1 -PackagedUpdateProbe with an installed trusted isolated LocalTest package; no production mutation."); code = 3; return; }
                 else if (args.FirstOrDefault()=="--retention-data"&&args.Length==4) await RetentionDataSmoke.Run(args[1],args[2],args[3]);
+                else if (args.Contains("--settings-layout")) await SettingsLayoutSmoke.Run(FindRepo());
                 else if (args.Contains("--unknown-sharing")) await UnknownWordSharingSmoke.Run(FindRepo());
                 else if (args.Contains("--automatic-word")) await AutomaticWordSmoke.Run(FindRepo());
                 else if (args.Contains("--unknown-word")) await UnknownWordSmoke.Run(FindRepo(), false);

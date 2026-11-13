@@ -20,6 +20,8 @@ public sealed class SettingsRow : HeaderedContentControl
     public string Description { get => (string)GetValue(DescriptionProperty); set => SetValue(DescriptionProperty, value); }
     public string ControlId { get => (string)GetValue(ControlIdProperty); set => SetValue(ControlIdProperty, value); }
     private Button? _help;
+    private FrameworkElement? _autoNamedEditor;
+    private string? _autoName;
 
     static SettingsRow() => HeaderProperty.OverrideMetadata(typeof(SettingsRow), new FrameworkPropertyMetadata(null, OnCopyChanged));
     private static void OnCopyChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e) => ((SettingsRow)sender).UpdateAccessibility();
@@ -46,6 +48,16 @@ public sealed class SettingsRow : HeaderedContentControl
             if (string.IsNullOrEmpty(AutomationProperties.GetAutomationId(editor))) AutomationProperties.SetAutomationId(editor, "SettingsControl_" + ControlId);
             AutomationProperties.SetHelpText(editor, Description);
             if (editor is not TextBlock && GetTemplateChild("PART_Label") is FrameworkElement label) AutomationProperties.SetLabeledBy(editor, label);
+            // ComboBox/Slider peers do not consistently derive UIA Name from
+            // LabeledBy. Supply the row title unless the editor owns its name.
+            // Track our value so changing interface language also updates it.
+            var name = AutomationProperties.GetName(editor);
+            if (editor is not TextBlock && (string.IsNullOrEmpty(name) || (ReferenceEquals(editor, _autoNamedEditor) && name == _autoName)))
+            {
+                _autoNamedEditor = editor;
+                _autoName = Header?.ToString() ?? "";
+                AutomationProperties.SetName(editor, _autoName);
+            }
         }
     }
 

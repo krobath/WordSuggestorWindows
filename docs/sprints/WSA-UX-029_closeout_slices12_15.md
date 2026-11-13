@@ -27,9 +27,16 @@ beta publication follow merely from implementation or software tests.
 - Slice 12: committed Windows 9966143 / Core ebd2424; physical editor/Notepad PASS.
 - Slice 13: committed Windows 888058b / Core 0278cbc; Windows client ready,
   real receiver/activation pending macOS backend owner. No backend changes here.
-- Slice 14: tooling/test artifacts delivered; signed but untrusted series, no
+- Slice 14: Windows b0d0eec committed; signed but untrusted series, no
   installed/native acceptance without explicit trust approval. See slice14 evidence.
-- Slice 15: independent final regression and acceptance record follows.
+- Slice 15: independent final source/desktop regression and UIA name correction;
+  see [final evidence](../qualification/WSA-UX-029_slice15.md) and
+  [remaining operator/human acceptance](../FinalAcceptance.md).
 
 These checkpoints do not close sprint_complete or release_qualified. Missing
 hardware/receiver/signing/installed evidence remains an acceptance dependency.
+
+Final slice 15 software result: PASS all 14 clean-source sequential gates,
+including 16 Settings suites and native editor/Notepad GUI. Native installed /
+human / real-backend acceptance remains explicitly open. The initial transient
+GUI timeout and unchanged retry are retained in the qualification record.

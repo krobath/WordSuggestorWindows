@@ -1,5 +1,17 @@
 # Current native Windows UX contract — 2026-11-10
 
+## WSA-UX-029 slice 15 - final software and acceptance boundary (2026-11-13)
+
+Settings row editors now expose localized UIA names, including after language
+changes. Layout automation covers two account states, two locales and all eight
+categories. The existing clean-source script supports FullRegression and records
+software gates separately from native/human release acceptance. See the
+[procedure and remaining matrix](FinalAcceptance.md) and
+[measured results](qualification/WSA-UX-029_slice15.md).
+Sharing receiver, native installed updates, human accessibility/mixed DPI and
+user-deferred Hello remain explicit acceptance gaps; full sprint/release stay open.
+
+
 ## WSA-UX-029 slice 14 - signed local fixtures, native acceptance pending (2026-11-13)
 
 The existing MSIX flow now prepares three isolated signed test packages without

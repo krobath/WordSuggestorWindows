@@ -1,5 +1,11 @@
 # Windows beta packaging and release
 
+Final software/desktop qualification and the updated local signing series are
+tracked in [slice 15](qualification/WSA-UX-029_slice15.md). Use
+[FinalAcceptance.md](FinalAcceptance.md) for the remaining installed/human gates.
+These results do not provision a production signing identity or publish a feed.
+
+
 Updated 2026-11-13, WSA-RT-017_windows_beta_publication_tooling.
 This runbook describes implemented local tooling. Production signing, native
 installation/update and public publication are not qualified by the cleanup.
