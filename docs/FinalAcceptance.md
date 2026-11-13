@@ -2,13 +2,13 @@
 
 ## Authorized native follow-up (2026-11-13)
 
-Native tests now verify automatic and actual manual .1-to-.2 updates, installed
-Core/user words, and retained settings/tabs/learning/sharing fixtures. Rollback
-remains blocked by Windows package-in-use; automatic timing was not repeatable
-within every observation window. The harness reuses normal owned-app shutdown
-and offers an explicit LocalTest-only manual lane that never qualifies automatic
-updates. Package/trust cleanup is verified. Full native/release acceptance stays open.
-See [exact results and next action](qualification/WSA-UX-029_slice14_update_lifecycle.md).
+Native tests verify .1-to-.2 updates, higher-version rollback with dirty-draft
+retention, installed GUI/Notepad (55 checks) and rejection of newer invalid feeds.
+G05 remains blocked (0x800706F7); corrupt-package installation, version negatives
+and dedicated uninstall retention still need the final remaining-check run.
+The four-package harness keeps deliberate skips false and cannot qualify a public
+release. Cleanup is verified; UAC cancellation reports are not attributed to the user.
+See [exact results and next action](qualification/WSA-UX-029_slice14_native_acceptance.md).
 Earlier pending-approval/no-install statements are historical preparation results.
 
 
@@ -58,8 +58,8 @@ Hello prompt/enrollment is triggered. Account transport/storage remain synthetic
 | Audio, microphone, snipping | Listen to real speech, dictate via mic, actual screen selection/permissions | Native adapter checks do not attest subjective audio/microphone/snipping |
 | Hello PIN/biometry | Real supported device/account, cancellation and protected recovery | USER-DEFERRED, do not run without later user resumption |
 | Real unknown-word sharing | macOS-owned receiver deployed, test-account consent/revoke/retry roundtrip | Windows source gate false, A07 unavailable |
-| Signed clean install/update/rollback | Approved test environment/trust, exact matching package evidence | Slice14 prepared fixtures; native installed acceptance pending |
-| G05 update preference | Packaged native policy write/read/restore, then reviewed source enablement | Remains partial/read-only |
+| Signed clean install/update/rollback | Approved test environment/trust, exact matching package evidence | LocalTest install/update/rollback + dirty draft and installed GUI verified; remaining negative/uninstall/G05 gates open |
+| G05 update preference | Packaged native policy write/read/restore, then reviewed source enablement | Native blocked 0x800706F7, no policy change; remains partial/read-only |
 | Official public beta | Approved stable signer, native gates, reviewed content, pinned SSH and O-052 flow | No production certificate or public upload here |
 | macOS runtime/download/Sparkle | Native macOS and actual public-flow tests by owning agent | Source/library/pack contracts unchanged here; runtime NOT RUN |
 | Office/browser/Google Docs | Explicit per-adapter native qualification | Not supported by current Notepad-only acceptance |

@@ -222,4 +222,18 @@ try {
 } finally {if(-not $writerProcess.HasExited){$writerProcess.Kill()};$writerProcess.Dispose()}
 $manualOnly=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-SkipAutomaticUpdateProbe','-PreviousBundleDirectory',$bundle,'-CandidateBundleDirectory',$bundle) 15
 Check 'manual-only qualification cannot apply to a production identity' ($manualOnly.ExitCode -ne 0 -and ($manualOnly.Output+$manualOnly.Error).Contains('restricted to isolated LocalTest fixtures'))
+$oldNonce=[guid]::NewGuid().ToString('N').Substring(0,12)
+$oldSession=Join-Path $repo ('.artifacts\msix-tests\prepared-'+$oldNonce)
+New-Item -ItemType Directory -Path $oldSession | Out-Null
+[IO.File]::WriteAllText((Join-Path $oldSession 'prepared-session.json'),(@{schema_version=1;package_name=('WordSuggestor.Windows.LocalTest.'+$oldNonce);trust_changed=$false;installed=$false;key_removed=$true}|ConvertTo-Json))
+$oldRejected=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PreparedLocalTestSession',$oldSession,'-SkipBuild') 15
+Check 'old three-package session is rejected before trust or installation' ($oldRejected.ExitCode -ne 0 -and ($oldRejected.Output+$oldRejected.Error).Contains('newer negative-test bundle is required'))
+$missingNegative=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PreviousBundleDirectory',$bundle,'-CandidateBundleDirectory',$bundle) 15
+Check 'explicit bundle qualification requires newer negative fixture before mutation' ($missingNegative.ExitCode -ne 0 -and ($missingNegative.Output+$missingNegative.Error).Contains('higher-version negative-test bundle is required'))
+$rejectingVerifier=Join-Path $root 'rejecting-verifier.ps1'
+[IO.File]::WriteAllText($rejectingVerifier,'[Console]::Error.WriteLine("SYNTHETIC_SIGNATURE_REJECTION"); exit 1')
+$verificationRejected=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',$rejectingVerifier) 15
+Check 'expected verifier stderr preserves nonzero status without a PowerShell stop' ($verificationRejected.ExitCode -eq 1 -and $verificationRejected.Error.Contains('SYNTHETIC_SIGNATURE_REJECTION'))
+$guiSkip=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-SkipInstalledGuiProbe','-PreviousBundleDirectory',$bundle,'-CandidateBundleDirectory',$bundle) 15
+Check 'GUI-skipping qualification is rejected for production fixtures' ($guiSkip.ExitCode -ne 0 -and ($guiSkip.Output+$guiSkip.Error).Contains('Skipping installed GUI qualification is restricted'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

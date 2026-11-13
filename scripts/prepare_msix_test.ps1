@@ -1,4 +1,4 @@
-﻿# Prepare reviewable N/N+1/rollback test artifacts without installing or adding device trust.
+# Prepare N/N+1/rollback and newer rejection fixtures without device trust.
 [CmdletBinding(SupportsShouldProcess=$true)]
 param([string]$CoreCliPath,[switch]$SkipCoreBuild)
 $ErrorActionPreference='Stop'
@@ -20,7 +20,7 @@ try {
         -NotAfter ([DateTime]::Now.AddDays(7)) -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3','2.5.29.19={text}CA=false')
     [IO.File]::WriteAllBytes((Join-Path $root 'local-test-public.cer'),$cert.RawData)
     $bundles=@()
-    foreach($version in @('0.2.0.1','0.2.0.2','0.2.0.3')) {
+    foreach($version in @('0.2.0.1','0.2.0.2','0.2.0.3','0.2.0.4')) {
         $built=$null
         & (Join-Path $PSScriptRoot 'package_app.ps1') -PackageVersion $version -DisplayVersion ('0.2.0-local.'+$version.Split('.')[-1]) `
             -BuildNumber ('local-'+$version.Split('.')[-1]) -LocalTestIdentity -TestPackageName $name -Publisher $subject `
@@ -32,7 +32,7 @@ try {
         $bundles+=$built.BundleDirectory
     }
     $receipt=[ordered]@{schema_version=1;package_name=$name;publisher=$subject;certificate_thumbprint=$cert.Thumbprint;
-        previous_bundle=$bundles[0];candidate_bundle=$bundles[1];rollback_bundle=$bundles[2];trust_changed=$false;installed=$false;key_removed=$false}
+        previous_bundle=$bundles[0];candidate_bundle=$bundles[1];rollback_bundle=$bundles[2];negative_bundle=$bundles[3];trust_changed=$false;installed=$false;key_removed=$false}
     [IO.File]::WriteAllText((Join-Path $root 'prepared-session.json'),($receipt|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
     Write-Output ('Prepared local test session: '+$root)
 } finally {

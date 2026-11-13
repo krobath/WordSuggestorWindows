@@ -1,5 +1,11 @@
 # WSA-UX-029: native update lifecycle evidence
 
+Latest: [native acceptance evidence](WSA-UX-029_slice14_native_acceptance.md)
+records successful rollback, dirty-draft retention, installed GUI 55 and newer
+invalid-feed rejection. Earlier blocked/not-reached statements below are history.
+The user confirmed earlier UAC approval; no cause of later cancellations is assumed.
+
+
 Date: 2026-11-13. Base 20e63b1. Only Windows qualification scripts/docs change.
 The app, signed fixture MSIX bytes, Core/library/pack, backend and macOS are unchanged.
 The user authorized temporary local leaf trust and remained available for UAC.

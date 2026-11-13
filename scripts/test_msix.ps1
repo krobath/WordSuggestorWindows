@@ -2,11 +2,13 @@ param(
     [string]$PreviousBundleDirectory,
     [string]$CandidateBundleDirectory,
     [string]$RollbackBundleDirectory,
+    [string]$NegativeBundleDirectory,
     [string]$PreparedLocalTestSession,
     [switch]$LocalTestIdentity,
     [string]$CoreCliPath,
     [switch]$SkipBuild,
     [switch]$SkipAutomaticUpdateProbe,
+    [switch]$SkipInstalledGuiProbe,
     [switch]$AllowTemporaryMachineTrust
 )
 $ErrorActionPreference = 'Stop'
@@ -15,18 +17,19 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_transport.ps1')
 . (Join-Path $PSScriptRoot 'app_process.ps1')
 if ($PreparedLocalTestSession) {
-    if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
+    if($PreviousBundleDirectory -or $CandidateBundleDirectory -or $RollbackBundleDirectory -or $NegativeBundleDirectory){throw 'Prepared session and explicit bundles are mutually exclusive.'}
     $preparedRoot=[IO.Path]::GetFullPath($PreparedLocalTestSession)
     $allowed=[IO.Path]::GetFullPath((Join-Path $windowsRepo '.artifacts\msix-tests'))+'\'
     if(-not $preparedRoot.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($preparedRoot) -cnotmatch '^prepared-[a-f0-9]{12}$'){throw 'Prepared session must be an owned local-test directory.'}
     $prepared=([IO.File]::ReadAllText((Join-Path $preparedRoot 'prepared-session.json'))|ConvertFrom-Json)
     if($prepared.schema_version -ne 1 -or $prepared.package_name -cne ('WordSuggestor.Windows.LocalTest.'+[IO.Path]::GetFileName($preparedRoot).Substring(9)) -or $prepared.trust_changed -ne $false -or $prepared.installed -ne $false -or $prepared.key_removed -ne $true){throw 'Prepared session is not safe for qualification.'}
-    foreach($path in @($prepared.previous_bundle,$prepared.candidate_bundle,$prepared.rollback_bundle)) {
+    if(-not $prepared.negative_bundle){throw 'Reprepare the isolated series: a newer negative-test bundle is required.'}
+    foreach($path in @($prepared.previous_bundle,$prepared.candidate_bundle,$prepared.rollback_bundle,$prepared.negative_bundle)) {
         if(-not $path -or -not ([IO.Path]::GetFullPath($path)).StartsWith(($windowsRepo+'\.artifacts\release\'),[StringComparison]::OrdinalIgnoreCase)){throw 'Prepared bundle is outside release artifacts.'}
         $input=Test-ReleaseBundle $path -LocalTest
         if($input.Identity.Name -cne $prepared.package_name -or $input.Identity.Publisher -cne $prepared.publisher){throw 'Prepared identity/publisher mismatch.'}
     }
-    $PreviousBundleDirectory=$prepared.previous_bundle;$CandidateBundleDirectory=$prepared.candidate_bundle;$RollbackBundleDirectory=$prepared.rollback_bundle
+    $PreviousBundleDirectory=$prepared.previous_bundle;$CandidateBundleDirectory=$prepared.candidate_bundle;$RollbackBundleDirectory=$prepared.rollback_bundle;$NegativeBundleDirectory=$prepared.negative_bundle
     $LocalTestIdentity=$true
 }
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -35,6 +38,8 @@ if ([bool]$PreviousBundleDirectory -ne [bool]$CandidateBundleDirectory) { throw 
 $providedBundles = [bool]$CandidateBundleDirectory
 $localTest = $LocalTestIdentity -or -not $providedBundles
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
+if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
+if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
 if ($RollbackBundleDirectory -and -not $localTest) { throw 'Synthetic rollback/draft qualification requires an isolated LocalTest identity.' }
 if ($localTest -and -not $AllowTemporaryMachineTrust) {
     Write-Warning 'BLOCKED MSIX: isolated local qualification changes machine TrustedPeople. Review the runbook and explicitly pass -AllowTemporaryMachineTrust in a disposable test environment; no certificate or package was changed.'
@@ -132,9 +137,12 @@ function Get-RetentionPayload($Bundle,$Package) {
     return $payload
 }
 function Reject-Feed([string]$Name, [scriptblock]$Mutate) {
-    $xml = Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller')))
-    & $Mutate $xml
+    # Same-version feeds may be no-ops instead of attempted invalid deployments.
+    $xml = Read-ReleaseXml ([IO.File]::ReadAllText((Join-Path $negative.Directory $negative.Manifest.release.update_feed.filename)))
     $path = Join-Path $feedRoot ($Name + '.appinstaller')
+    $xml.AppInstaller.Uri=([uri]$path).AbsoluteUri
+    $xml.AppInstaller.MainPackage.Uri=([uri](Join-Path $feedRoot $negative.Manifest.release.artifact.filename)).AbsoluteUri
+    & $Mutate $xml
     $xml.Save($path)
     $before = [string](Installed).Version
     $rejected = $false
@@ -182,10 +190,12 @@ try {
         if (-not $providedBundles) {
             $PreviousBundleDirectory = Build-LocalBundle '0.2.0.1' | Select-Object -Last 1
             $CandidateBundleDirectory = Build-LocalBundle '0.2.0.2' | Select-Object -Last 1
+            $RollbackBundleDirectory = Build-LocalBundle '0.2.0.3' | Select-Object -Last 1
+            $NegativeBundleDirectory = Build-LocalBundle '0.2.0.4' | Select-Object -Last 1
         }
     }
     if($PreparedLocalTestSession) {
-        foreach($path in @($PreviousBundleDirectory,$CandidateBundleDirectory,$RollbackBundleDirectory)) {
+        foreach($path in @($PreviousBundleDirectory,$CandidateBundleDirectory,$RollbackBundleDirectory,$NegativeBundleDirectory)) {
             $input=Test-ReleaseBundle $path -LocalTest
             $attestation=Test-MsixSignature (Join-Path $input.Directory $input.Manifest.release.artifact.filename) $input.Identity.Publisher
             $actualSigner=(Get-AuthenticodeSignature -LiteralPath (Join-Path $input.Directory $input.Manifest.release.artifact.filename)).SignerCertificate
@@ -196,6 +206,10 @@ try {
     }
     $previous = Test-ReleaseBundle $PreviousBundleDirectory -LocalTest:$localTest -VerifySignature
     $candidate = Test-ReleaseBundle $CandidateBundleDirectory -LocalTest:$localTest -VerifySignature
+    if(-not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
+    $negative=Test-ReleaseBundle $NegativeBundleDirectory -LocalTest:$localTest -VerifySignature
+    $highestVersion=if($RollbackBundleDirectory){(Test-ReleaseBundle $RollbackBundleDirectory -LocalTest:$localTest -VerifySignature).Identity.Version}else{$candidate.Identity.Version}
+    if($negative.Identity.Name -cne $candidate.Identity.Name -or $negative.Identity.Publisher -cne $candidate.Identity.Publisher -or [version]$negative.Identity.Version -le [version]$highestVersion){throw 'Negative fixture must retain identity/publisher and have a strictly newer version.'}
     $ownedPackageName = $candidate.Identity.Name
     if ($candidate.Identity.Name -cne $previous.Identity.Name -or $candidate.Identity.Publisher -cne $previous.Identity.Publisher -or
         [version]$candidate.Identity.Version -le [version]$previous.Identity.Version) { throw 'N and N+1 must have the same identity/publisher and increasing versions.' }
@@ -205,6 +219,8 @@ try {
     $record.package_sha256 = $candidate.Manifest.release.artifact.sha256
     $record.feed_sha256 = $candidate.Manifest.release.update_feed.sha256
     $record.previous_package_version = $previous.Identity.Version
+    $record.negative_package_version=$negative.Identity.Version
+    $record.negative_package_sha256=$negative.Manifest.release.artifact.sha256
     $record.bundle_directory = $candidate.Directory
     Make-TestFeed $previous
     Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
@@ -290,12 +306,19 @@ try {
     }
     $env:WORDSUGGESTOR_EXPECT_PACKAGE_VERSION = [string]$installed.Version
     $env:WORDSUGGESTOR_TEST_DATA_ROOT = Join-Path $data ('GuiSmoke\' + [guid]::NewGuid().ToString('N'))
-    & (Join-Path $PSScriptRoot 'test_gui.ps1') -SkipBuild -AppId ($installed.PackageFamilyName + '!App')
-    Pass 'desktop_smoke'; Pass 'installed_relaunch'
+    if(-not $SkipInstalledGuiProbe) {
+        & (Join-Path $PSScriptRoot 'test_gui.ps1') -SkipBuild -AppId ($installed.PackageFamilyName + '!App')
+        Pass 'desktop_smoke'; Pass 'installed_relaunch'
+    } else {
+        $checks.desktop_smoke=$false;$checks.installed_relaunch=$false
+        $record.installed_gui_not_run_reason='explicit_local_remaining_checks'
+        Write-Output 'NOT RUN MSIX installed GUI: explicit isolated remaining-check qualification; not a complete release gate.'
+    }
     Close-OwnedTestInstances
+    Copy-Item -LiteralPath (Join-Path $negative.Directory $negative.Manifest.release.artifact.filename) -Destination $feedRoot
     Reject-Feed 'wrong_identity' { param($xml) $xml.AppInstaller.MainPackage.Name = 'Other.Unrelated.App' }
     Reject-Feed 'wrong_publisher' { param($xml) $xml.AppInstaller.MainPackage.Publisher = 'CN=Unrelated Publisher' }
-    Reject-Feed 'offline_feed' { param($xml) $next=([version](Installed).Version);$v=[version]::new($next.Major,$next.Minor,$next.Build,($next.Revision+1));$xml.AppInstaller.Version=$v.ToString();$xml.AppInstaller.MainPackage.Version=$v.ToString();$xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot 'missing.msix')).AbsoluteUri }
+    Reject-Feed 'offline_feed' { param($xml) $xml.AppInstaller.MainPackage.Uri = ([uri](Join-Path $feedRoot 'missing.msix')).AbsoluteUri }
     $badFeed = Join-Path $feedRoot 'invalid.appinstaller'
     [IO.File]::WriteAllText($badFeed,'<invalid')
     $rejected = $false
@@ -303,11 +326,12 @@ try {
     if (-not $rejected) { throw 'Malformed App Installer accepted.' }; Pass 'invalid_feed'
     $tampered = Join-Path $root 'tampered.msix'
     $currentBundle=if($rollback){$rollback}else{$candidate}
-    Copy-Item -LiteralPath (Join-Path $currentBundle.Directory $currentBundle.Manifest.release.artifact.filename) -Destination $tampered
+    Copy-Item -LiteralPath (Join-Path $negative.Directory $negative.Manifest.release.artifact.filename) -Destination $tampered
     $stream = [IO.File]::Open($tampered,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite)
     try { $stream.Position = 100; $byte = $stream.ReadByte(); $stream.Position = 100; $stream.WriteByte([byte]($byte -bxor 1)) } finally { $stream.Dispose() }
-    $signTool = Get-ReleaseSdkTool 'signtool'; $null = & $signTool verify /pa /all /v $tampered 2>&1
-    if ($LASTEXITCODE -eq 0) { throw 'Tampered package passed trust verification.' }
+    $signTool = Get-ReleaseSdkTool 'signtool'
+    $tamperedSignature=Invoke-ReleaseProcess $signTool @('verify','/pa','/all','/v',$tampered) 30
+    if ($tamperedSignature.ExitCode -eq 0) { throw 'Tampered package passed trust verification.' }
     $rejected = $false
     try { Add-AppxPackage -Path $tampered -ErrorAction Stop } catch { $rejected = $true }
     if (-not $rejected) { throw 'Tampered MSIX accepted.' }; Pass 'tampered_package'

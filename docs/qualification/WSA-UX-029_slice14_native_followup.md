@@ -1,5 +1,11 @@
 # WSA-UX-029 slice 14: authorized native installation follow-up
 
+Latest: [native acceptance evidence](WSA-UX-029_slice14_native_acceptance.md)
+records successful rollback, dirty-draft retention, installed GUI 55 and newer
+invalid-feed rejection. Earlier blocked/not-reached statements below are history.
+The user confirmed earlier UAC approval; no cause of later cancellations is assumed.
+
+
 Latest: [native update lifecycle evidence](WSA-UX-029_slice14_update_lifecycle.md)
 now records successful automatic/manual .2 updates and data retention, rollback
 blocked by package-in-use, and the pending UAC visibility question. Earlier

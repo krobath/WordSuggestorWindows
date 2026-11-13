@@ -2,13 +2,13 @@
 
 ## Authorized native follow-up (2026-11-13)
 
-Native tests now verify automatic and actual manual .1-to-.2 updates, installed
-Core/user words, and retained settings/tabs/learning/sharing fixtures. Rollback
-remains blocked by Windows package-in-use; automatic timing was not repeatable
-within every observation window. The harness reuses normal owned-app shutdown
-and offers an explicit LocalTest-only manual lane that never qualifies automatic
-updates. Package/trust cleanup is verified. Full native/release acceptance stays open.
-See [exact results and next action](qualification/WSA-UX-029_slice14_update_lifecycle.md).
+Native tests verify .1-to-.2 updates, higher-version rollback with dirty-draft
+retention, installed GUI/Notepad (55 checks) and rejection of newer invalid feeds.
+G05 remains blocked (0x800706F7); corrupt-package installation, version negatives
+and dedicated uninstall retention still need the final remaining-check run.
+The four-package harness keeps deliberate skips false and cannot qualify a public
+release. Cleanup is verified; UAC cancellation reports are not attributed to the user.
+See [exact results and next action](qualification/WSA-UX-029_slice14_native_acceptance.md).
 Earlier pending-approval/no-install statements are historical preparation results.
 
 
@@ -164,7 +164,8 @@ powershell -ExecutionPolicy Bypass -File scripts\prepare_msix_test.ps1 -WhatIf
 powershell -ExecutionPolicy Bypass -File scripts\prepare_msix_test.ps1
 ```
 
-Preparation reuses package_app and emits N=0.2.0.1, N+1=.2, rollback=.3 with one
+Preparation reuses package_app and emits N=0.2.0.1, N+1=.2, rollback=.3 and a
+newer .4 rejection-only package with one
 isolated identity, bundled Core/pack and an ephemeral seven-day non-exportable
 key. Finally the private key is deleted. Only the public certificate remains.
 The bundles are signed but untrusted, signature_verified=false. They cannot pass
@@ -175,6 +176,10 @@ After explicit operator approval on the disposable test environment:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreparedLocalTestSession '<printed prepared-session directory>' -SkipBuild -AllowTemporaryMachineTrust
 ```
+
+Old three-package prepared receipts must be regenerated; the native script rejects
+them before trust/install. A new negative feed must test a genuinely newer package
+and have its own self-URI, rather than exercising an installed-version no-op.
 
 Build the smoke runner first if needed using build_app.ps1. Test trust is a
 machine-wide leaf exception even though the signer/installation is isolated.
@@ -211,7 +216,7 @@ files. No raw exceptions/document text enter qualification records.
 For trusted production-identity bundles in a clean test account:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreviousBundleDirectory <signed-N-bundle> -CandidateBundleDirectory <signed-N1-bundle>
+powershell -ExecutionPolicy Bypass -File scripts\test_msix.ps1 -PreviousBundleDirectory <signed-N-bundle> -CandidateBundleDirectory <signed-N1-bundle> -NegativeBundleDirectory <signed-newer-rejection-bundle>
 ```
 
 The harness attempts clean ordinary-user install, packaged Core/DA + user word,
