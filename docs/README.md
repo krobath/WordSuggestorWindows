@@ -7,11 +7,12 @@ positive for app details. List pages are now rejected; details need header/spec/
 version proof. A guarded in-package launcher replaces the unreliable external URI.
 Installed own-package launch now verifies app_details and its update control.
 Build/app105/UpdateState38 retain their recorded scope. Release scripts now pass
-175 checks, including preserved before/after navigation samples and read failures.
+188 checks, including passive observation without activation, drift and read failures.
 A fresh signed [manual control experiment](qualification/WSA-UX-029_g05_manual_control_roundtrip.md)
 now verifies Off/Off BEFORE reopening and On/On AFTER reopening. Native values
 were unchanged in both phases, with on-launch/background still true. Cause unknown;
-passive observation without reactivation remains NOT RUN. No automatic clicks or setters.
+The [passive observation](qualification/WSA-UX-029_g05_passive_observation.md)
+script and fresh fixtures are ready; its installed run is NOT RUN. No automatic clicks or setters.
 G05 remains read-only. See [measured read-only acceptance](qualification/WSA-UX-029_g05_packaged_settings_page.md).
 
 

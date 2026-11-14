@@ -242,11 +242,11 @@ documents Windows Settings as a supported configuration route for apps with an
 App Installer repository entry. It does not identify the cause of this measured
 mismatch or establish that the Settings route works on this machine.
 
-The next distinct experiment should passively sample the verified UI/native
-configuration after the human flip for a bounded interval WITHOUT another app
-activation/URI launch, then compare a human reopening using Windows' own Settings
-navigation. That is not yet implemented or performed; no new test command is
-offered in this evidence-only update. This would distinguish a time-dependent
+The [passive observation runbook](WSA-UX-029_g05_passive_observation.md) now
+implements the next distinct experiment: sample the verified UI/native state after
+the human flip WITHOUT another app activation/URI launch, then compare a human
+reopening within Windows Settings. Script simulations pass; its installed run
+remains NOT RUN. This would distinguish a time-dependent
 reset from one around the diagnostic's package activation/navigation, without
 automating clicks or mutating policy. It would still not identify a root cause
 or qualify automatic-update behavior. Native/UI disagreement must remain visible.

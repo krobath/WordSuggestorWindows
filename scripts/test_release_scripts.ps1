@@ -540,4 +540,71 @@ try{
 }finally{
     foreach($name in $manualMocks){if($savedManual[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedManual[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
 }
+$passiveGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PassiveSettingsUpdateObservation') 20
+Check 'passive observation requires explicit isolated UI-only context' ($passiveGuard.ExitCode -ne 0 -and ($passiveGuard.Output+$passiveGuard.Error).Contains('Passive observation requires'))
+Reject 'passive observation rejects production before prompting' {Invoke-SettingsPassiveUpdateObservation ([pscustomobject]@{Name='WordSuggestor.Windows.Beta';PackageFamilyName='WordSuggestor.Windows.Beta_fixture';Publisher='CN=WordSuggestor'}) $null ([ordered]@{})}
+Reject 'passive scheduling rejects targets outside its bounded interval' {Wait-SettingsObservationOffset ([Diagnostics.Stopwatch]::StartNew()) 16000}
+$passiveMocks=@('Read-Host','Get-SettingsUpdateToggleState','Get-SettingsUpdateSnapshot','Wait-SettingsObservationOffset','Get-SettingsUpdateUiEvidence','Invoke-SettingsPackagedPageLaunch','Test-SettingsProcessElevated','Start-Sleep')
+$savedPassive=@{}
+foreach($name in $passiveMocks){$existing=Get-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue;$savedPassive[$name]=if($existing){$existing.ScriptBlock}else{$null}}
+try{
+    Set-Item Function:\Test-SettingsProcessElevated {return $script:passiveAdmin}
+    Set-Item Function:\Start-Sleep {}
+    Set-Item Function:\Wait-SettingsObservationOffset {
+        param($watch,$target)
+        $script:passiveOffsets+=@($target)
+        if($script:passiveCase -eq 'time_reset' -and $target -ge 10000){$script:passiveUi='On'}
+    }
+    Set-Item Function:\Get-SettingsUpdateUiEvidence {$script:passiveLaunches++;throw 'Unexpected diagnostic activation/navigation.'}
+    Set-Item Function:\Invoke-SettingsPackagedPageLaunch {$script:passiveLaunches++;throw 'Unexpected packaged launch.'}
+    Set-Item Function:\Get-SettingsUpdateToggleState {
+        if(($script:passiveCase -eq 'ui_unavailable' -and $script:passivePrompts -eq 1) -or ($script:passiveCase -eq 'wrong_page' -and $script:passivePrompts -eq 2)){throw [Runtime.InteropServices.COMException]::new('Private UI details',[int]0x80004005)}
+        return $script:passiveUi
+    }
+    Set-Item Function:\Get-SettingsUpdateSnapshot {
+        if($script:passiveCase -eq 'native_unavailable' -and $script:passivePrompts -eq 1){throw [Runtime.InteropServices.COMException]::new('Private native details',[int]0x80070490)}
+        return ($script:passiveSnapshot|Select-Object *)
+    }
+    Set-Item Function:\Read-Host {
+        $script:passivePrompts++
+        switch($script:passivePrompts){
+            1 {
+                $script:passiveUi=$script:passiveRequested
+                if($script:passiveCase -eq 'source_drift'){$script:passiveSnapshot.CheckOnLaunch=$false;$script:passiveSnapshot.PolicySource='System'}
+                if($script:passiveCase -eq 'interrupted'){throw 'Simulated human interruption.'}
+            }
+            2 {if($script:passiveCase -in @('unchanged_native','time_reset','native_unavailable','ui_unavailable')){$script:passiveUi='On'}}
+            3 {$script:passiveUi=$script:passiveInitial;$script:passiveSnapshot.CheckOnLaunch=$script:passiveInitial -ceq 'On'}
+        }
+        return ''
+    }
+    $script:passiveAdmin=$true
+    Reject 'passive observation rejects an elevated token before reading or prompting' {Invoke-SettingsPassiveUpdateObservation $manualPackage $manualPage ([ordered]@{})}
+    $script:passiveAdmin=$false
+    Reject 'passive observation rejects an unverified initial page' {Invoke-SettingsPassiveUpdateObservation $manualPackage ([pscustomobject]@{page_target_verified=$false;update_toggle_found=$true;page_kind='app_details'}) ([ordered]@{})}
+    foreach($scenario in @('unchanged_native','time_reset','source_drift','native_unavailable','ui_unavailable','wrong_page','interrupted','starts_off')){
+        $script:passiveCase=$scenario;$script:passivePrompts=0;$script:passiveLaunches=0;$script:passiveOffsets=@()
+        $script:passiveInitial=if($scenario -eq 'starts_off'){'Off'}else{'On'}
+        $script:passiveRequested=if($script:passiveInitial -ceq 'On'){'Off'}else{'On'}
+        $script:passiveUi=$script:passiveInitial
+        $script:passiveSnapshot=[pscustomobject]@{CheckOnLaunch=($script:passiveInitial -ceq 'On');PolicySource='Default';AppInstallerUri='https://private.example/passive.appinstaller'}
+        $result=[ordered]@{};$caught=$false
+        try{Invoke-SettingsPassiveUpdateObservation $manualPackage $manualPage $result 6>$null}catch{$caught=$true}
+        $common=$script:passiveLaunches -eq 0 -and -not $result.g05_qualified -and -not ($result|ConvertTo-Json -Depth 8).Contains('private.example') -and -not ($result|ConvertTo-Json -Depth 8).Contains('Private ')
+        if($scenario -ne 'interrupted'){$common=$common -and $result.samples.Count -eq 4 -and ($script:passiveOffsets -join ',') -ceq '0,5000,10000,15000'}
+        $pass=switch($scenario){
+            'unchanged_native' {-not $caught -and $result.first_requested_ui_observed -and -not $result.passive_ui_transition_observed -and -not $result.passive_native_change_observed -and $result.after_manual_navigation.observed -ceq 'On' -and $result.ui_state_restored -and $script:passivePrompts -eq 3}
+            'time_reset' {-not $caught -and $result.first_requested_ui_observed -and $result.passive_ui_transition_observed -and $result.samples[0].observed -ceq 'Off' -and $result.samples[2].observed -ceq 'On'}
+            'source_drift' {-not $caught -and $result.passive_native_change_observed -and $result.status -ceq 'observation_completed_native_changed' -and $result.ui_state_restored -and -not $result.native_snapshot_restored}
+            'native_unavailable' {-not $caught -and $result.passive_native_reads_succeeded -eq 0 -and $null -eq $result.passive_native_change_observed -and $result.samples[0].native_read_failure.hresult -ceq '0x80070490' -and $result.native_snapshot_restored}
+            'ui_unavailable' {-not $caught -and -not $result.passive_ui_reads_complete -and -not $result.first_requested_ui_observed -and $result.passive_native_reads_succeeded -eq 4 -and $result.samples[0].ui_read_failure.hresult -ceq '0x80004005'}
+            'wrong_page' {$caught -and $result.status -ceq 'manual_navigation_unverified' -and $script:passivePrompts -eq 2 -and -not $result.ui_state_restored}
+            'interrupted' {$caught -and $result.samples.Count -eq 0 -and $script:passivePrompts -eq 1 -and -not $result.ui_state_restored -and $script:passiveUi -ceq 'Off'}
+            'starts_off' {-not $caught -and $result.requested_state -ceq 'On' -and $result.first_requested_ui_observed -and $result.final.observed -ceq 'Off' -and $result.ui_state_restored}
+        }
+        Check ('passive simulation '+$scenario+' retains honest results without activation') ($common -and $pass)
+    }
+}finally{
+    foreach($name in $passiveMocks){if($savedPassive[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedPassive[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
+}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

@@ -15,6 +15,7 @@ param(
     [switch]$UpdatePolicySettingsUiProbe,
     [switch]$UpdatePolicySettingsUiOnly,
     [switch]$ManualSettingsUpdateRoundtrip,
+    [switch]$PassiveSettingsUpdateObservation,
     [switch]$CompareUpdatePolicySchemas,
     [switch]$AllowTemporaryMachineTrust
 )
@@ -53,6 +54,7 @@ if($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticHours') -and -not $Upda
 if(($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticSchema') -or $UpdatePolicySettingsUiProbe -or $UpdatePolicySettingsUiOnly -or $CompareUpdatePolicySchemas) -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic schema and Settings UI probes require UpdatePolicyDiagnostic.'}
 if($UpdatePolicySettingsUiOnly -and (-not $UpdatePolicySettingsUiProbe -or $CompareUpdatePolicySchemas)){throw 'Settings UI only mode requires its read-only probe and cannot compare schemas.'}
 if($ManualSettingsUpdateRoundtrip -and (-not $UpdatePolicyDiagnostic -or -not $UpdatePolicySettingsUiOnly -or -not $UpdatePolicySettingsUiProbe)){throw 'Manual roundtrip requires the isolated UI-only diagnostic.'}
+if($PassiveSettingsUpdateObservation -and (-not $UpdatePolicyDiagnostic -or -not $UpdatePolicySettingsUiOnly -or -not $UpdatePolicySettingsUiProbe -or $ManualSettingsUpdateRoundtrip)){throw 'Passive observation requires the isolated UI-only diagnostic and cannot run with the manual roundtrip.'}
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
 if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
@@ -278,7 +280,7 @@ try {
     $installed = Wait-Version $previous.Identity.Version
     Pass 'clean_install'; Pass 'standard_user'
     if($UpdatePolicyDiagnostic){
-        $record.mode=if($ManualSettingsUpdateRoundtrip){'update_policy_settings_manual_roundtrip'}elseif($UpdatePolicySettingsUiOnly){'update_policy_settings_ui'}else{'update_policy_diagnostic'};$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
+        $record.mode=if($PassiveSettingsUpdateObservation){'update_policy_settings_passive_observation'}elseif($ManualSettingsUpdateRoundtrip){'update_policy_settings_manual_roundtrip'}elseif($UpdatePolicySettingsUiOnly){'update_policy_settings_ui'}else{'update_policy_diagnostic'};$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
         if($UpdatePolicySettingsUiProbe){
             . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
             $record.settings_ui_package_version=[string]$installed.Version
@@ -289,6 +291,11 @@ try {
                 $record.manual_settings_roundtrip=[ordered]@{}
                 Invoke-SettingsManualUpdateRoundtrip $installed $runner $record.settings_ui $record.manual_settings_roundtrip
                 Write-Output ('G05 manual status='+$record.manual_settings_roundtrip.status+' ui_restored='+$record.manual_settings_roundtrip.ui_state_restored+' native_restored='+$record.manual_settings_roundtrip.native_snapshot_restored)
+            }
+            if($PassiveSettingsUpdateObservation){
+                $record.passive_settings_observation=[ordered]@{}
+                Invoke-SettingsPassiveUpdateObservation $installed $record.settings_ui $record.passive_settings_observation
+                Write-Output ('G05 passive status='+$record.passive_settings_observation.status+' ui_restored='+$record.passive_settings_observation.ui_state_restored+' native_restored='+$record.passive_settings_observation.native_snapshot_restored)
             }
         }
         if($UpdatePolicySettingsUiOnly){$finished=$true}else{

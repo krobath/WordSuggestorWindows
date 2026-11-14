@@ -453,7 +453,7 @@ function Get-SettingsUpdateToggleState($Package) {
     throw 'The test-app details page cannot be verified; no manual step started.'
 }
 
-function Get-SettingsManualPhaseEvidence($Package,$Baseline,[ValidateSet('before_reopen','after_reopen')][string]$Phase) {
+function Get-SettingsManualPhaseEvidence($Package,$Baseline,[ValidateSet('before_reopen','after_reopen','passive','after_manual_navigation','restoration')][string]$Phase) {
     Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
     $sample=[ordered]@{phase=$Phase;observed=$null;stable_state=$null;native_changed_fields=$null}
     try{
@@ -531,6 +531,66 @@ function Invoke-SettingsManualUpdateRoundtrip($Package,[string]$Runner,$InitialE
                 elseif(-not $Result.native_snapshot_restored){$Result.status='ui_restored_native_changed'}
             }
         }catch{$Result.restoration_read_failed=$true;$Result.status='restoration_read_failed'}
+    }
+}
+
+function Wait-SettingsObservationOffset([Diagnostics.Stopwatch]$Watch,[ValidateRange(0,15000)][int]$TargetMilliseconds) {
+    while($Watch.ElapsedMilliseconds -lt $TargetMilliseconds){
+        $remaining=$TargetMilliseconds-$Watch.ElapsedMilliseconds
+        if($remaining -le 0){break}
+        Start-Sleep -Milliseconds ([int][Math]::Min(200,$remaining))
+    }
+}
+
+function Invoke-SettingsPassiveUpdateObservation($Package,$InitialEvidence,[Collections.IDictionary]$Result) {
+    Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
+    if(Test-SettingsProcessElevated){throw 'Passive Settings observation requires an ordinary user.'}
+    if(-not $InitialEvidence.page_target_verified -or -not $InitialEvidence.update_toggle_found -or $InitialEvidence.page_kind -cne 'app_details'){throw 'Passive observation requires verified test-app details and control.'}
+    $Result.schema_version=1;$Result.status='not_started';$Result.samples=@();$Result.g05_qualified=$false
+    $initial=Get-SettingsUpdateToggleState $Package
+    $baseline=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
+    $Result.initial_state=$initial;$Result.initial_native=Get-SettingsPolicySafeSummary $baseline
+    $requested=if($initial -ceq 'On'){'Off'}else{'On'}
+    $Result.requested_state=$requested
+    $label='WordSuggestor LocalTest '+$Package.Name.Split('.')[-1]
+    $Result.ui_state_restored=$false;$Result.native_snapshot_restored=$false
+    try{
+        $Result.status='awaiting_manual_change'
+        Write-Host ('PASSIVE G05 step 1/3: Only '+$label+': switch to '+$requested+' and LEAVE IT '+$requested+'. Then press Enter here. Do not switch back.')
+        $null=Read-Host 'After Enter, do not click or navigate in Settings until step 2/3; four reads are scheduled over 15 seconds'
+        $Result.status='observing_without_activation'
+        $watch=[Diagnostics.Stopwatch]::StartNew()
+        foreach($offset in @(0,5000,10000,15000)){
+            Wait-SettingsObservationOffset $watch $offset
+            $sample=Get-SettingsManualPhaseEvidence $Package $baseline 'passive'
+            $sample.requested_offset_ms=$offset;$sample.elapsed_ms=$watch.ElapsedMilliseconds
+            $Result.samples+=@($sample)
+        }
+        $states=@(@(foreach($sample in $Result.samples){$sample.observed;$sample.stable_state})|Where-Object {$_ -in @('On','Off')})
+        $Result.passive_ui_transition_observed=@($states|Select-Object -Unique).Count -gt 1
+        $Result.passive_ui_reads_complete=@($Result.samples|Where-Object {$_.Contains('ui_read_failure')}).Count -eq 0
+        $Result.first_requested_ui_observed=$Result.samples[0].observed -ceq $requested -and $Result.samples[0].stable_state -ceq $requested
+        $Result.passive_native_reads_succeeded=@($Result.samples|Where-Object {-not $_.Contains('native_read_failure')}).Count
+        $Result.passive_native_change_observed=if($Result.passive_native_reads_succeeded -eq 0){$null}else{@($Result.samples|Where-Object {$_.native_changed_fields.Count -gt 0}).Count -gt 0}
+        Write-Host ('G05 passive first_requested='+$Result.first_requested_ui_observed+' ui_transition='+$Result.passive_ui_transition_observed+' native_reads='+$Result.passive_native_reads_succeeded+' native_change='+$Result.passive_native_change_observed)
+        $Result.status='awaiting_manual_navigation'
+        Write-Host ('PASSIVE G05 step 2/3: In Windows Settings only, go Back to Installed apps. Find '+$label+' and open its Advanced options. Do NOT launch WordSuggestor or toggle any setting.')
+        $null=Read-Host 'Once the SAME test app details are visible again, return here and press Enter'
+        # No runner argument, activation, Launcher, URI, navigation or UI writes here.
+        $Result.after_manual_navigation=Get-SettingsManualPhaseEvidence $Package $baseline 'after_manual_navigation'
+        if($Result.after_manual_navigation.Contains('ui_read_failure')){$Result.status='manual_navigation_unverified';throw 'The manually reopened test-app control cannot be verified; samples retained.'}
+        $Result.status='awaiting_manual_restoration'
+        Write-Host ('PASSIVE G05 step 3/3: Only '+$label+': verify the control is '+$initial+' (the starting state). If already '+$initial+', leave it unchanged. Otherwise restore it manually.')
+        $null=Read-Host ('With the control '+$initial+', press Enter for final readback and cleanup')
+        $Result.status='observation_completed'
+    }finally{
+        $Result.final=Get-SettingsManualPhaseEvidence $Package $baseline 'restoration'
+        $Result.ui_state_restored=-not $Result.final.Contains('ui_read_failure') -and $Result.final.observed -ceq $initial -and $Result.final.stable_state -ceq $initial
+        $Result.native_snapshot_restored=-not $Result.final.Contains('native_read_failure') -and $Result.final.native_changed_fields.Count -eq 0
+        if($Result.status -ceq 'observation_completed'){
+            if(-not $Result.ui_state_restored){$Result.status='observation_completed_ui_not_restored'}
+            elseif(-not $Result.native_snapshot_restored){$Result.status='observation_completed_native_changed'}
+        }
     }
 }
 
