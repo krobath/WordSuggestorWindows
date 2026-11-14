@@ -9,9 +9,9 @@ Installed own-package launch now verifies app_details and its update control.
 Build/app105/UpdateState38 retain their recorded scope. Release scripts now pass
 175 checks, including preserved before/after navigation samples and read failures.
 A fresh signed [manual control experiment](docs/qualification/WSA-UX-029_g05_manual_control_roundtrip.md)
-also mismatched after the corrected operator sequence: Off was reported by the
-operator but On read after reopening. The next diagnostic captures UI/native data
-before AND after navigation; its installed run is NOT RUN. No automatic clicks or setters.
+now verifies Off/Off BEFORE reopening and On/On AFTER reopening. Native values
+were unchanged in both phases, with on-launch/background still true. Cause unknown;
+passive observation without reactivation remains NOT RUN. No automatic clicks or setters.
 G05 remains read-only. See [measured read-only acceptance](docs/qualification/WSA-UX-029_g05_packaged_settings_page.md).
 
 

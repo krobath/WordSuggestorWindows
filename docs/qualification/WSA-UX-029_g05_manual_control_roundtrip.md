@@ -1,11 +1,11 @@
 # WSA-UX-029: human-controlled Windows update setting experiment
 
 Date: 2026-11-14. Follows the [verified read-only discovery](WSA-UX-029_g05_packaged_settings_page.md).
-Status: the corrected operator sequence ALSO observed On after reopening, despite
-the operator leaving the control Off. Before-navigation UI/native state was not
-captured by that version, so the cause remains unknown. The next diagnostic reads
-both sides of packaged activation/navigation. Its installed run is NOT RUN.
-This does not enable the product's automatic-update checkbox.
+Status: the two-phase installed run verified Off twice BEFORE reopening and On
+twice AFTER reopening. Native settings were unchanged in BOTH phases, with the
+on-launch/background flags still true and PolicySource=Default. This confirms
+a UI/native mismatch, not its cause or a successful saved Off state. The next
+independent observation should avoid reactivating the package. G05 stays read-only.
 
 ## Purpose and boundaries
 
@@ -31,21 +31,18 @@ test-certificate approval applies; approve a visible trust-helper UAC dialog if
 Windows requests one. The human UI changes below concern ONLY the new LocalTest
 package, which the script removes afterwards.
 
-From the WordSuggestorWindows repository root run:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-cd8326885d3a `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicySettingsUiProbe `
-  -UpdatePolicySettingsUiOnly -ManualSettingsUpdateRoundtrip `
-  -AllowTemporaryMachineTrust
-```
+The former command for prepared-cd8326885d3a is RETIRED: the session is USED.
+Do not rerun it, remove its marker, or reuse its profile. No replacement session
+is prepared by this evidence-only update. The next independent experiment should
+first be designed to observe without reactivating the package, not repeat the
+same two-phase run. The procedure below records how this completed diagnostic
+was operated; a future run always requires a fresh isolated identity.
 
 1. Wait for the console's `MANUAL G05 step 1/2` and requested state. The script
    requires the correct details page, a unique exact package-family control ID,
    an enabled On/Off control and an initial native snapshot before prompting.
-2. In Windows Settings change the update control for **WordSuggestor LocalTest
-   cd8326885d3a** to the requested state. Do not change another application.
+2. In Windows Settings change the update control for the uniquely named
+   **WordSuggestor LocalTest** app shown in the console. Do not change another application.
    **LEAVE IT in that state. Do not switch back yet.** Return to PowerShell and
    press Enter while the control is still in the requested state. The script
    reads UI/native state BEFORE reopening, then reads it again AFTER reopening.
@@ -155,6 +152,65 @@ Trust added=true / removed=true. Independent checks: no installed package,
 signing key or machine TrustedPeople leaf; used marker retained. af00e7ebeb63 is
 USED. Its former command is retired; do not reuse it or remove its marker/profile.
 
+## Measured UI/native mismatch around reopening, 2026-11-14
+
+Run 373fb3ee03c04d28a168c8bd055545af, 20:53:49Z to 20:55:00Z
+(21:53:49 to 21:55:00 Copenhagen), tested .1 under cd8326885d3a.
+The operator confirms the visible control returns to On after switching Off and
+pressing Enter. Actual structured evidence:
+
+| Checkpoint | UI first / stable read | Native configuration |
+|---|---|---|
+| Initial | On | on-launch=true, background=true, source=Default |
+| After human Off, BEFORE activation/navigation | Off / Off | unchanged; both flags true, source=Default |
+| AFTER activation/navigation | On / On | unchanged; both flags true, source=Default |
+| Final | On | unchanged; no final native field differences |
+
+Both phases reacquired the verified app's exact control. The native property
+names are CheckForUpdatesOnLaunch and AutomaticBackgroundTaskUpdatesEnabled.
+All native changed-field arrays were empty, not null/read failures. Correct
+app_details/header/specifications/version, exactly one control, hosted route,
+both packaged launch receipts and zero node errors were verified. The script did not reuse
+a cached UIA state: new reads actually captured Off before reopening. This differs
+from the earlier missing-control and two-click sequence problems. UI Automation
+provider semantics are not independently qualified by this evidence.
+
+The visible transition lies between the two phase samples, which include package
+activation and Settings navigation. The sample does NOT show a native Off policy
+being overwritten by reopening: the getter already reported unchanged values
+before reopening. Whether the getter represents every internal disable mechanism,
+whether a write failed or was delayed, and which component is responsible remain
+unresolved. Do not equate a visible Off state with actual update suppression.
+
+Status=unexpected_state_after_reopen, one manual step, ui_verified=false.
+ui_state_restored=true / native_snapshot_restored=true describe observed final
+equality; no automatic restoration was performed. completed=false,
+all_checks_passed=false, release_qualified=false, g05_qualified=false.
+
+Tested .1 SHA-256: 9507059048f91627ba54f1eb00948ae9dc323c8d4d7d7f257cff278f0a68e5af.
+Raw receipt SHA-256: d0560d85d7a0031afa9c69db4014ad36f636ace7fad98f0530b10fab7137b533.
+Trust removed=true. Independent checks find no installed package, signing key or
+machine TrustedPeople leaf; used marker retained. cd8326885d3a is USED.
+
+Read-only event-log follow-up used explicit UTC SystemTime XML bounds
+20:53:49Z through 20:55:05Z. The initial PowerShell DateTime filter returned no
+events and was discarded; the UTC query found real events and was cross-checked
+against their latest timestamps. Results, restricted to this package:
+
+| Log | All events in interval | Package-associated events | Package warnings/errors |
+|---|---:|---:|---:|
+| AppxPackaging/Operational | 149 | 9 | 0 |
+| AppXDeploymentServer/Operational | 32 | 25 | 0 |
+| AppModel-Runtime/Admin | 25 | 12 | 0 |
+
+The alternate AppXDeployment and AppXDeployment-Server operational channels had
+no events in the interval. No 0x800706F7, 0x000006F7 or RPC_X_BAD_STUB_DATA match
+occurred in actual message/EventData payloads in the three populated channels.
+System XML Keywords masks are not HRESULTs and were excluded from that check.
+Absence here does not establish that no error occurred or link the UI mismatch
+to the separately reproduced native setter failure. No raw messages, captions,
+other-app content or event-log exports were retained in source.
+
 ## Preparation and validation
 
 - `test_release_scripts.ps1`: PASS 175. Cases cover context/production guards,
@@ -163,13 +219,14 @@ USED. Its former command is retired; do not reuse it or remove its marker/profil
   deltas retained before reopening followed by On afterwards, a failed pre-read
   with native data retained and an unverified reopened page. These are simulations;
   the real installed two-phase diagnostic remains NOT RUN.
-- Existing packaging script prepared signed versions 0.2.0.1 through .4 with
+- Historical preparation: existing scripts prepared signed versions 0.2.0.1 through .4 with
   capability-experiment identity `WordSuggestor.Windows.LocalTest.cd8326885d3a`,
   publisher `CN=WordSuggestor Local Test cd8326885d3a`. This UI-only mode installs
   .1 only and invokes none of the native setter matrix cases.
-- Preparation receipt key_removed=true. Independent check: no installed package,
-  no CurrentUser signing key, no machine TrustedPeople leaf, no used-session
-  marker. Certificate expires 2026-11-21T16:42:21Z. If expired/used, prepare a NEW
+- Preparation receipt key_removed=true. Before use: no installed package,
+  signing key, machine TrustedPeople leaf or used marker. After the measured run,
+  cleanup again finds no package/key/trust, with the used marker now present.
+  Certificate expires 2026-11-21T16:42:21Z. If expired/used, prepare a NEW
   session through the existing script and update the command; never remove a
   used marker or reuse the identity/profile to obtain a clean result.
 - Qualified Core/DA payload reused; no linguistic logic or runtime source change.
@@ -185,12 +242,15 @@ documents Windows Settings as a supported configuration route for apps with an
 App Installer repository entry. It does not identify the cause of this measured
 mismatch or establish that the Settings route works on this machine.
 
-After the operator run, compare UI and native flags BEFORE and AFTER packaged
-activation/navigation. If before already reads On, this instrumentation still
-does not show the initial visible flip and cannot attribute the cause. If Off is
-measured before but On afterwards, the transition is localized to that interval;
-it does not identify the responsible Windows component. Native/UI disagreement
-must remain visible. If that route works while the setter still fails, decide
+The next distinct experiment should passively sample the verified UI/native
+configuration after the human flip for a bounded interval WITHOUT another app
+activation/URI launch, then compare a human reopening using Windows' own Settings
+navigation. That is not yet implemented or performed; no new test command is
+offered in this evidence-only update. This would distinguish a time-dependent
+reset from one around the diagnostic's package activation/navigation, without
+automating clicks or mutating policy. It would still not identify a root cause
+or qualify automatic-update behavior. Native/UI disagreement must remain visible.
+If a reliable route is eventually qualified while the setter still fails, decide
 whether opening Windows' own app settings is an acceptable product fallback;
 do not silently automate that screen. Actual automatic update and user-preference
 retention across N-to-N+1 still need separate verification. The original native
