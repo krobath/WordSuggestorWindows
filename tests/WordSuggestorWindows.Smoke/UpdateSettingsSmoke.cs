@@ -93,6 +93,9 @@ internal static class UpdateSettingsSmoke
         }
         Check("production qualification arguments rejected without touching package",await WindowsUpdateQualification.TryRunAsync(["--qualify-update-policy",Guid.NewGuid().ToString("N")])==3);
         Check("activation helper rejects production target",UpdatePackageActivation.Start("WordSuggestor.Windows.Beta_fixture!App",Guid.NewGuid().ToString("N"))==2);
+        Check("Settings-page activation rejects production target",UpdatePackageActivation.Start("WordSuggestor.Windows.Beta_fixture!App",Guid.NewGuid().ToString("N"),true)==2);
+        Check("unpackaged process cannot launch Settings as an installed fixture",await WindowsUpdateQualification.TryRunAsync(["--qualify-settings-page",Guid.NewGuid().ToString("N")])==3);
+        Check("Settings-page activation rejects malformed run ID",await WindowsUpdateQualification.TryRunAsync(["--qualify-settings-page","invalid"])==2);
         Console.WriteLine("EVIDENCE native update write qualification remains BLOCKED; tests use a simulated policy adapter, not native authority. Hello gate deferred by user.");
         if(desktop) await Desktop(Check);
         Console.WriteLine($"PASS UPDATE SETTINGS {count} checks; desktop={desktop}.");

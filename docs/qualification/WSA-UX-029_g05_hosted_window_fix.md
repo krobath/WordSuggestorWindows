@@ -88,27 +88,13 @@ before trust leaves the prepared identity available if never installed. Verified
 previous installed nonces b14042ba01ae and bc06ec5df05e were explicitly retired
 with markers; their profiles/receipts were preserved. A regression covers rejection.
 
-## Fresh app-page follow-up
+## Fresh app-page follow-up (historical, now USED)
 
-Prepared ea09b46c0e99 is fresh and uninstalled. Four signed fixtures were prepared
-through the unchanged packaging flow, with existing Core/pack bytes and unique
-nonce labels. MSIX manifest readback verifies identity/publisher and labels.
-The ephemeral private key is deleted; no machine trust or installation was added.
-The new installed application-page check is still NOT RUN.
-
-From an ordinary PowerShell in the Windows checkout:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-ea09b46c0e99 `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicySettingsUiProbe `
-  -UpdatePolicySettingsUiOnly -AllowTemporaryMachineTrust
-```
-
-Approve the local UAC; do not click any system controls. This runs only the
-application-page inspection and existing install/cleanup, not the 21 setter
-attempts. Return the G05 Settings UI line and final receipt path. Exit 3 is a
-partial diagnostic by design. Never rerun the used bc06/b140 identities.
+The ea09b46c0e99 follow-up completed in 3924c93ed8ac46abbf7af2552aaec14a. Its old
+nonce-only check matched the Installed apps list, not a proven details page.
+The [stricter page verification and new packaged-context follow-up](WSA-UX-029_g05_packaged_settings_page.md)
+supersede that acceptance flag. Do not rerun the used ea09 series. The real hosted
+window binding and 769-node read above retain their scope.
 
 ## Product status and next decision
 

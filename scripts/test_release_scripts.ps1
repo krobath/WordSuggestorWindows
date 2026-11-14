@@ -427,7 +427,7 @@ $toggleNode | Add-Member ScriptMethod GetCurrentPropertyValue {param($property) 
 $staleNode=[pscustomobject]@{}
 $staleNode | Add-Member ScriptProperty Current {throw [Runtime.InteropServices.COMException]::new('PRIVATE_UI_TEXT',[int]0x80040201)}
 $uiEvidence=Get-SettingsUiNodeEvidence @($staleNode,$targetNode,$toggleNode) '123456abcdef'
-Check 'one stale UI node does not discard verified target and update control' ($uiEvidence.page_target_verified -and $uiEvidence.update_toggle_found -and $uiEvidence.node_read_errors -eq 1 -and $uiEvidence.toggle_count -eq 1)
+Check 'stale node permits later nonce reads but does not fabricate a details page' ($uiEvidence.target_name_seen -and -not $uiEvidence.page_target_verified -and $uiEvidence.node_read_errors -eq 1 -and $uiEvidence.toggle_count -eq 0)
 $wrongUi=Get-SettingsUiNodeEvidence @($targetNode,$toggleNode) 'abcdef123456'
 Check 'unverified Settings page exposes no control IDs or counts' (-not $wrongUi.page_target_verified -and -not $wrongUi.update_toggle_found -and $wrongUi.toggle_count -eq 0 -and @($wrongUi.toggle_ids).Count -eq 0)
 Check 'UI diagnostics omit node captions and exception messages' (-not ($uiEvidence|ConvertTo-Json -Depth 4).Contains('PRIVATE_UI_TEXT') -and -not ($uiEvidence|ConvertTo-Json -Depth 4).Contains('Automatically update'))
@@ -445,4 +445,25 @@ Check 'window binding mode cannot claim package qualification' ($windowProbeGuar
 [IO.File]::WriteAllText((Join-Path $experimentRoot 'used-session.json'),'{"schema_version":1,"attempt_id":"fixture"}')
 $usedGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PreparedLocalTestSession',$experimentRoot,'-UpdatePolicyDiagnostic') 20
 Check 'a retired prepared identity is rejected before trust or bundle processing' ($usedGuard.ExitCode -ne 0 -and ($usedGuard.Output+$usedGuard.Error).Contains('already used'))
+$page=Get-SettingsUiPageEvidence $true $false $false $false $true
+Check 'nonce in Installed apps list is explicitly rejected as a details page' (-not $page.page_target_verified -and $page.page_kind -eq 'installed_apps_list' -and $page.status -eq 'wrong_settings_page')
+$page=Get-SettingsUiPageEvidence $true $false $false $false $false
+Check 'nonce alone cannot qualify even if a list anchor is unavailable' (-not $page.page_target_verified)
+$page=Get-SettingsUiPageEvidence $true $true $true $false $false
+Check 'details header without expected version remains unqualified' (-not $page.page_target_verified)
+$page=Get-SettingsUiPageEvidence $true $true $true $true $false
+Check 'details header specifications and version qualify the matching page' ($page.page_target_verified -and $page.page_kind -eq 'app_details')
+$page=Get-SettingsUiPageEvidence $true $true $true $true $true
+Check 'Installed apps anchor vetoes a conflicting details-page claim' (-not $page.page_target_verified)
+Reject 'packaged Settings launcher rejects production identity before activation' {Invoke-SettingsPackagedPageLaunch ([pscustomobject]@{Name='WordSuggestor.Windows.Beta';PackageFamilyName='WordSuggestor.Windows.Beta_fixture';Publisher='CN=WordSuggestor'}) 'unused.exe'}
+$pagePackage=[pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.123456abcdef';PackageFamilyName='WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd';Version='0.2.0.1'}
+$pageRun=[guid]::NewGuid().ToString('N')
+$pageReceipt=@{schema_version=1;run_id=$pageRun;package_name=$pagePackage.Name;package_family=$pagePackage.PackageFamilyName;package_version=$pagePackage.Version;packaged_context=$true;opened=$true;status='launch_completed';hresult=$null;g05_qualified=$false}
+$pageRead=Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage $pageRun
+Check 'packaged launch evidence proves only launch and never G05' ($pageRead.opened -and -not $pageRead.g05_qualified)
+Reject 'packaged launch receipt cannot cross a run boundary' {Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage ([guid]::NewGuid().ToString('N'))}
+$pageReceipt.document='PRIVATE_TEXT'
+Reject 'packaged launch receipt rejects extra content fields' {Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage $pageRun}
+$pageReceipt.Remove('document');$pageReceipt.status='launch_declined'
+Reject 'packaged launch receipt rejects contradictory success' {Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage $pageRun}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

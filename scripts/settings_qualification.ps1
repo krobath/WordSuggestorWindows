@@ -303,16 +303,38 @@ function Get-SettingsUiWindows {
     }
 }
 
-function Get-SettingsUiNodeEvidence($Nodes,[ValidatePattern('^[a-f0-9]{12}$')][string]$Nonce) {
+function Get-SettingsUiPageEvidence([bool]$TargetSeen,[bool]$HeaderSeen,[bool]$SpecsSeen,[bool]$VersionSeen,[bool]$ListPageSeen) {
+    $verified=$TargetSeen -and $HeaderSeen -and $SpecsSeen -and $VersionSeen -and -not $ListPageSeen
+    return [ordered]@{page_target_verified=$verified;target_name_seen=$TargetSeen;details_header_seen=$HeaderSeen;specifications_seen=$SpecsSeen;version_seen=$VersionSeen;page_kind=$(if($ListPageSeen){'installed_apps_list'}elseif($verified){'app_details'}else{'unverified'});status=$(if($ListPageSeen){'wrong_settings_page'}elseif($TargetSeen -and -not $verified){'app_details_unverified'}else{'page_not_verified'})}
+}
+
+function Test-SettingsUiNodeInList($Node) {
+    $current=$Node
+    for($depth=0;$depth -lt 32 -and $null -ne $current;$depth++){
+        $kind=$current.Current.ControlType
+        if($kind -in @([System.Windows.Automation.ControlType]::List,[System.Windows.Automation.ControlType]::ListItem,[System.Windows.Automation.ControlType]::DataItem)){return $true}
+        if($kind -eq [System.Windows.Automation.ControlType]::Window){return $false}
+        $current=[System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($current)
+    }
+    return $null -ne $current # unknown/deep ancestry is not proof of a header
+}
+
+function Get-SettingsUiNodeEvidence($Nodes,[ValidatePattern('^[a-f0-9]{12}$')][string]$Nonce,[string]$PackageVersion='') {
     $result=[ordered]@{page_target_verified=$false;update_toggle_found=$false;toggle_count=0;toggle_ids=@();status='page_not_verified';node_read_errors=0;error_stage=$null;error_category=$null;hresult=$null}
     $ids=@();$count=0;$updateFound=$false
+    $targetSeen=$false;$headerSeen=$false;$specsSeen=$false;$versionSeen=$false;$listPageSeen=$false
     foreach($node in $Nodes){
         try{
-            $current=$node.Current;$name=[string]$current.Name
-            if($name.Contains($Nonce)){$result.page_target_verified=$true}
+            $current=$node.Current;$name=[string]$current.Name;$controlId=[string]$current.AutomationId
+            if($controlId -ceq 'SystemSettings_InstalledApps_SystemComponentsSettingLink_ButtonEntityItem'){$listPageSeen=$true}
+            if($name.Contains($Nonce)){$targetSeen=$true}
+            if(-not $current.IsOffscreen -and $name -ceq ('WordSuggestor LocalTest '+$Nonce) -and $current.ControlType -eq [System.Windows.Automation.ControlType]::Text -and -not (Test-SettingsUiNodeInList $node)){$headerSeen=$true}
+            if(-not $current.IsOffscreen -and $current.ControlType -eq [System.Windows.Automation.ControlType]::Text){
+                if($name -in @('Specifications','Specifikationer')){$specsSeen=$true}
+                if($PackageVersion -and $name -ceq $PackageVersion){$versionSeen=$true}
+            }
             if(-not $node.GetCurrentPropertyValue([System.Windows.Automation.AutomationElement]::IsTogglePatternAvailableProperty)){continue}
             $count++
-            $controlId=[string]$current.AutomationId
             if($controlId -cmatch '^[A-Za-z][A-Za-z0-9._-]{0,100}$'){$ids+=$controlId}
             if($name -match '(auto.*updat|updat.*auto|automat.*opdater|opdater.*automat)'){$updateFound=$true}
         }catch{
@@ -321,15 +343,43 @@ function Get-SettingsUiNodeEvidence($Nodes,[ValidatePattern('^[a-f0-9]{12}$')][s
             foreach($key in $failure.Keys){$result[$key]=$failure[$key]}
         }
     }
+    $page=Get-SettingsUiPageEvidence $targetSeen $headerSeen $specsSeen $versionSeen $listPageSeen
+    foreach($key in $page.Keys){$result[$key]=$page[$key]}
     if($result.page_target_verified){
         $result.toggle_count=$count;$result.toggle_ids=@($ids | Select-Object -Unique -First 32)
         $result.update_toggle_found=$updateFound
-        $result.status=if($updateFound){'read_only_control_found'}else{'no_update_toggle_exposed'}
+        $result.status=if($updateFound){'read_only_control_found'}else{'no_update_toggle_observed'}
     }
     return $result
 }
 
-function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
+function Invoke-SettingsPackagedPageLaunch($Package,[string]$Runner) {
+    Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
+    if(Test-SettingsProcessElevated){throw 'Packaged Settings launch requires an ordinary user.'}
+    $runId=[guid]::NewGuid().ToString('N')
+    & $Runner --activate-settings-fixture ($Package.PackageFamilyName+'!App') $runId | Out-Null
+    if($LASTEXITCODE -ne 0){throw 'Packaged Settings activation failed.'}
+    $path=Join-Path $env:LOCALAPPDATA ('WordSuggestor\LocalTests\'+$Package.Name.Split('.')[-1]+'\diagnostics\settings-page-'+$runId+'.json')
+    $deadline=[DateTime]::UtcNow.AddSeconds(20)
+    while(-not (Test-Path -LiteralPath $path) -and [DateTime]::UtcNow -lt $deadline){Start-Sleep -Milliseconds 200}
+    if(-not (Test-Path -LiteralPath $path)){throw 'No packaged Settings launch receipt; rebuild the fixture.'}
+    if(([IO.FileInfo]$path).Length -gt 16384){throw 'Settings launch receipt too large.'}
+    return Read-SettingsPageLaunchEvidence ([IO.File]::ReadAllText($path)) $Package $runId
+}
+
+function Read-SettingsPageLaunchEvidence([string]$Raw,$Package,[string]$RunId) {
+    if($Raw.Length -gt 8192){throw 'Settings launch receipt too large.'}
+    try{$value=$Raw|ConvertFrom-Json -ErrorAction Stop}catch{throw 'Invalid Settings launch receipt JSON.'}
+    $fields=@('schema_version','run_id','package_name','package_family','package_version','packaged_context','opened','status','hresult','g05_qualified')
+    if(@($value.PSObject.Properties).Count -ne $fields.Count -or @($fields|Where-Object {$null -eq $value.PSObject.Properties[$_]}).Count -gt 0 -or
+       ($value.schema_version -isnot [int]) -or $value.schema_version -ne 1 -or $value.run_id -cne $runId -or $value.package_name -cne $Package.Name -or $value.package_family -cne $Package.PackageFamilyName -or $value.package_version -cne ([string]$Package.Version) -or
+       $value.packaged_context -isnot [bool] -or -not $value.packaged_context -or $value.opened -isnot [bool] -or $value.g05_qualified -isnot [bool] -or $value.g05_qualified -or
+       $value.status -notin @('launch_completed','launch_declined','launch_failed','launch_timeout') -or ($value.hresult -and $value.hresult -cnotmatch '^0x[A-F0-9]{8}$') -or
+       ($value.opened -and $value.hresult) -or ($value.opened -ne ($value.status -ceq 'launch_completed'))){throw 'Settings launch receipt rejected.'}
+    return $value
+}
+
+function Get-SettingsUpdateUiEvidence([string]$FamilyName,[string]$Runner) {
     $package=Get-AppxPackage | Where-Object PackageFamilyName -CEQ $FamilyName | Select-Object -First 1
     Assert-SettingsQualificationPackage $FamilyName $package
     if(Test-SettingsProcessElevated){throw 'Settings UI diagnosis requires an ordinary-user LocalTest.'}
@@ -337,7 +387,9 @@ function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
     Add-Type -AssemblyName UIAutomationTypes
     $result=Get-SettingsUiNodeEvidence @() $package.Name.Split('.')[-1]
     # Interactive, read-only: never click, toggle, reset, uninstall or stop Settings.
-    Start-Process ('ms-settings:appsfeatures-app?'+$FamilyName) | Out-Null
+    if(-not $Runner){throw 'Packaged Settings launcher runner required; no external URI fallback.'}
+    $launch=Invoke-SettingsPackagedPageLaunch $package $Runner
+    if(-not $launch.opened){$result.status='packaged_launch_unavailable';$result.error_stage='packaged_launch';$result.hresult=$launch.hresult;$result.launch=$launch;return $result}
     $deadline=[DateTime]::UtcNow.AddSeconds(12)
     do {
         $stage='window'
@@ -346,8 +398,8 @@ function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
                 $stage='read_nodes'
                 $window=$candidate.Element
                 $nodes=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
-                $result=Get-SettingsUiNodeEvidence $nodes $package.Name.Split('.')[-1]
-                $result.window_route=$candidate.Route
+                $result=Get-SettingsUiNodeEvidence $nodes $package.Name.Split('.')[-1] ([string]$package.Version)
+                $result.window_route=$candidate.Route;$result.launch=$launch
                 if($result.page_target_verified){return $result}
             }
         }catch{
@@ -357,6 +409,7 @@ function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
         }
         Start-Sleep -Milliseconds 300
     }while([DateTime]::UtcNow -lt $deadline)
+    $result.launch=$launch
     return $result
 }
 

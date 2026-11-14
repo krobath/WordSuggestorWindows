@@ -9,14 +9,16 @@ public static class WindowsUpdateQualification
 {
     public static async Task<int?> TryRunAsync(IReadOnlyList<string> args)
     {
-        if (!args.Contains("--qualify-update-policy")) return null;
-        if (args.Count != 2 || args[0] != "--qualify-update-policy" || !System.Text.RegularExpressions.Regex.IsMatch(args[1], "^[a-f0-9]{32}$")) return 2;
+        var settingsPage = args.Contains("--qualify-settings-page");
+        if (!args.Contains("--qualify-update-policy") && !settingsPage) return null;
+        if (args.Count != 2 || args[0] != (settingsPage ? "--qualify-settings-page" : "--qualify-update-policy") || !System.Text.RegularExpressions.Regex.IsMatch(args[1], "^[a-f0-9]{32}$")) return 2;
         var installed = WindowsUpdateService.ReadInstalledRelease();
         var match = System.Text.RegularExpressions.Regex.Match(installed?.Name ?? "", @"^WordSuggestor\.Windows\.LocalTest\.([a-f0-9]{8,32})$");
         if (!match.Success || installed!.Publisher != "CN=WordSuggestor Local Test " + match.Groups[1].Value) return 3;
         Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WordSuggestor", "LocalTests", match.Groups[1].Value, "diagnostics");
         Directory.CreateDirectory(root);
+        if (settingsPage) return await LaunchSettingsPageAsync(root, args[1], installed);
         var path = Path.Combine(root, "update-policy-" + args[1] + ".json");
         var platform = new WindowsNativeUpdatePlatform(installed);
         var before = await platform.ReadAsync(CancellationToken.None);
@@ -66,6 +68,27 @@ public static class WindowsUpdateQualification
             package_management_declared = capabilities.Contains("packageManagement"), package_query_declared = capabilities.Contains("packageQuery"), steps, native_control = nativeControl };
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(evidence, new JsonSerializerOptions { WriteIndented = true }));
         return status == "passed" ? 0 : status == "blocked" ? 3 : 1;
+    }
+
+    private static async Task<int> LaunchSettingsPageAsync(string root, string runId, InstalledRelease installed)
+    {
+        if (new System.Security.Principal.WindowsPrincipal(System.Security.Principal.WindowsIdentity.GetCurrent()).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator)) return 3;
+        var package = Windows.ApplicationModel.Package.Current;
+        var opened = false; var status = "launch_failed"; string? hresult = null;
+        try
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            opened = await Windows.System.Launcher.LaunchUriAsync(new Uri("ms-settings:appsfeatures-app")).AsTask(deadline.Token);
+            status = opened ? "launch_completed" : "launch_declined";
+        }
+        catch (OperationCanceledException) { status = "launch_timeout"; }
+        catch (Exception e) when (e is InvalidOperationException or ArgumentException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+        { hresult = "0x" + unchecked((uint)e.HResult).ToString("X8"); }
+        var evidence = new { schema_version = 1, run_id = runId, package_name = installed.Name,
+            package_family = package.Id.FamilyName, package_version = installed.Version.ToString(),
+            packaged_context = true, opened, status, hresult, g05_qualified = false };
+        await File.WriteAllTextAsync(Path.Combine(root, "settings-page-" + runId + ".json"), JsonSerializer.Serialize(evidence));
+        return opened ? 0 : 3;
     }
 
     private static async Task<JsonElement?> RunNativeControlAsync()

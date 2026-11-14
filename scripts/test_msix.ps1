@@ -281,8 +281,8 @@ try {
             . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
             $record.settings_ui_package_version=[string]$installed.Version
             $record.settings_ui_package_sha256=$previous.Manifest.release.artifact.sha256
-            $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName
-            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors+' route='+$record.settings_ui.window_route)
+            $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName $runner
+            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' page='+$record.settings_ui.page_kind+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors+' route='+$record.settings_ui.window_route+' launch='+$record.settings_ui.launch.status)
         }
         if($UpdatePolicySettingsUiOnly){$record.mode='update_policy_settings_ui';$finished=$true}else{
         Probe-UpdatePolicyDiagnostic $installed 'baseline'

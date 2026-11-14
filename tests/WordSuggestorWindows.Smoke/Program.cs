@@ -34,6 +34,7 @@ internal static class Program
             catch (Exception ex) { Console.Error.WriteLine("FAIL package activation: " + ex.GetType().Name + " 0x" + ex.HResult.ToString("X8")); return 1; }
         }
         if (args.FirstOrDefault() == "--activate-update-fixture") return args.Length == 3 ? UpdatePackageActivation.Start(args[1], args[2]) : 2;
+        if (args.FirstOrDefault() == "--activate-settings-fixture") return args.Length == 3 ? UpdatePackageActivation.Start(args[1], args[2], true) : 2;
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var code = 1;
         app.Dispatcher.InvokeAsync(async () =>
