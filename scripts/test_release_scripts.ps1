@@ -484,9 +484,13 @@ $savedManual=@{}
 foreach($name in $manualMocks){$existing=Get-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue;$savedManual[$name]=if($existing){$existing.ScriptBlock}else{$null}}
 try{
     Set-Item Function:\Test-SettingsProcessElevated {return $false}
-    Set-Item Function:\Get-SettingsUpdateToggleState {return $script:manualUi}
+    Set-Item Function:\Get-SettingsUpdateToggleState {if($script:manualUiReadFailure -and $script:manualUi -ceq 'Off' -and $script:manualReopens -eq 0){throw [Runtime.InteropServices.COMException]::new('Private UI failure',[int]0x80004005)};return $script:manualUi}
     Set-Item Function:\Get-SettingsUpdateSnapshot {if($script:unavailableOff -and $script:manualUi -ceq 'Off'){throw [Runtime.InteropServices.COMException]::new('Private native details',[int]0x80070490)};return ($script:manualSnapshot|Select-Object *)}
-    Set-Item Function:\Get-SettingsUpdateUiEvidence {$script:manualReopens++;return [pscustomobject]@{page_target_verified=$true}}
+    Set-Item Function:\Get-SettingsUpdateUiEvidence {
+        $script:manualReopens++
+        if($script:reopenUi){$script:manualUi=$script:reopenUi;$script:manualSnapshot.CheckOnLaunch=$script:manualUi -ceq 'On'}
+        return [pscustomobject]@{page_target_verified=(-not $script:reopenUnverified)}
+    }
     Set-Item Function:\Read-Host {
         if($script:manualNoChange){return ''}
         $script:manualUi=if($script:manualUi -ceq 'On'){'Off'}else{'On'}
@@ -498,6 +502,7 @@ try{
     $manualPackage=[pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.123456abcdef';PackageFamilyName='WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd';Publisher='CN=WordSuggestor Local Test 123456abcdef'}
     $manualPage=[pscustomobject]@{page_target_verified=$true;update_toggle_found=$true;page_kind='app_details'}
     foreach($drift in @($false,$true)){
+        $script:manualUiReadFailure=$false;$script:reopenUi=$null;$script:reopenUnverified=$false
         $script:manualNoChange=$false
         $script:unavailableOff=$false
         $script:manualUi='On';$script:manualDrift=$drift;$script:abortManual=$false;$script:manualReopens=0
@@ -517,7 +522,21 @@ try{
     $script:manualUi='On';$script:manualDrift=$false;$script:abortManual=$false;$script:manualNoChange=$true;$script:manualSnapshot.CheckOnLaunch=$true;$script:manualSnapshot.PolicySource='Default';$script:manualReopens=0
     $manualResult=[ordered]@{};$unexpected=$false
     try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$unexpected=$true}
-    Check 'original state at first Enter is unexpected but does not establish an OS write failure' ($unexpected -and $manualResult.status -ceq 'unexpected_state_on_reopen' -and $manualResult.steps.Count -eq 1 -and $manualResult.steps[0].observed -ceq 'On' -and $manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -and $script:manualReopens -eq 1 -and -not $manualResult.g05_qualified)
+    Check 'original state at first Enter is unexpected but does not establish an OS write failure' ($unexpected -and $manualResult.status -ceq 'unexpected_state_before_reopen' -and $manualResult.steps.Count -eq 1 -and $manualResult.steps[0].before_reopen.observed -ceq 'On' -and $manualResult.steps[0].after_reopen.observed -ceq 'On' -and $manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -and $script:manualReopens -eq 1 -and -not $manualResult.g05_qualified)
+    $script:manualNoChange=$false;$script:manualReopens=0;$script:reopenUi='On'
+    $manualResult=[ordered]@{};$unexpected=$false
+    try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$unexpected=$true}
+    $first=$manualResult.steps[0]
+    Check 'UI and native Off before navigation are preserved when reopening reports On' ($unexpected -and $manualResult.status -ceq 'unexpected_state_after_reopen' -and $first.before_reopen.observed -ceq 'Off' -and $first.before_reopen.stable_state -ceq 'Off' -and $first.before_reopen.native_changed_fields -contains 'CheckOnLaunch' -and $first.before_reopen.native.CheckOnLaunch -eq $false -and $first.after_reopen.observed -ceq 'On' -and $first.after_reopen.native_changed_fields.Count -eq 0 -and $manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -and -not $manualResult.g05_qualified)
+    $script:manualReopens=0;$script:reopenUi=$null;$script:manualUiReadFailure=$true
+    $manualResult=[ordered]@{};$unexpected=$false
+    try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$unexpected=$true}
+    $first=$manualResult.steps[0]
+    Check 'failed pre-navigation UI read retains native data and a separate post-navigation read' ($unexpected -and $manualResult.status -ceq 'ui_read_failed_before_reopen' -and $first.before_reopen.ui_read_failure.hresult -ceq '0x80004005' -and $first.before_reopen.native.CheckOnLaunch -eq $false -and $first.after_reopen.observed -ceq 'Off' -and -not ($manualResult|ConvertTo-Json -Depth 8).Contains('Private UI failure'))
+    $script:manualUi='On';$script:manualSnapshot.CheckOnLaunch=$true;$script:manualReopens=0;$script:manualUiReadFailure=$false;$script:reopenUnverified=$true
+    $manualResult=[ordered]@{};$unexpected=$false
+    try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$unexpected=$true}
+    Check 'unverified reopened page cannot erase verified pre-navigation samples or qualify a step' ($unexpected -and $manualResult.status -ceq 'reopened_page_unverified' -and $manualResult.steps[0].before_reopen.observed -ceq 'Off' -and -not $manualResult.steps[0].Contains('after_reopen') -and -not $manualResult.steps[0].ui_verified -and -not $manualResult.g05_qualified)
 }finally{
     foreach($name in $manualMocks){if($savedManual[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedManual[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
 }

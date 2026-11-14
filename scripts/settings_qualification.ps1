@@ -453,6 +453,30 @@ function Get-SettingsUpdateToggleState($Package) {
     throw 'The test-app details page cannot be verified; no manual step started.'
 }
 
+function Get-SettingsManualPhaseEvidence($Package,$Baseline,[ValidateSet('before_reopen','after_reopen')][string]$Phase) {
+    Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
+    $sample=[ordered]@{phase=$Phase;observed=$null;stable_state=$null;native_changed_fields=$null}
+    try{
+        $sample.observed=Get-SettingsUpdateToggleState $Package
+        Start-Sleep -Milliseconds 500
+        $sample.stable_state=Get-SettingsUpdateToggleState $Package
+    }catch{
+        $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
+        $sample.ui_read_failure=[ordered]@{error_category=$failure.GetType().Name;hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))}
+    }
+    # Read native state even when the visible control differs from the request.
+    try{
+        $native=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
+        $sample.native_changed_fields=@(Get-SettingsPolicyChangedFields $Baseline $native)
+        $sample.native=Get-SettingsPolicySafeSummary $native
+    }catch{
+        $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
+        $sample.native_read_failure=[ordered]@{error_category=$failure.GetType().Name;hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))}
+    }
+    Write-Host ('G05 manual phase='+$Phase+' observed='+$sample.observed+' stable='+$sample.stable_state+' native_changed_fields='+($sample.native_changed_fields -join ',')+' native_read_hresult='+$sample.native_read_failure.hresult)
+    return $sample
+}
+
 function Invoke-SettingsManualUpdateRoundtrip($Package,[string]$Runner,$InitialEvidence,[Collections.IDictionary]$Result) {
     Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
     if(Test-SettingsProcessElevated){throw 'Manual Settings roundtrip requires an ordinary user.'}
@@ -472,23 +496,25 @@ function Invoke-SettingsManualUpdateRoundtrip($Package,[string]$Runner,$InitialE
             Write-Host ('MANUAL G05 step '+$stepNumber+'/2: Only WordSuggestor LocalTest '+$Package.Name.Split('.')[-1]+': change its Windows update control to '+$requested+'. LEAVE IT '+$requested+' while pressing Enter. Do not change any other app.')
             if($stepNumber -eq 1){Write-Host 'Do NOT switch back yet. Wait for the separate step 2/2 instruction after verification.'}
             $null=Read-Host ('With the control still '+$requested+', return here and press Enter (Ctrl+C aborts; cleanup is attempted)')
-            # Reopen through the installed package, then read the persisted UI.
-            # Never invoke Toggle(), SendInput, a setter, or registry mutation.
+            # Capture the current page BEFORE any packaged activation/navigation.
+            # Reacquire UIA elements on every read; never click, set or cache state.
+            $step.before_reopen=Get-SettingsManualPhaseEvidence $Package $before 'before_reopen'
+            $Result.status='reopening_settings'
             $page=Get-SettingsUpdateUiEvidence $Package.PackageFamilyName $Runner
-            if(-not $page.page_target_verified){throw 'Reopened test-app details were not verified.'}
-            $step.observed=Get-SettingsUpdateToggleState $Package
-            if($step.observed -cne $requested){$Result.status='unexpected_state_on_reopen';throw 'Observed state differs from this step: leave the control in the requested state before pressing Enter. This alone does not prove Windows rejected a change.'}
-            Start-Sleep -Milliseconds 500
-            if((Get-SettingsUpdateToggleState $Package) -cne $requested){$Result.status='unstable_state_on_reopen';throw 'The requested UI state did not remain stable.'}
-            $step.ui_verified=$true
-            try{
-                $after=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
-                $step.native_changed_fields=@(Get-SettingsPolicyChangedFields $before $after)
-                $step.native=Get-SettingsPolicySafeSummary $after
-            }catch{
-                $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
-                $step.native_read_failure=[ordered]@{error_category=$failure.GetType().Name;hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))}
+            $step.reopen=$page
+            if(-not $page.page_target_verified){$Result.status='reopened_page_unverified';throw 'Reopened test-app details were not verified; the pre-navigation sample is retained.'}
+            $step.after_reopen=Get-SettingsManualPhaseEvidence $Package $before 'after_reopen'
+            $step.observed=$step.after_reopen.observed
+            $step.native_changed_fields=$step.after_reopen.native_changed_fields
+            if($step.after_reopen.Contains('native')){$step.native=$step.after_reopen.native}
+            if($step.after_reopen.Contains('native_read_failure')){$step.native_read_failure=$step.after_reopen.native_read_failure}
+            foreach($phase in @('before_reopen','after_reopen')){
+                $sample=$step[$phase]
+                if($sample.Contains('ui_read_failure')){$Result.status='ui_read_failed_'+$phase;throw 'The control state could not be read; phase evidence is retained.'}
+                if($sample.observed -cne $requested){$Result.status='unexpected_state_'+$phase;throw 'Observed UI state differs from the request. Both phase samples are retained; no cause is inferred.'}
+                if($sample.stable_state -cne $requested){$Result.status='unstable_state_'+$phase;throw 'UI state changed between reads. Both phase samples are retained; no cause is inferred.'}
             }
+            $step.ui_verified=$true
             Write-Host ('G05 manual observed='+$step.observed+' native_changed_fields='+($step.native_changed_fields -join ',')+' native_read_hresult='+$step.native_read_failure.hresult)
         }
         $Result.status='completed'
