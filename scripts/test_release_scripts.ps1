@@ -607,4 +607,29 @@ try{
 }finally{
     foreach($name in $passiveMocks){if($savedPassive[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedPassive[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
 }
+$pauseNow=[DateTimeOffset]::Parse('2026-11-14T12:00:00Z')
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{}) $pauseNow
+Check 'missing pause field is not reported rather than a not-paused claim' (-not $pause.field_present -and $pause.state -ceq 'not_reported')
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{PausedUntil=$null}) $pauseNow
+Check 'explicit null pause means not paused' ($pause.field_present -and $pause.state -ceq 'not_paused')
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{PausedUntil=$pauseNow.AddDays(1)}) $pauseNow
+Check 'future pause is recognized without emitting its date' ($pause.state -ceq 'paused' -and @($pause.Keys).Count -eq 2)
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{PausedUntil=$pauseNow}) $pauseNow
+Check 'elapsed pause is separate from missing or active pause' ($pause.state -ceq 'expired')
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{PausedUntil=[DateTime]::SpecifyKind($pauseNow.UtcDateTime.AddHours(1),[DateTimeKind]::Utc)}) $pauseNow
+Check 'typed UTC pause is recognized without parsing arbitrary strings' ($pause.state -ceq 'paused')
+$pause=Get-SettingsPauseSummary ([pscustomobject]@{PausedUntil=[DateTime]::SpecifyKind($pauseNow.DateTime,[DateTimeKind]::Unspecified)}) $pauseNow
+Check 'ambiguous pause timezone remains unknown' ($pause.state -ceq 'unknown')
+$pause=Get-SettingsPolicySafeSummary ([pscustomobject]@{PausedUntil='PRIVATE_PAUSE_VALUE';AppInstallerUri='https://private.example/pause'})
+Check 'unrecognized pause value remains unknown and does not expose content' ($pause.pause.state -ceq 'unknown' -and -not ($pause|ConvertTo-Json -Depth 3).Contains('PRIVATE_PAUSE_VALUE') -and -not ($pause|ConvertTo-Json -Depth 3).Contains('private.example'))
+$auditRoot=Join-Path $root 'api-audit'
+$audit=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_settings_platform.ps1'),'-UpdatePolicyApiAudit','-OutputDirectory',$auditRoot) 20
+$auditPath=Join-Path $auditRoot 'update-api.json'
+$auditValue=if(Test-Path $auditPath){Get-Content $auditPath -Raw|ConvertFrom-Json}else{$null}
+Check 'live API audit emits metadata without invoking Hello or package probes' ($audit.ExitCode -eq 0 -and $auditValue.status -ceq 'api_metadata_only' -and $auditValue.read_only -and -not $auditValue.g05_qualified -and -not (Test-Path (Join-Path $auditRoot 'platform.json')) -and -not (Test-Path (Join-Path $auditRoot 'source.json')))
+Check 'API audit distinguishes output-shape availability from absent properties' ($auditValue.cmdlets.'Get-AppxPackageAutoUpdateSettings'.output_shape_available -is [bool] -and $null -ne $auditValue.cmdlets.'Get-AppxPackageAutoUpdateSettings'.output_properties)
+$conflict=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_settings_platform.ps1'),'-UpdatePolicyApiAudit','-SettingsWindowProbe','-OutputDirectory',(Join-Path $root 'api-conflict')) 20
+Check 'API audit cannot combine with Settings window inspection' ($conflict.ExitCode -ne 0 -and ($conflict.Output+$conflict.Error).Contains('metadata-only'))
+$conflict=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_settings_platform.ps1'),'-UpdatePolicyApiAudit','-TestPackageFamilyName','WordSuggestor.Windows.Beta_fixture','-OutputDirectory',(Join-Path $root 'api-package-conflict')) 20
+Check 'API audit cannot combine with a package target' ($conflict.ExitCode -ne 0 -and ($conflict.Output+$conflict.Error).Contains('metadata-only'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

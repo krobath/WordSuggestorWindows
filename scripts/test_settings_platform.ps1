@@ -1,9 +1,18 @@
-param([string]$OutputDirectory, [string]$TestPackageFamilyName, [switch]$PackagedUpdateProbe, [string]$RunnerPath, [switch]$SettingsWindowProbe)
+param([string]$OutputDirectory, [string]$TestPackageFamilyName, [switch]$PackagedUpdateProbe, [string]$RunnerPath, [switch]$SettingsWindowProbe, [switch]$UpdatePolicyApiAudit)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repo ('.artifacts\settings-qualification\' + [guid]::NewGuid().ToString('N')) }
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+if($UpdatePolicyApiAudit){
+    if($TestPackageFamilyName -or $PackagedUpdateProbe -or $RunnerPath -or $SettingsWindowProbe){throw 'API audit is metadata-only and cannot request package, UI or activation probes.'}
+    $value=Get-SettingsUpdateApiAudit
+    $json=$value|ConvertTo-Json -Depth 6
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory 'update-api.json'),$json,[Text.UTF8Encoding]::new($false))
+    Write-Output $json
+    if($value.status -eq 'api_metadata_only'){exit 0}
+    exit 3
+}
 if($SettingsWindowProbe){
     if($TestPackageFamilyName -or $PackagedUpdateProbe){throw 'Settings window binding probe cannot request package qualification.'}
     Add-Type -AssemblyName UIAutomationClient

@@ -7,14 +7,16 @@ positive for app details. List pages are now rejected; details need header/spec/
 version proof. A guarded in-package launcher replaces the unreliable external URI.
 Installed own-package launch now verifies app_details and its update control.
 Build/app105/UpdateState38 retain their recorded scope. Release scripts now pass
-188 checks, including passive observation without activation, drift and read failures.
+199 checks, including read-only API metadata and explicit pause-state diagnostics.
 The [manual control experiment](qualification/WSA-UX-029_g05_manual_control_roundtrip.md)
 now verifies Off/Off BEFORE reopening and On/On AFTER reopening. Native values
 were unchanged in both phases, with on-launch/background still true. Cause unknown;
 The [passive observation](qualification/WSA-UX-029_g05_passive_observation.md)
 completed: four Off/Off samples over 15.74 seconds, then On/On after HUMAN Settings
 navigation; native values unchanged throughout. No package reactivation by the observer.
-The used command is retired. Cause and effective saved Off policy remain unqualified.
+The used command is retired. The [API semantics audit](qualification/WSA-UX-029_g05_api_semantics.md)
+now verifies public pause metadata and documents the separate CSP Disable contract.
+Actual Disable state/save cause remain unqualified; no new GUI run or product write.
 G05 remains read-only. See [measured read-only acceptance](qualification/WSA-UX-029_g05_packaged_settings_page.md).
 
 

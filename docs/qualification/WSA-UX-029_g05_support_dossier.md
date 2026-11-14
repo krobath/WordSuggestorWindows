@@ -87,8 +87,12 @@ The scoped public search on 2026-11-14 found no exact authoritative match linkin
 SetAutoUpdateSettings/Set-AppxPackageAutoUpdateSettings and 0x800706F7 to this UI
 symptom. This is a search limit, not evidence that the issue is unknown to Microsoft.
 
-The next useful work is to resolve native read-priority/disabled-state semantics
-and source-type equivalence, or collect a targeted save-call failure using an
+The [read-only API semantics audit](WSA-UX-029_g05_api_semantics.md) now records
+public pause/property metadata, a separately documented device Disable setting,
+the local cmdlet/documentation parameter discrepancy and explicit unknown states.
+It does not measure an actual CSP Disable value or qualify a save route.
+
+The next useful work is source-type equivalence or a targeted save-call failure using an
 explicitly scoped diagnostic method. Broad traces or raw logs may contain other
 users/apps' data and are not an acceptable substitute. An external issue can
 reference this dossier only after reviewing/redacting any added local evidence;

@@ -424,6 +424,51 @@ function Get-SettingsPolicyChangedFields($Before,$After) {
     }
 }
 
+function Get-SettingsPauseSummary($Snapshot,[DateTimeOffset]$Now=[DateTimeOffset]::UtcNow) {
+    $property=$Snapshot.PSObject.Properties['PausedUntil']
+    if($null -eq $property){return [ordered]@{field_present=$false;state='not_reported'}}
+    if($null -eq $property.Value){return [ordered]@{field_present=$true;state='not_paused'}}
+    $date=$property.Value
+    if($date -is [DateTime] -and $date.Kind -ne [DateTimeKind]::Unspecified){$date=[DateTimeOffset]$date}
+    if($date -isnot [DateTimeOffset]){return [ordered]@{field_present=$true;state='unknown'}}
+    return [ordered]@{field_present=$true;state=$(if($date -gt $Now){'paused'}else{'expired'})}
+}
+
+function Get-SettingsUpdateApiAudit {
+    $result=[ordered]@{schema_version=1;status='api_metadata_only';read_only=$true;g05_qualified=$false;types=[ordered]@{};cmdlets=[ordered]@{}}
+    try{
+        $null=[Windows.Foundation.Metadata.ApiInformation,Windows.Foundation,ContentType=WindowsRuntime]
+        $properties=[ordered]@{
+            'Windows.ApplicationModel.AppInstallerInfo'=@('OnLaunch','AutomaticBackgroundTask','PausedUntil','PolicySource','Disable','Disabled','IsDisabled')
+            'Windows.Management.Deployment.AutoUpdateSettingsOptions'=@('OnLaunch','AutomaticBackgroundTask','PausedUntil','Disable','Disabled','IsDisabled')
+        }
+        foreach($name in $properties.Keys){
+            $entry=[ordered]@{present=[Windows.Foundation.Metadata.ApiInformation]::IsTypePresent($name);properties=[ordered]@{}}
+            foreach($property in $properties[$name]){$entry.properties[$property]=[Windows.Foundation.Metadata.ApiInformation]::IsPropertyPresent($name,$property)}
+            $result.types[$name]=$entry
+        }
+        $manager='Windows.Management.Deployment.AppInstallerManager'
+        $entry=[ordered]@{present=[Windows.Foundation.Metadata.ApiInformation]::IsTypePresent($manager);methods=[ordered]@{}}
+        foreach($method in @('GetDefault','GetForSystem','SetAutoUpdateSettings','PauseAutoUpdatesUntil','ClearAutoUpdateSettings')){$entry.methods[$method]=[Windows.Foundation.Metadata.ApiInformation]::IsMethodPresent($manager,$method)}
+        $result.types[$manager]=$entry
+        foreach($name in @('Get-AppxPackageAutoUpdateSettings','Set-AppxPackageAutoUpdateSettings')){
+            $command=Get-Command $name -ErrorAction SilentlyContinue
+            $entry=[ordered]@{present=($null -ne $command);parameters=[ordered]@{}}
+            foreach($parameter in @('PackageFamilyName','PackageFullName','ShowUpdateAvailability','UseSystemPolicySource','PauseUpdates','HoursToPause','ClearPreviousSettings')){$entry.parameters[$parameter]=$null -ne $command -and $command.Parameters.ContainsKey($parameter)}
+            if($name -ceq 'Get-AppxPackageAutoUpdateSettings'){
+                $shape=if($command -and $command.ImplementingType){$command.ImplementingType.Assembly.GetType('Microsoft.Windows.Appx.PackageManager.Commands.AppInstallerInformation',$false)}else{$null}
+                $entry.output_shape_available=$null -ne $shape;$entry.output_properties=[ordered]@{}
+                if($shape){foreach($property in @('PausedUntil','PolicySource','Disable','Disabled','IsDisabled')){$entry.output_properties[$property]=$null -ne $shape.GetProperty($property)}}
+            }
+            $result.cmdlets[$name]=$entry
+        }
+    }catch{
+        $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
+        $result.status='api_probe_unavailable';$result.error_category=$failure.GetType().Name;$result.hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))
+    }
+    return $result
+}
+
 function Get-SettingsPolicySafeSummary($Snapshot) {
     $summary=[ordered]@{}
     foreach($property in $Snapshot.PSObject.Properties){
@@ -432,6 +477,7 @@ function Get-SettingsPolicySafeSummary($Snapshot) {
         elseif($property.Name -ceq 'HoursBetweenUpdateChecks' -and ($property.Value -is [int] -or $property.Value -is [uint32] -or $property.Value -is [byte]) -and $property.Value -ge 0 -and $property.Value -le 255){$summary[$property.Name]=[int]$property.Value}
         elseif($property.Name -cmatch 'PolicySource$' -and [string]$property.Value -cin @('Default','System')){$summary[$property.Name]=[string]$property.Value}
     }
+    $summary.pause=Get-SettingsPauseSummary $Snapshot
     return $summary
 }
 
