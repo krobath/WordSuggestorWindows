@@ -7,10 +7,11 @@ positive for app details. List pages are now rejected; details need header/spec/
 version proof. A guarded in-package launcher replaces the unreliable external URI.
 Installed own-package launch now verifies app_details and its update control.
 Build/app105/UpdateState38 retain their recorded scope. Release scripts now pass
-171 checks, including simulated human off/on, interruption and native read failure.
+172 checks, including first-Enter mismatch, interruption and native read failure.
 A fresh signed [manual control experiment](qualification/WSA-UX-029_g05_manual_control_roundtrip.md)
-is ready; its installed run is NOT RUN. The human changes only the disposable
-test app; scripts read state and never automate clicking or call the setter.
+has an inconclusive first attempt: both changes happened before the first Enter.
+The retry requires two separate instructions/Enter checkpoints; Off persistence
+is still NOT RUN. Scripts read state and never automate clicks or call the setter.
 G05 remains read-only. See [measured read-only acceptance](qualification/WSA-UX-029_g05_packaged_settings_page.md).
 
 

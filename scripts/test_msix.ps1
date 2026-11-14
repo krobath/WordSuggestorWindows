@@ -278,7 +278,7 @@ try {
     $installed = Wait-Version $previous.Identity.Version
     Pass 'clean_install'; Pass 'standard_user'
     if($UpdatePolicyDiagnostic){
-        $record.mode='update_policy_diagnostic';$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
+        $record.mode=if($ManualSettingsUpdateRoundtrip){'update_policy_settings_manual_roundtrip'}elseif($UpdatePolicySettingsUiOnly){'update_policy_settings_ui'}else{'update_policy_diagnostic'};$record.update_policy_diagnostics=[ordered]@{};$record.diagnostic_schema=$UpdatePolicyDiagnosticSchema
         if($UpdatePolicySettingsUiProbe){
             . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
             $record.settings_ui_package_version=[string]$installed.Version
@@ -291,7 +291,7 @@ try {
                 Write-Output ('G05 manual status='+$record.manual_settings_roundtrip.status+' ui_restored='+$record.manual_settings_roundtrip.ui_state_restored+' native_restored='+$record.manual_settings_roundtrip.native_snapshot_restored)
             }
         }
-        if($UpdatePolicySettingsUiOnly){$record.mode=if($ManualSettingsUpdateRoundtrip){'update_policy_settings_manual_roundtrip'}else{'update_policy_settings_ui'};$finished=$true}else{
+        if($UpdatePolicySettingsUiOnly){$finished=$true}else{
         Probe-UpdatePolicyDiagnostic $installed 'baseline'
         Make-TestFeed $candidate
         Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop

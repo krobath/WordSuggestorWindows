@@ -463,21 +463,23 @@ function Invoke-SettingsManualUpdateRoundtrip($Package,[string]$Runner,$InitialE
     $Result.initial_native=Get-SettingsPolicySafeSummary $before
     $Result.initial_state=$initial;$Result.ui_state_restored=$false;$Result.native_snapshot_restored=$false
     $opposite=if($initial -ceq 'On'){'Off'}else{'On'}
-    Write-Host ('MANUAL G05 sequence: '+$initial+' -> '+$opposite+' -> '+$initial+'. Settings reopens for verification; return to this console for each instruction.')
+    Write-Host ('MANUAL G05: TWO SEPARATE changes, one per Enter: '+$initial+' -> '+$opposite+' -> '+$initial+'. Do not perform both changes before the first Enter.')
     try{
         foreach($requested in @($opposite,$initial)){
             $step=[ordered]@{requested=$requested;observed=$null;ui_verified=$false;native_changed_fields=$null}
             $Result.steps+=@($step);$Result.status='awaiting_manual_change'
-            Write-Host ('MANUAL G05: Only WordSuggestor LocalTest '+$Package.Name.Split('.')[-1]+': change its Windows update control to '+$requested+'. Do not change any other app.')
-            $null=Read-Host 'After changing it in Windows Settings, return here and press Enter (Ctrl+C aborts; cleanup is attempted)'
+            $stepNumber=$Result.steps.Count
+            Write-Host ('MANUAL G05 step '+$stepNumber+'/2: Only WordSuggestor LocalTest '+$Package.Name.Split('.')[-1]+': change its Windows update control to '+$requested+'. LEAVE IT '+$requested+' while pressing Enter. Do not change any other app.')
+            if($stepNumber -eq 1){Write-Host 'Do NOT switch back yet. Wait for the separate step 2/2 instruction after verification.'}
+            $null=Read-Host ('With the control still '+$requested+', return here and press Enter (Ctrl+C aborts; cleanup is attempted)')
             # Reopen through the installed package, then read the persisted UI.
             # Never invoke Toggle(), SendInput, a setter, or registry mutation.
             $page=Get-SettingsUpdateUiEvidence $Package.PackageFamilyName $Runner
             if(-not $page.page_target_verified){throw 'Reopened test-app details were not verified.'}
             $step.observed=Get-SettingsUpdateToggleState $Package
-            if($step.observed -cne $requested){throw 'The manually requested UI state was not retained on reopening.'}
+            if($step.observed -cne $requested){$Result.status='unexpected_state_on_reopen';throw 'Observed state differs from this step: leave the control in the requested state before pressing Enter. This alone does not prove Windows rejected a change.'}
             Start-Sleep -Milliseconds 500
-            if((Get-SettingsUpdateToggleState $Package) -cne $requested){throw 'The requested UI state did not remain stable.'}
+            if((Get-SettingsUpdateToggleState $Package) -cne $requested){$Result.status='unstable_state_on_reopen';throw 'The requested UI state did not remain stable.'}
             $step.ui_verified=$true
             try{
                 $after=Get-SettingsUpdateSnapshot $Package.PackageFamilyName

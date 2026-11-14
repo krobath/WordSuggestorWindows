@@ -488,6 +488,7 @@ try{
     Set-Item Function:\Get-SettingsUpdateSnapshot {if($script:unavailableOff -and $script:manualUi -ceq 'Off'){throw [Runtime.InteropServices.COMException]::new('Private native details',[int]0x80070490)};return ($script:manualSnapshot|Select-Object *)}
     Set-Item Function:\Get-SettingsUpdateUiEvidence {$script:manualReopens++;return [pscustomobject]@{page_target_verified=$true}}
     Set-Item Function:\Read-Host {
+        if($script:manualNoChange){return ''}
         $script:manualUi=if($script:manualUi -ceq 'On'){'Off'}else{'On'}
         $script:manualSnapshot.CheckOnLaunch=$script:manualUi -ceq 'On'
         if($script:manualDrift){$script:manualSnapshot.PolicySource='System'}
@@ -497,6 +498,7 @@ try{
     $manualPackage=[pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.123456abcdef';PackageFamilyName='WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd';Publisher='CN=WordSuggestor Local Test 123456abcdef'}
     $manualPage=[pscustomobject]@{page_target_verified=$true;update_toggle_found=$true;page_kind='app_details'}
     foreach($drift in @($false,$true)){
+        $script:manualNoChange=$false
         $script:unavailableOff=$false
         $script:manualUi='On';$script:manualDrift=$drift;$script:abortManual=$false;$script:manualReopens=0
         $script:manualSnapshot=[pscustomobject]@{CheckOnLaunch=$true;PolicySource='Default';AppInstallerUri='https://private.example/fixture.appinstaller'}
@@ -512,6 +514,10 @@ try{
     $manualResult=[ordered]@{};$interrupted=$false
     try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$interrupted=$true}
     Check 'interrupted manual change records unrestored UI without any automatic toggle' ($interrupted -and -not $manualResult.ui_state_restored -and -not $manualResult.native_snapshot_restored -and $script:manualUi -ceq 'Off' -and $manualResult.steps.Count -eq 1)
+    $script:manualUi='On';$script:manualDrift=$false;$script:abortManual=$false;$script:manualNoChange=$true;$script:manualSnapshot.CheckOnLaunch=$true;$script:manualSnapshot.PolicySource='Default';$script:manualReopens=0
+    $manualResult=[ordered]@{};$unexpected=$false
+    try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$unexpected=$true}
+    Check 'original state at first Enter is unexpected but does not establish an OS write failure' ($unexpected -and $manualResult.status -ceq 'unexpected_state_on_reopen' -and $manualResult.steps.Count -eq 1 -and $manualResult.steps[0].observed -ceq 'On' -and $manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -and $script:manualReopens -eq 1 -and -not $manualResult.g05_qualified)
 }finally{
     foreach($name in $manualMocks){if($savedManual[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedManual[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
 }
