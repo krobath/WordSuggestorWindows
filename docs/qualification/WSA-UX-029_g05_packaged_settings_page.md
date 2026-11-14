@@ -99,29 +99,43 @@ g05-packaged-page-prepare.log and the corresponding MSIX attempt/preparation roo
 The previous 21 native setter failures and real hosted-window proof retain their
 scope; they are not relabeled by this correction.
 
-## Ready isolated follow-up
+## Measured read-only acceptance, 2026-11-14
 
-Run from an ordinary PowerShell in the Windows checkout:
+Operator run 13ecc2ce9cfe42f4ad6571d7617814ce completed 00:34:55Z to 00:35:30Z
+(01:34:55 to 01:35:30 Copenhagen), tested MSIX 0.2.0.1 under nonce 654c593031fb.
+The installed own-package launch is now VERIFIED, replacing the earlier NOT RUN
+state. Actual results:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-654c593031fb `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicySettingsUiProbe `
-  -UpdatePolicySettingsUiOnly -AllowTemporaryMachineTrust
-```
+| Proof | Actual result |
+|---|---|
+| Correct app details page | app_details / target_verified=true |
+| Header / specifications / version | all true |
+| Update control | found=true, exactly 1 toggle |
+| Toggle AutomationId | WordSuggestor.Windows.LocalTest.654c593031fb_byhrsbzr6zdww_ToggleSwitch |
+| Window / launch | hosted / launch_completed, packaged_context=true |
+| UI errors | 0 nodes, no phase/HRESULT |
+| Installer checks | clean_install=true, standard_user=true |
+| Cleanup | trust added=true then removed=true; no package/key/machine leaf remains |
+| Full/G05 release qualification | false, expected for read-only diagnostic |
 
-If Windows asks for UAC, approve the test helper; a visible prompt is not a PASS
-criterion. Trust-ready/cleaned receipts are authoritative for temporary trust.
-Do not click system controls. Return the G05 Settings UI line and final record
-path. This attempts navigation and reading only, then uninstalls/cleans trust;
-it does not repeat the 21 policy attempts. Partial exit 3 is expected by design.
+Tested MSIX SHA-256: 951facd5904ffc268c71f11ecce52bd3a8821df0290495d04fc7a8065e0bff5b.
+Raw main receipt SHA-256: 5dbb37ccddc30919216ae681af7f4d6881e1f4741fd5eefbeb0d138826f8bb91. Ignored raw receipt/root retained.
+The used-session marker is present. Session 654c593031fb is USED: its former
+command is retired and must not be rerun. User profiles/receipts are preserved.
+
+This verifies navigation and control discovery, not the control's effect. No
+TogglePattern.Toggle, mouse click, setter or off/on roundtrip was performed.
+The earlier external-URI/list false positive is superseded; hosted window proof
+and the previous 21 updater failures retain their separate scope.
 
 ## Product status and next decision
 
-The next installed run must establish whether in-package launch reaches the
-correct details page. If it still opens the list, it now reports that accurately
-instead of claiming an absent update control. Only after real page proof can we
-choose how to measure the Windows-owned control. No automatic toggle exists.
-The original setter's 0x800706F7, HTTPS comparison, off/on and N-to-N+1 preference
-retention remain open. No VM fault, system repair, production privilege increase,
-backend protocol change or macOS change is implied. G05 remains read-only.
+The next isolated test should have a human switch ONLY the disposable test app's
+Windows-owned update control off and back on, while scripts read UI state and the
+OS update settings before/after. This will show which settings Windows actually
+changes, without invoking the failing setter or automating UI clicks. The user's
+starting state and any native-property differences must be reported accurately.
+Do not treat control discovery or a visually flipped switch as proof of automatic
+update behavior or persistence across N-to-N+1. The original 0x800706F7, HTTPS
+comparison and preference retention remain open. G05 remains read-only. No VM
+repair, production privilege increase, backend or macOS change is implied.

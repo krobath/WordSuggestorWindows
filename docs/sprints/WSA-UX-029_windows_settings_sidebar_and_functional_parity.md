@@ -5,8 +5,9 @@
 The operator reached Installed apps; the old nonce-anywhere check was a false
 positive for app details. List pages are now rejected; details need header/spec/
 version proof. A guarded in-package launcher replaces the unreliable external URI.
-Build/app105/UpdateState38/release161 pass; new installed launch is NOT RUN.
-G05 remains read-only. See [evidence and fresh UI-only test](../qualification/WSA-UX-029_g05_packaged_settings_page.md).
+Installed own-package launch now verifies app_details and its update control.
+Build/app105/UpdateState38/release161 retain their recorded scope.
+G05 remains read-only. See [measured read-only acceptance](../qualification/WSA-UX-029_g05_packaged_settings_page.md).
 
 
 ## G05 Settings window correction (2026-11-14)
