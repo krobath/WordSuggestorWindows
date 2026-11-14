@@ -270,6 +270,39 @@ function Get-SettingsUiFailure([ValidateSet('window','read_nodes','read_node')][
     return [ordered]@{error_stage=$Stage;error_category=$Failure.GetType().Name;hresult=('0x{0:X8}' -f ($Failure.HResult -band 0xffffffffL))}
 }
 
+function Test-SettingsUiWindowOwner([int]$OwnerProcessId,[IntPtr]$Handle,[int[]]$SettingsProcessIds,[int[]]$FrameProcessIds,[bool]$HasSettingsChild) {
+    # IntPtr.Zero converts to $true in Windows PowerShell; never use -not $Handle.
+    if($Handle -eq [IntPtr]::Zero){return $false}
+    return $OwnerProcessId -in $SettingsProcessIds -or ($OwnerProcessId -in $FrameProcessIds -and $HasSettingsChild)
+}
+
+function Get-SettingsUiWindows {
+    $settingsIds=@(Get-Process -Name SystemSettings -ErrorAction SilentlyContinue | Where-Object {$_.Path -ieq (Join-Path $env:SystemRoot 'ImmersiveControlPanel\SystemSettings.exe')} | Select-Object -ExpandProperty Id)
+    if(-not $settingsIds.Count){return}
+    $frameIds=@(Get-Process -Name ApplicationFrameHost -ErrorAction SilentlyContinue | Where-Object {$_.Path -ieq (Join-Path $env:SystemRoot 'System32\ApplicationFrameHost.exe')} | Select-Object -ExpandProperty Id)
+    $conditions=@(foreach($ownerId in @($settingsIds+$frameIds)){
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ProcessIdProperty,[int]$ownerId)
+    })
+    $filter=if($conditions.Count -eq 1){$conditions[0]}else{[System.Windows.Automation.OrCondition]::new([System.Windows.Automation.Condition[]]$conditions)}
+    $windows=[System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children,$filter)
+    foreach($window in $windows){
+        try{
+            $owner=$window.Current.ProcessId;$handle=[IntPtr]$window.Current.NativeWindowHandle
+            if($handle -eq [IntPtr]::Zero){continue}
+            $hasSettingsChild=$false
+            if($owner -in $frameIds){
+                foreach($settingsId in $settingsIds){
+                    $condition=[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ProcessIdProperty,[int]$settingsId)
+                    if($null -ne $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$condition)){$hasSettingsChild=$true;break}
+                }
+            }
+            if(Test-SettingsUiWindowOwner $owner $handle $settingsIds $frameIds $hasSettingsChild){
+                [pscustomobject]@{Element=$window;Route=$(if($owner -in $settingsIds){'direct'}else{'hosted'})}
+            }
+        }catch [System.Windows.Automation.ElementNotAvailableException]{continue}
+    }
+}
+
 function Get-SettingsUiNodeEvidence($Nodes,[ValidatePattern('^[a-f0-9]{12}$')][string]$Nonce) {
     $result=[ordered]@{page_target_verified=$false;update_toggle_found=$false;toggle_count=0;toggle_ids=@();status='page_not_verified';node_read_errors=0;error_stage=$null;error_category=$null;hresult=$null}
     $ids=@();$count=0;$updateFound=$false
@@ -307,20 +340,20 @@ function Get-SettingsUpdateUiEvidence([string]$FamilyName) {
     Start-Process ('ms-settings:appsfeatures-app?'+$FamilyName) | Out-Null
     $deadline=[DateTime]::UtcNow.AddSeconds(12)
     do {
-        foreach($process in @(Get-Process -Name SystemSettings -ErrorAction SilentlyContinue)){
-            if($process.Path -ine (Join-Path $env:SystemRoot 'ImmersiveControlPanel\SystemSettings.exe') -or -not $process.MainWindowHandle){continue}
-            $stage='window'
-            try{
-                $window=[System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+        $stage='window'
+        try{
+            foreach($candidate in @(Get-SettingsUiWindows)){
                 $stage='read_nodes'
+                $window=$candidate.Element
                 $nodes=$window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
                 $result=Get-SettingsUiNodeEvidence $nodes $package.Name.Split('.')[-1]
+                $result.window_route=$candidate.Route
                 if($result.page_target_verified){return $result}
-            }catch{
-                $failure=Get-SettingsUiFailure $stage $_.Exception
-                foreach($key in $failure.Keys){$result[$key]=$failure[$key]}
-                $result.status='ui_probe_unavailable'
             }
+        }catch{
+            $failure=Get-SettingsUiFailure $stage $_.Exception
+            foreach($key in $failure.Keys){$result[$key]=$failure[$key]}
+            $result.status='ui_probe_unavailable'
         }
         Start-Sleep -Milliseconds 300
     }while([DateTime]::UtcNow -lt $deadline)

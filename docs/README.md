@@ -1,5 +1,14 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## G05 Settings window correction (2026-11-14)
+
+The probe admitted IntPtr.Zero and assumed Settings owned the top-level window.
+Both are corrected; a real hosted Settings window and 769 UIA nodes read without
+error on this VM. Release scripts: 151 PASS. The specific app page still needs its
+fresh UI-only check; G05's separate 0x800706F7 remains unqualified/read-only.
+See [reproduction, live proof and fresh test](qualification/WSA-UX-029_g05_hosted_window_fix.md).
+
+
 ## G05 measured input/schema result (2026-11-14)
 
 The operator completed the isolated run: all 21 input attempts still reject with
@@ -10,7 +19,7 @@ See [measured matrix and next test](qualification/WSA-UX-029_g05_input_schema_ac
 
 
 Earlier preparation (superseded by the measured result above): UAC was not visible
-from the agent. The [historical interactive continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md#interactive-continuation-verified-2026-11-14).
+from the agent. The [historical interactive continuation](qualification/WSA-UX-029_g05_input_schema_diagnosis.md#historical-preparation-snapshot-before-the-measured-2026-11-14-run).
 
 ## G05 input/schema investigation (2026-11-13)
 

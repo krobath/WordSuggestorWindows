@@ -33,6 +33,7 @@ if ($PreparedLocalTestSession) {
     if($prepared.schema_version -ne 1 -or $prepared.package_name -cne ('WordSuggestor.Windows.LocalTest.'+[IO.Path]::GetFileName($preparedRoot).Substring(9)) -or $prepared.trust_changed -ne $false -or $prepared.installed -ne $false -or $prepared.key_removed -ne $true){throw 'Prepared session is not safe for qualification.'}
     if(-not $prepared.negative_bundle){throw 'Reprepare the isolated series: a newer negative-test bundle is required.'}
     if($prepared.update_policy_capability_experiment -and -not $UpdatePolicyDiagnostic){throw 'Capability experiment fixtures require UpdatePolicyDiagnostic; they cannot qualify the default release suite.'}
+    if(Test-Path -LiteralPath (Join-Path $preparedRoot 'used-session.json')){throw 'Prepared test identity is already used; prepare a fresh isolated session.'}
     foreach($path in @($prepared.previous_bundle,$prepared.candidate_bundle,$prepared.rollback_bundle,$prepared.negative_bundle)) {
         if(-not $path -or -not ([IO.Path]::GetFullPath($path)).StartsWith(($windowsRepo+'\.artifacts\release\'),[StringComparison]::OrdinalIgnoreCase)){throw 'Prepared bundle is outside release artifacts.'}
         $input=Test-ReleaseBundle $path -LocalTest
@@ -261,6 +262,14 @@ try {
     $record.negative_package_sha256=$negative.Manifest.release.artifact.sha256
     $record.bundle_directory = $candidate.Directory
     Wait-MsixInstallerIdle $readDesktop $record 'before_install'
+    if($PreparedLocalTestSession){
+        $usedPath=Join-Path $preparedRoot 'used-session.json'
+        $usedFile=[IO.File]::Open($usedPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{
+            $usedBytes=[Text.Encoding]::UTF8.GetBytes((@{schema_version=1;attempt_id=$id}|ConvertTo-Json -Compress))
+            $usedFile.Write($usedBytes,0,$usedBytes.Length)
+        }finally{$usedFile.Dispose()}
+    }
     Make-TestFeed $previous
     Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop
     $installedByThisRun = $true
@@ -273,7 +282,7 @@ try {
             $record.settings_ui_package_version=[string]$installed.Version
             $record.settings_ui_package_sha256=$previous.Manifest.release.artifact.sha256
             $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName
-            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors)
+            Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors+' route='+$record.settings_ui.window_route)
         }
         if($UpdatePolicySettingsUiOnly){$record.mode='update_policy_settings_ui';$finished=$true}else{
         Probe-UpdatePolicyDiagnostic $installed 'baseline'

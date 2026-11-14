@@ -1,9 +1,31 @@
-param([string]$OutputDirectory, [string]$TestPackageFamilyName, [switch]$PackagedUpdateProbe, [string]$RunnerPath)
+param([string]$OutputDirectory, [string]$TestPackageFamilyName, [switch]$PackagedUpdateProbe, [string]$RunnerPath, [switch]$SettingsWindowProbe)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'settings_qualification.ps1')
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $repo ('.artifacts\settings-qualification\' + [guid]::NewGuid().ToString('N')) }
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+if($SettingsWindowProbe){
+    if($TestPackageFamilyName -or $PackagedUpdateProbe){throw 'Settings window binding probe cannot request package qualification.'}
+    Add-Type -AssemblyName UIAutomationClient
+    Add-Type -AssemblyName UIAutomationTypes
+    $value=[ordered]@{schema_version=1;status='window_binding_only';window_count=0;direct_count=0;hosted_count=0;all_handles_nonzero=$true;page_target_verified=$false;g05_qualified=$false}
+    try{
+        $windows=@(Get-SettingsUiWindows)
+        $value.window_count=$windows.Count
+        foreach($window in $windows){
+            if([IntPtr]$window.Element.Current.NativeWindowHandle -eq [IntPtr]::Zero){$value.all_handles_nonzero=$false}
+            if($window.Route -eq 'hosted'){$value.hosted_count++}else{$value.direct_count++}
+        }
+    }catch{
+        $value.status='ui_probe_unavailable';$failure=Get-SettingsUiFailure 'window' $_.Exception
+        foreach($key in $failure.Keys){$value[$key]=$failure[$key]}
+    }
+    $json=$value|ConvertTo-Json -Compress
+    [IO.File]::WriteAllText((Join-Path $OutputDirectory 'settings-window.json'),$json,[Text.UTF8Encoding]::new($false))
+    Write-Output $json
+    if($value.status -eq 'window_binding_only' -and $value.window_count -gt 0 -and $value.all_handles_nonzero){exit 0}
+    exit 3
+}
 if ($PackagedUpdateProbe) {
     if (-not $TestPackageFamilyName) { throw 'Packaged update qualification requires an installed isolated LocalTest family.' }
     $package = Get-AppxPackage | Where-Object PackageFamilyName -CEQ $TestPackageFamilyName | Select-Object -First 1

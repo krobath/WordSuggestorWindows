@@ -435,4 +435,14 @@ $uiFailure=Get-SettingsUiFailure 'read_nodes' ([InvalidOperationException]::new(
 Check 'UI failure reports fixed phase and underlying HRESULT only' ($uiFailure.error_stage -ceq 'read_nodes' -and $uiFailure.hresult -ceq '0x80004005' -and -not ($uiFailure|ConvertTo-Json).Contains('PRIVATE'))
 $uiOnlyGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-UpdatePolicySettingsUiOnly') 20
 Check 'Settings UI only mode cannot bypass isolated diagnostic context' ($uiOnlyGuard.ExitCode -ne 0 -and ($uiOnlyGuard.Output+$uiOnlyGuard.Error).Contains('require UpdatePolicyDiagnostic'))
+Check 'zero native handle is rejected despite PowerShell truth conversion' ([bool]([IntPtr]::Zero) -and -not (Test-SettingsUiWindowOwner 10 ([IntPtr]::Zero) @(10) @(20) $false))
+Check 'direct Settings window is accepted with a nonzero handle' (Test-SettingsUiWindowOwner 10 ([IntPtr]123) @(10) @(20) $false)
+Check 'hosted Settings window needs an actual Settings child' (-not (Test-SettingsUiWindowOwner 20 ([IntPtr]123) @(10) @(20) $false))
+Check 'verified frame host with Settings child is accepted' (Test-SettingsUiWindowOwner 20 ([IntPtr]123) @(10) @(20) $true)
+Check 'unrelated owner is rejected even with a Settings-child claim' (-not (Test-SettingsUiWindowOwner 30 ([IntPtr]123) @(10) @(20) $true))
+$windowProbeGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_settings_platform.ps1'),'-SettingsWindowProbe','-TestPackageFamilyName','WordSuggestor.Windows.Beta_fixture') 20
+Check 'window binding mode cannot claim package qualification' ($windowProbeGuard.ExitCode -ne 0 -and ($windowProbeGuard.Output+$windowProbeGuard.Error).Contains('cannot request package qualification'))
+[IO.File]::WriteAllText((Join-Path $experimentRoot 'used-session.json'),'{"schema_version":1,"attempt_id":"fixture"}')
+$usedGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-PreparedLocalTestSession',$experimentRoot,'-UpdatePolicyDiagnostic') 20
+Check 'a retired prepared identity is rejected before trust or bundle processing' ($usedGuard.ExitCode -ne 0 -and ($usedGuard.Output+$usedGuard.Error).Contains('already used'))
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

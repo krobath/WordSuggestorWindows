@@ -117,26 +117,11 @@ Official signing/publication, unattended updates, user-deferred Hello and remain
 human/backend gates keep their separate status. Shared Docs may link these Windows
 results; do not close the sprint or infer a macOS change.
 
-## Ready read-only UI test
+<a id="ready-read-only-ui-test"></a>
 
-Fresh prepared session bc06ec5df05e is ready. All four signed bundle manifests were
-read back from the MSIX ZIP and verified to have the exact isolated identity and
-unique app/publisher/visual labels. Preparation/independent checks confirm no
-installation, no remaining private key or temporary machine trust. Public test
-certificate expires 2026-11-21. Do not trust it for production.
+## Historical UI-only follow-up, now completed
 
-From an ordinary PowerShell in the WordSuggestorWindows checkout:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-bc06ec5df05e `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicySettingsUiProbe `
-  -UpdatePolicySettingsUiOnly -AllowTemporaryMachineTrust
-```
-
-Approve the local test PowerShell UAC. This read-only UI variant installs only N,
-opens the uniquely named test app's Settings page, reads the control metadata and
-uninstalls/cleans temporary trust. Do not click system controls during the probe.
-A completed diagnostic still exits 3 and does not qualify G05. Return the G05
-Settings UI line and final record path. This NEW UI-only installed test is NOT RUN
-as of this commit. Do not rerun the USED b14042ba01ae series.
+The bc06ec5df05e test DID complete in 6c87aa66a76a4b829e8b9d8eee064ab4, reporting
+window/0x80070057 before node reading. It is USED. Its command is retired. The
+[reproduced window-binding defect and fresh follow-up](WSA-UX-029_g05_hosted_window_fix.md)
+supersede the former ready/not-run state. The 21 setter results above remain valid.
