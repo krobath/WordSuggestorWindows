@@ -5,7 +5,9 @@ Status: the two-phase installed run verified Off twice BEFORE reopening and On
 twice AFTER reopening. Native settings were unchanged in BOTH phases, with the
 on-launch/background flags still true and PolicySource=Default. This confirms
 a UI/native mismatch, not its cause or a successful saved Off state. The next
-independent observation should avoid reactivating the package. G05 stays read-only.
+[passive observation](WSA-UX-029_g05_passive_observation.md) has now completed
+without diagnostic reactivation: Off during four samples, On after human Settings
+navigation, native values unchanged. G05 stays read-only.
 
 ## Purpose and boundaries
 
@@ -245,8 +247,9 @@ mismatch or establish that the Settings route works on this machine.
 The [passive observation runbook](WSA-UX-029_g05_passive_observation.md) now
 implements the next distinct experiment: sample the verified UI/native state after
 the human flip WITHOUT another app activation/URI launch, then compare a human
-reopening within Windows Settings. Script simulations pass; its installed run
-remains NOT RUN. This would distinguish a time-dependent
+reopening within Windows Settings. The installed passive result
+now verifies Off over 15.74 seconds and On after human navigation, with unchanged
+native settings. The diagnostic completed; no G05 product qualification follows. This would distinguish a time-dependent
 reset from one around the diagnostic's package activation/navigation, without
 automating clicks or mutating policy. It would still not identify a root cause
 or qualify automatic-update behavior. Native/UI disagreement must remain visible.

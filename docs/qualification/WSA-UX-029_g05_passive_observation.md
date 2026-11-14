@@ -1,6 +1,6 @@
 # WSA-UX-029: passive update-control observation without package reactivation
 
-Date: 2026-11-14. Scripts READY; installed passive experiment NOT RUN.
+Date: 2026-11-14. Installed passive experiment COMPLETED; G05 NOT qualified.
 Follows the [measured UI/native mismatch](WSA-UX-029_g05_manual_control_roundtrip.md).
 No G05 production checkbox or release gate enabled.
 
@@ -25,21 +25,16 @@ Use ordinary, non-administrator PowerShell on the unlocked desktop. Close
 unrelated Settings windows. Existing temporary test-leaf trust/uninstall cleanup
 applies. Approve the trust-helper UAC dialog if Windows requests it.
 
-From the WordSuggestorWindows root, run the fresh-session command recorded below
-once. Do not reuse earlier USED identities c371a4bbd8f8, af00e7ebeb63 or cd8326885d3a.
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test_msix.ps1 `
-  -PreparedLocalTestSession .\.artifacts\msix-tests\prepared-f970146e46d9 `
-  -SkipBuild -UpdatePolicyDiagnostic -UpdatePolicySettingsUiProbe `
-  -UpdatePolicySettingsUiOnly -PassiveSettingsUpdateObservation `
-  -AllowTemporaryMachineTrust
-```
+The former command for prepared-f970146e46d9 is RETIRED: this session is USED.
+Do not rerun it or remove its marker/profile. No new fixture is prepared in this
+evidence update. The procedure below records the completed diagnostic, not an
+instruction to repeat it. All earlier listed LocalTest identities are also USED.
 
 Verified preparation: identity `WordSuggestor.Windows.LocalTest.f970146e46d9`,
 publisher `CN=WordSuggestor Local Test f970146e46d9`; four signed versions .1-.4,
-all bundle checks pass. Session unused, no installed package or machine trust,
-private test key removed. Certificate expires 2026-11-21T21:05:22Z. This mode
+all bundle checks passed before use. Initially unused, no installation/trust,
+private test key removed. Now used and cleaned up. Certificate expires
+2026-11-21T21:05:22Z. This mode
 installs .1 only; the prepared setter-experiment worker is never invoked.
 If the session expires or is used, prepare a NEW one through the existing scripts;
 never remove its marker or reuse its profile.
@@ -119,13 +114,64 @@ Ignored evidence: `.artifacts/g05-passive-{release,prepare}.log` and prepared
 session/release directories. Raw receipts and generated signing artifacts do not
 belong in source control. Preserve used markers/profiles.
 
+## Measured installed acceptance, 2026-11-14
+
+Run c1bb06333862449ca783ba299ccae40d completed 22:19:41Z to 22:23:21Z
+(23:19:41 to 23:23:21 Copenhagen), tested .1 under f970146e46d9.
+Clean install and ordinary user passed. Initial verified app_details/control
+launch succeeded. The observer invoked no package activation or URI launch after
+the first human change; the operator confirms reopening Advanced options manually.
+
+| Checkpoint | UI first / stable | Native changes |
+|---|---|---|
+| Initial | On | baseline on-launch/background=true, source=Default |
+| Passive sample, elapsed 784 ms | Off / Off | none |
+| Passive sample, elapsed 5759 ms | Off / Off | none |
+| Passive sample, elapsed 10746 ms | Off / Off | none |
+| Passive sample, elapsed 15740 ms | Off / Off | none |
+| After human Settings navigation | On / On | none |
+| Final | On / On | none |
+
+first_requested_ui_observed=true, passive_ui_transition_observed=false,
+passive_ui_reads_complete=true, passive_native_reads_succeeded=4 and
+passive_native_change_observed=false. There were no read-failure substitutes;
+all changed-fields arrays are empty. Native on-launch/background flags stayed
+true and PolicySource=Default, including while UI read Off. Thus a visual Off
+state is still not verified as a saved/effective disabled-update policy.
+
+status=observation_completed, ui_state_restored=true,
+native_snapshot_restored=true, completed=true. The partial warning is expected:
+all_checks_passed=false, g05_qualified=false, release_qualified=false.
+Completing the diagnostic does not qualify G05, actual update suppression or
+N-to-N+1 preference retention.
+
+Tested .1 SHA-256: 13997b6f5a7fde01109f88a159d59060a5498cc78c262e32b207938de688a4fa.
+Raw receipt SHA-256: 1bc15150dcc8f0ce6ce0c0815134006dd39df1b095967723b93e955971922b6c.
+Trust removed=true. Independent checks find no installed test package, private
+signing key or machine TrustedPeople leaf; used marker retained.
+
+Observed Off was stable during the sampled 15.74 seconds, and the next observed
+state was On after human navigation. This shows our package reactivation is not
+required for that observed sequence. It does NOT prove that navigation caused
+the change, exclude a longer timer, or observe the interval between the last
+passive sample and the human navigation. No source/native Off policy was measured
+beforehand. Do not attribute the discrepancy to WordSuggestor startup, an OS
+regression, VM configuration or the separately reproduced 0x800706F7 from this alone.
+
+Follow-up UTC event query 22:19:41Z through 22:23:25Z: AppxPackaging 145 total /
+5 test-package events; DeploymentServer 34/23; AppModel-Runtime 15/8. No associated
+warning/error events and no known RPC-code message/EventData matches in those
+channels. This does not establish absence of errors in other providers.
+
+See the [local support dossier](WSA-UX-029_g05_support_dossier.md) for component
+versions, source references and the two separately bounded symptoms. No report
+is sent externally by this work.
+
 ## Decision after the operator run
 
-If the control returns to On during passive sampling, package reactivation is
-not required for that observed reset in this experiment. If it stays Off until
-the human reopens app details, the refresh/navigation interval becomes the next
-focus. Either result still needs native/UI interpretation; unchanged native flags
-are not evidence of an effective saved Off policy. A missing Advanced options
-route is a manual-navigation limitation, not evidence that the update setting
-works. No outcome by itself resolves native 0x800706F7 or qualifies actual update
-suppression/resumption and N-to-N+1 preference retention.
+The passive question is answered within its sampled scope. Do not repeat the same
+GUI run or enable the product toggle from this result. Focus subsequent work on
+the save/read path and a narrowly scoped deployment-service reproduction, keeping
+the native write failure separate from the Settings UI symptom until correlated.
+HTTPS source equivalence and read-priority/disable semantics remain unqualified.
+No outcome here resolves actual update suppression/resumption or N-to-N+1 retention.
