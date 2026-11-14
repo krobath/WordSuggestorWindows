@@ -14,6 +14,7 @@ param(
     [ValidateSet('2018','2021')][string]$UpdatePolicyDiagnosticSchema='2018',
     [switch]$UpdatePolicySettingsUiProbe,
     [switch]$UpdatePolicySettingsUiOnly,
+    [switch]$ManualSettingsUpdateRoundtrip,
     [switch]$CompareUpdatePolicySchemas,
     [switch]$AllowTemporaryMachineTrust
 )
@@ -51,6 +52,7 @@ if($UpdatePolicyDiagnostic -and (-not $PreparedLocalTestSession -or -not $localT
 if($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticHours') -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic update intervals require UpdatePolicyDiagnostic.'}
 if(($PSBoundParameters.ContainsKey('UpdatePolicyDiagnosticSchema') -or $UpdatePolicySettingsUiProbe -or $UpdatePolicySettingsUiOnly -or $CompareUpdatePolicySchemas) -and -not $UpdatePolicyDiagnostic){throw 'Diagnostic schema and Settings UI probes require UpdatePolicyDiagnostic.'}
 if($UpdatePolicySettingsUiOnly -and (-not $UpdatePolicySettingsUiProbe -or $CompareUpdatePolicySchemas)){throw 'Settings UI only mode requires its read-only probe and cannot compare schemas.'}
+if($ManualSettingsUpdateRoundtrip -and (-not $UpdatePolicyDiagnostic -or -not $UpdatePolicySettingsUiOnly -or -not $UpdatePolicySettingsUiProbe)){throw 'Manual roundtrip requires the isolated UI-only diagnostic.'}
 if($SkipAutomaticUpdateProbe -and -not $localTest){throw 'Skipping automatic qualification is restricted to isolated LocalTest fixtures.'}
 if($SkipInstalledGuiProbe -and -not $localTest){throw 'Skipping installed GUI qualification is restricted to isolated LocalTest fixtures.'}
 if($providedBundles -and -not $NegativeBundleDirectory){throw 'A signed higher-version negative-test bundle is required.'}
@@ -283,8 +285,13 @@ try {
             $record.settings_ui_package_sha256=$previous.Manifest.release.artifact.sha256
             $record.settings_ui=Get-SettingsUpdateUiEvidence $installed.PackageFamilyName $runner
             Write-Output ('G05 Settings UI: '+$record.settings_ui.status+' page='+$record.settings_ui.page_kind+' target_verified='+$record.settings_ui.page_target_verified+' update_toggle_found='+$record.settings_ui.update_toggle_found+' stage='+$record.settings_ui.error_stage+' hresult='+$record.settings_ui.hresult+' node_errors='+$record.settings_ui.node_read_errors+' route='+$record.settings_ui.window_route+' launch='+$record.settings_ui.launch.status)
+            if($ManualSettingsUpdateRoundtrip){
+                $record.manual_settings_roundtrip=[ordered]@{}
+                Invoke-SettingsManualUpdateRoundtrip $installed $runner $record.settings_ui $record.manual_settings_roundtrip
+                Write-Output ('G05 manual status='+$record.manual_settings_roundtrip.status+' ui_restored='+$record.manual_settings_roundtrip.ui_state_restored+' native_restored='+$record.manual_settings_roundtrip.native_snapshot_restored)
+            }
         }
-        if($UpdatePolicySettingsUiOnly){$record.mode='update_policy_settings_ui';$finished=$true}else{
+        if($UpdatePolicySettingsUiOnly){$record.mode=if($ManualSettingsUpdateRoundtrip){'update_policy_settings_manual_roundtrip'}else{'update_policy_settings_ui'};$finished=$true}else{
         Probe-UpdatePolicyDiagnostic $installed 'baseline'
         Make-TestFeed $candidate
         Add-AppxPackage -AppInstallerFile -Path (Join-Path $feedRoot 'WordSuggestor.Beta.appinstaller') -ErrorAction Stop

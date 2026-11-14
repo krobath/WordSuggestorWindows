@@ -466,4 +466,53 @@ $pageReceipt.document='PRIVATE_TEXT'
 Reject 'packaged launch receipt rejects extra content fields' {Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage $pageRun}
 $pageReceipt.Remove('document');$pageReceipt.status='launch_declined'
 Reject 'packaged launch receipt rejects contradictory success' {Read-SettingsPageLaunchEvidence ($pageReceipt|ConvertTo-Json) $pagePackage $pageRun}
+$manualGuard=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_msix.ps1'),'-ManualSettingsUpdateRoundtrip') 20
+Check 'manual update roundtrip requires explicit isolated UI-only context' ($manualGuard.ExitCode -ne 0 -and ($manualGuard.Output+$manualGuard.Error).Contains('requires the isolated UI-only'))
+Reject 'manual update roundtrip rejects production before prompting' {Invoke-SettingsManualUpdateRoundtrip ([pscustomobject]@{Name='WordSuggestor.Windows.Beta';PackageFamilyName='WordSuggestor.Windows.Beta_fixture';Publisher='CN=WordSuggestor'}) 'unused.exe' $null ([ordered]@{})}
+$nativeBefore=[pscustomobject]@{CheckOnLaunch=$true;EnableAutomaticBackgroundTask=$true;AppInstallerUri='https://private.example/fixture.appinstaller';PolicySource='Default';LastCheckedForUpdates=1}
+$nativeAfter=[pscustomobject]@{CheckOnLaunch=$false;EnableAutomaticBackgroundTask=$true;AppInstallerUri='https://private.example/fixture.appinstaller';PolicySource='Default';LastCheckedForUpdates=2}
+$nativeDelta=@(Get-SettingsPolicyChangedFields $nativeBefore $nativeAfter)
+Check 'manual native delta detects scheduling change without URI values' ($nativeDelta.Count -eq 1 -and $nativeDelta[0] -ceq 'CheckOnLaunch' -and -not ($nativeDelta|ConvertTo-Json).Contains('private.example'))
+$nativeAfter.CheckOnLaunch=$true
+Check 'manual native comparison ignores only last-check timing on restoration' (@(Get-SettingsPolicyChangedFields $nativeBefore $nativeAfter).Count -eq 0)
+$nativeAfter.PolicySource='System'
+Check 'manual native comparison does not hide policy-source drift' (@(Get-SettingsPolicyChangedFields $nativeBefore $nativeAfter) -contains 'PolicySource')
+$safeNative=Get-SettingsPolicySafeSummary $nativeAfter
+Check 'manual native summary keeps booleans and policy enum but excludes URI and timing' ($safeNative.CheckOnLaunch -eq $true -and $safeNative.PolicySource -ceq 'System' -and -not ($safeNative|ConvertTo-Json).Contains('private.example') -and -not $safeNative.Contains('LastCheckedForUpdates'))
+$manualMocks=@('Read-Host','Get-SettingsUpdateToggleState','Get-SettingsUpdateSnapshot','Get-SettingsUpdateUiEvidence','Test-SettingsProcessElevated')
+$savedManual=@{}
+foreach($name in $manualMocks){$existing=Get-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue;$savedManual[$name]=if($existing){$existing.ScriptBlock}else{$null}}
+try{
+    Set-Item Function:\Test-SettingsProcessElevated {return $false}
+    Set-Item Function:\Get-SettingsUpdateToggleState {return $script:manualUi}
+    Set-Item Function:\Get-SettingsUpdateSnapshot {if($script:unavailableOff -and $script:manualUi -ceq 'Off'){throw [Runtime.InteropServices.COMException]::new('Private native details',[int]0x80070490)};return ($script:manualSnapshot|Select-Object *)}
+    Set-Item Function:\Get-SettingsUpdateUiEvidence {$script:manualReopens++;return [pscustomobject]@{page_target_verified=$true}}
+    Set-Item Function:\Read-Host {
+        $script:manualUi=if($script:manualUi -ceq 'On'){'Off'}else{'On'}
+        $script:manualSnapshot.CheckOnLaunch=$script:manualUi -ceq 'On'
+        if($script:manualDrift){$script:manualSnapshot.PolicySource='System'}
+        if($script:abortManual){throw 'Simulated interruption after the first human change.'}
+        return ''
+    }
+    $manualPackage=[pscustomobject]@{Name='WordSuggestor.Windows.LocalTest.123456abcdef';PackageFamilyName='WordSuggestor.Windows.LocalTest.123456abcdef_123456789abcd';Publisher='CN=WordSuggestor Local Test 123456abcdef'}
+    $manualPage=[pscustomobject]@{page_target_verified=$true;update_toggle_found=$true;page_kind='app_details'}
+    foreach($drift in @($false,$true)){
+        $script:unavailableOff=$false
+        $script:manualUi='On';$script:manualDrift=$drift;$script:abortManual=$false;$script:manualReopens=0
+        $script:manualSnapshot=[pscustomobject]@{CheckOnLaunch=$true;PolicySource='Default';AppInstallerUri='https://private.example/fixture.appinstaller'}
+        $manualResult=[ordered]@{}
+        Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null
+        Check 'simulated manual off/on proves UI reopening and reports native drift honestly' ($manualResult.steps.Count -eq 2 -and $manualResult.steps[0].observed -ceq 'Off' -and $manualResult.steps[1].observed -ceq 'On' -and $manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -eq (-not $drift) -and $script:manualReopens -eq 2 -and -not $manualResult.g05_qualified -and -not ($manualResult|ConvertTo-Json -Depth 8).Contains('private.example'))
+    }
+    $script:manualUi='On';$script:manualDrift=$false;$script:abortManual=$false;$script:unavailableOff=$true;$script:manualSnapshot.CheckOnLaunch=$true;$script:manualSnapshot.PolicySource='Default'
+    $manualResult=[ordered]@{}
+    Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null
+    Check 'native read unavailable while off does not prevent manual UI restoration' ($manualResult.ui_state_restored -and $manualResult.native_snapshot_restored -and $manualResult.steps[0].ui_verified -and $manualResult.steps[0].native_read_failure.hresult -ceq '0x80070490' -and $null -eq $manualResult.steps[0].native_changed_fields -and $manualResult.steps.Count -eq 2)
+    $script:manualUi='On';$script:manualDrift=$false;$script:abortManual=$true;$script:unavailableOff=$false;$script:manualSnapshot.CheckOnLaunch=$true;$script:manualSnapshot.PolicySource='Default'
+    $manualResult=[ordered]@{};$interrupted=$false
+    try{Invoke-SettingsManualUpdateRoundtrip $manualPackage 'unused.exe' $manualPage $manualResult 6>$null}catch{$interrupted=$true}
+    Check 'interrupted manual change records unrestored UI without any automatic toggle' ($interrupted -and -not $manualResult.ui_state_restored -and -not $manualResult.native_snapshot_restored -and $script:manualUi -ceq 'Off' -and $manualResult.steps.Count -eq 1)
+}finally{
+    foreach($name in $manualMocks){if($savedManual[$name]){Set-Item -LiteralPath ('Function:\'+$name) -Value $savedManual[$name]}else{Remove-Item -LiteralPath ('Function:\'+$name) -ErrorAction SilentlyContinue}}
+}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

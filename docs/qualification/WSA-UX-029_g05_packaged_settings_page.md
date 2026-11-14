@@ -139,3 +139,7 @@ Do not treat control discovery or a visually flipped switch as proof of automati
 update behavior or persistence across N-to-N+1. The original 0x800706F7, HTTPS
 comparison and preference retention remain open. G05 remains read-only. No VM
 repair, production privilege increase, backend or macOS change is implied.
+
+The [manual experiment runbook](WSA-UX-029_g05_manual_control_roundtrip.md) now
+implements that next diagnostic with a fresh signed fixture and 171 script checks.
+The actual installed human off/on experiment remains NOT RUN.

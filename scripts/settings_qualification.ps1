@@ -413,6 +413,99 @@ function Get-SettingsUpdateUiEvidence([string]$FamilyName,[string]$Runner) {
     return $result
 }
 
+function Get-SettingsPolicyChangedFields($Before,$After) {
+    $names=@(@($Before.PSObject.Properties.Name)+@($After.PSObject.Properties.Name) | Sort-Object -Unique)
+    foreach($name in $names){
+        if($name -eq 'LastCheckedForUpdates'){continue}
+        if($name -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,80}$'){throw 'Unexpected native property name; no diagnostic content emitted.'}
+        $left=@{value=$Before.$name}|ConvertTo-Json -Depth 12 -Compress
+        $right=@{value=$After.$name}|ConvertTo-Json -Depth 12 -Compress
+        if($left -cne $right){Write-Output $name}
+    }
+}
+
+function Get-SettingsPolicySafeSummary($Snapshot) {
+    $summary=[ordered]@{}
+    foreach($property in $Snapshot.PSObject.Properties){
+        if($property.Name -cnotmatch '^[A-Za-z][A-Za-z0-9_]{0,80}$'){continue}
+        if($property.Value -is [bool]){$summary[$property.Name]=$property.Value}
+        elseif($property.Name -ceq 'HoursBetweenUpdateChecks' -and ($property.Value -is [int] -or $property.Value -is [uint32] -or $property.Value -is [byte]) -and $property.Value -ge 0 -and $property.Value -le 255){$summary[$property.Name]=[int]$property.Value}
+        elseif($property.Name -cmatch 'PolicySource$' -and [string]$property.Value -cin @('Default','System')){$summary[$property.Name]=[string]$property.Value}
+    }
+    return $summary
+}
+
+function Get-SettingsUpdateToggleState($Package) {
+    Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
+    $wanted=$Package.PackageFamilyName+'_ToggleSwitch'
+    foreach($candidate in @(Get-SettingsUiWindows)){
+        $nodes=$candidate.Element.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+        $page=Get-SettingsUiNodeEvidence $nodes $Package.Name.Split('.')[-1] ([string]$Package.Version)
+        if(-not $page.page_target_verified){continue}
+        $condition=[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,$wanted)
+        $controls=$candidate.Element.FindAll([System.Windows.Automation.TreeScope]::Descendants,$condition)
+        if($controls.Count -ne 1 -or -not $controls[0].Current.IsEnabled){throw 'The unique test-app update control is not available.'}
+        $pattern=$controls[0].GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        $state=[string]$pattern.Current.ToggleState
+        if($state -notin @('On','Off')){throw 'The update control has an indeterminate state.'}
+        return $state
+    }
+    throw 'The test-app details page cannot be verified; no manual step started.'
+}
+
+function Invoke-SettingsManualUpdateRoundtrip($Package,[string]$Runner,$InitialEvidence,[Collections.IDictionary]$Result) {
+    Assert-SettingsQualificationPackage $Package.PackageFamilyName $Package
+    if(Test-SettingsProcessElevated){throw 'Manual Settings roundtrip requires an ordinary user.'}
+    if(-not $InitialEvidence.page_target_verified -or -not $InitialEvidence.update_toggle_found -or $InitialEvidence.page_kind -cne 'app_details'){throw 'Manual roundtrip requires verified test-app details and control.'}
+    $Result.schema_version=1;$Result.status='not_started';$Result.steps=@();$Result.g05_qualified=$false
+    $initial=Get-SettingsUpdateToggleState $Package
+    $before=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
+    $Result.initial_native=Get-SettingsPolicySafeSummary $before
+    $Result.initial_state=$initial;$Result.ui_state_restored=$false;$Result.native_snapshot_restored=$false
+    $opposite=if($initial -ceq 'On'){'Off'}else{'On'}
+    Write-Host ('MANUAL G05 sequence: '+$initial+' -> '+$opposite+' -> '+$initial+'. Settings reopens for verification; return to this console for each instruction.')
+    try{
+        foreach($requested in @($opposite,$initial)){
+            $step=[ordered]@{requested=$requested;observed=$null;ui_verified=$false;native_changed_fields=$null}
+            $Result.steps+=@($step);$Result.status='awaiting_manual_change'
+            Write-Host ('MANUAL G05: Only WordSuggestor LocalTest '+$Package.Name.Split('.')[-1]+': change its Windows update control to '+$requested+'. Do not change any other app.')
+            $null=Read-Host 'After changing it in Windows Settings, return here and press Enter (Ctrl+C aborts; cleanup is attempted)'
+            # Reopen through the installed package, then read the persisted UI.
+            # Never invoke Toggle(), SendInput, a setter, or registry mutation.
+            $page=Get-SettingsUpdateUiEvidence $Package.PackageFamilyName $Runner
+            if(-not $page.page_target_verified){throw 'Reopened test-app details were not verified.'}
+            $step.observed=Get-SettingsUpdateToggleState $Package
+            if($step.observed -cne $requested){throw 'The manually requested UI state was not retained on reopening.'}
+            Start-Sleep -Milliseconds 500
+            if((Get-SettingsUpdateToggleState $Package) -cne $requested){throw 'The requested UI state did not remain stable.'}
+            $step.ui_verified=$true
+            try{
+                $after=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
+                $step.native_changed_fields=@(Get-SettingsPolicyChangedFields $before $after)
+                $step.native=Get-SettingsPolicySafeSummary $after
+            }catch{
+                $failure=$_.Exception;while($failure.InnerException){$failure=$failure.InnerException}
+                $step.native_read_failure=[ordered]@{error_category=$failure.GetType().Name;hresult=('0x{0:X8}' -f ($failure.HResult -band 0xffffffffL))}
+            }
+            Write-Host ('G05 manual observed='+$step.observed+' native_changed_fields='+($step.native_changed_fields -join ',')+' native_read_hresult='+$step.native_read_failure.hresult)
+        }
+        $Result.status='completed'
+    }finally{
+        try{
+            $Result.final_state=Get-SettingsUpdateToggleState $Package
+            $Result.ui_state_restored=$Result.final_state -ceq $initial
+            $after=Get-SettingsUpdateSnapshot $Package.PackageFamilyName
+            $Result.final_native=Get-SettingsPolicySafeSummary $after
+            $Result.final_native_changed_fields=@(Get-SettingsPolicyChangedFields $before $after)
+            $Result.native_snapshot_restored=$Result.final_native_changed_fields.Count -eq 0
+            if($Result.status -ceq 'completed'){
+                if(-not $Result.ui_state_restored){$Result.status='ui_not_restored'}
+                elseif(-not $Result.native_snapshot_restored){$Result.status='ui_restored_native_changed'}
+            }
+        }catch{$Result.restoration_read_failed=$true;$Result.status='restoration_read_failed'}
+    }
+}
+
 function Get-SettingsSourceSnapshot([string]$Repository) {
     $head = & git -C $Repository rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Cannot read source revision.' }
