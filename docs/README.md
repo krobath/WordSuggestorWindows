@@ -1,5 +1,21 @@
 # WordSuggestorWindows — dokumentationsindeks
 
+## Current priority: ordinary Windows installer (2026-11-15)
+
+- [EXE beta runbook and client feed contract](ExeBetaRelease.md)
+- [WSA-RT-032 sprint and acceptance matrix](sprints/WSA-RT-032_windows_exe_beta_distribution.md)
+- [Backend-agent handoff prompt](handoffs/WSA-RT-032_exe_beta_backend_agent_prompt.md)
+- [Implementation change note](changes/2026-11-15_wsa_rt_032_exe_beta_distribution.md)
+
+G05 is parked at the user's request. Its dated entries below are historical.
+Local preview is ready for visual review; public signing/backend gates stay open.
+Windows implementation documentation remains here; macOS owns its own docs,
+shared Docs later consolidates contracts/status rather than copying source docs.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

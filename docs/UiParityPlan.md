@@ -1,5 +1,21 @@
 # Current native Windows UX contract — 2026-11-10
 
+## Next user review: installed EXE preview (2026-11-15)
+
+Use the normal EXE preview installer to compare toolbar, editor/tabs, overlay and
+all eight Settings categories with macOS ba18b45 and the eleven supplied images.
+Keep Windows-native controls, Windows Hello and the agreed Windows shortcuts.
+The [current sprint](sprints/WSA-RT-032_windows_exe_beta_distribution.md) has an
+explicit human review matrix; no pixel-identical or physical-DPI PASS is claimed.
+EXE automatic-check preference means checking/offering, not silent installation.
+Its update prompt is deferred while typing in another program. Preview explains
+that public updates are disabled. G05 investigation is parked; older notes below
+retain their historical scope. Hello remains user-deferred.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

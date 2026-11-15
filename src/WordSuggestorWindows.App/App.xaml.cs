@@ -8,6 +8,8 @@ namespace WordSuggestorWindows.App;
 public partial class App : Application
 {
     private SingleInstance? _singleInstance;
+    private Mutex? _installerMutex;
+    private ExeUpdateMonitor? _exeUpdates;
     protected override async void OnStartup(StartupEventArgs e)
     {
         if (WindowsOcrCallbackBridge.TryPersistStartupCallback(e.Args))
@@ -28,6 +30,7 @@ public partial class App : Application
 
         _singleInstance = new SingleInstance();
         if (!_singleInstance.IsPrimary) { Shutdown(0); return; }
+        if (DirectInstallation.Current is { } direct) _installerMutex = new Mutex(false, @"Local\" + direct.ProductId);
 
         var startupText = ResolveStartupText(e.Args);
         var settingsService = new WindowsAppSettingsService();
@@ -40,12 +43,15 @@ public partial class App : Application
 
         MainWindow = window;
         window.Show();
+        if (DirectInstallation.Current is { UpdatesEnabled: true, IsPreview: false } directUpdate) _exeUpdates = new(this, directUpdate);
         _singleInstance.Listen(Dispatcher, window.OpenEditor);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _singleInstance?.Dispose();
+        _exeUpdates?.Dispose();
+        _installerMutex?.Dispose();
         base.OnExit(e);
     }
 

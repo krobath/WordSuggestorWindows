@@ -1,4 +1,21 @@
-# Current Windows beta track — 2026-11-10
+# Current Windows beta track - 2026-11-15
+
+## Current decision: EXE beta first; G05 parked (2026-11-15)
+
+The user prioritised a normal installer and Windows/macOS parity review. Retain
+WPF/Core/SQLite and implemented Settings/editor features. WSA-RT-032 adds a
+per-user EXE and explicit user-confirmed update flow to the existing build.
+Local installer qualification is 6 PASS; updater contracts/native trust 38 PASS.
+Public production signing, backend contract and real HTTPS update are outstanding.
+
+Next: install the fresh preview and record concrete UI/behavior differences;
+the backend owner can enable EXE hosting from the supplied handoff. G05 is no
+longer an EXE blocker. Do not repeat the historical G05 tests below as the next
+step. See [current sprint](sprints/WSA-RT-032_windows_exe_beta_distribution.md).
+
+---
+
+Historical dated evidence follows.
 
 ## G05 Settings page verification (2026-11-14)
 

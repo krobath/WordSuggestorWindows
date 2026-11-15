@@ -19,6 +19,11 @@ internal sealed partial class SettingsFormController
             {
                 if (_renderingUpdate || _disposed) return;
                 var requested = automatic.IsChecked == true;
+                if (_updates.IsDirectInstalled)
+                {
+                    _settings.CheckExeUpdatesAutomatically = requested;
+                    CommitLive(); RenderUpdateState(); return;
+                }
                 RenderUpdateState(); // Never present a requested bool as actual OS state.
                 await _updates.SetAutomaticAsync(requested);
             };
@@ -44,9 +49,9 @@ internal sealed partial class SettingsFormController
         if (Optional<CheckBox>("AutomaticUpdatesCheckBox") is { } automatic)
         {
             _renderingUpdate = true;
-            try { automatic.IsChecked = _updates.PolicyState.Policy?.Automatic; }
+            try { automatic.IsChecked = _updates.IsDirectInstalled ? (_updates.DirectChecksEnabled ? _settings.CheckExeUpdatesAutomatically : null) : _updates.PolicyState.Policy?.Automatic; }
             finally { _renderingUpdate = false; }
-            automatic.IsEnabled = _updates.PolicyState.CanChange && !_updates.Busy && !_openingInstaller;
+            automatic.IsEnabled = (_updates.IsDirectInstalled ? _updates.DirectChecksEnabled : _updates.PolicyState.CanChange) && !_updates.Busy && !_openingInstaller;
             var key = "UpdatePolicy." + _updates.PolicyState.Code;
             Find<TextBlock>("AutomaticUpdateStatus").Text = SettingsText.Get(SettingsText.Keys.Contains(key) ? key : "UpdatePolicy.os_unavailable");
         }
@@ -60,10 +65,12 @@ internal sealed partial class SettingsFormController
     public async void OpenUpdate_OnClick(object sender, RoutedEventArgs e)
     {
         if (_openingInstaller || _updates.Busy || !_updates.HasOffer) return;
+        var directLease = _updates.IsDirectInstalled;
+        if (directLease && !ExeUpdateInteraction.TryEnter()) return;
         _openingInstaller = true; RenderUpdateState();
         try
         {
-            if (MessageBox.Show(_host, SettingsText.Get("UpdateHandoffConfirm"), "WordSuggestor", MessageBoxButton.YesNo,
+            if (MessageBox.Show(_host, SettingsText.Get(_updates.IsDirectInstalled ? "ExeUpdateConfirm" : "UpdateHandoffConfirm"), "WordSuggestor", MessageBoxButton.YesNo,
                 MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
             var ticket = await _updates.PrepareHandoffAsync();
             if (_disposed || ticket is null) return;
@@ -78,6 +85,6 @@ internal sealed partial class SettingsFormController
             });
             if (!closed && !_disposed) _updateUiStatusKey = "UpdateHandoffCancelled";
         }
-        finally { _openingInstaller = false; if (!_disposed) RenderUpdateState(); }
+        finally { if (directLease) ExeUpdateInteraction.Exit(); _openingInstaller = false; if (!_disposed) RenderUpdateState(); }
     }
 }

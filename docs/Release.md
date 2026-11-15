@@ -1,5 +1,24 @@
 # Windows beta packaging and release
 
+## Selected beta route: per-user EXE (2026-11-15)
+
+The user selected conventional installation with explicit update prompts. Follow
+[EXE release/signing/runbook](ExeBetaRelease.md); keep using package_app.ps1 with
+-InstallerFormat Exe. MSIX remains available and is still the script's default.
+The G05 investigation below is parked and is not an EXE release requirement.
+
+Local unsigned isolated preview is qualified for evaluation, not publication.
+Production app/setup/uninstaller require approved signing. The EXE metadata is
+only release-manifest.draft.json: backend O-052 still accepts MSIX. Do not pass it
+to the old uploader or bypass its rejection. The [backend handoff](handoffs/WSA-RT-032_exe_beta_backend_agent_prompt.md)
+requests a compatible extension; align uploader and run real HTTPS/install gates
+only after that contract is authoritative. No upload or public feed was changed.
+The dated release records below retain their narrower MSIX evidence.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

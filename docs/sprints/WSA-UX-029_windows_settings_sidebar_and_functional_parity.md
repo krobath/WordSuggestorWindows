@@ -1,5 +1,18 @@
 # WSA-UX-029_windows_settings_sidebar_and_functional_parity
 
+## User reprioritisation (2026-11-15)
+
+G05 investigation is parked. The user wants a conventional installer and to
+resume visual/functional parity review. [WSA-RT-032](WSA-RT-032_windows_exe_beta_distribution.md)
+implements the EXE preview/update route and lists its separate public gates.
+Existing Settings work, measured MSIX receipts and macOS reference remain intact.
+G05 and Hello are not claimed complete; do not resume historical test sequences
+below unless the user brings that work back into scope.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

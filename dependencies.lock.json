@@ -7,5 +7,11 @@
   "sqliteVersion": "3.46.0",
   "sqliteArchiveSha256": "712A7D09D2A22652FB06A49AF516E051979A3984ADB067DA86760E60ED51A7F5",
   "schemaVersion": 1,
-  "managedWindowsSdk": "10.0.22621.57"
+  "managedWindowsSdk": "10.0.22621.57",
+  "innoSetup": {
+    "version": "7.1.1",
+    "url": "https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe",
+    "sha256": "8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0",
+    "publisher": "Pyrsys B.V."
+  }
 }

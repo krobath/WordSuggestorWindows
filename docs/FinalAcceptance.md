@@ -1,5 +1,22 @@
 # WSA-UX-029 final Windows acceptance procedure
 
+## Acceptance scope changed by user: EXE beta (2026-11-15)
+
+The [WSA-RT-032 matrix](sprints/WSA-RT-032_windows_exe_beta_distribution.md) records
+local EXE qualification. Six standard-user installer checks and 38 updater checks
+pass; synthetic download/launch tests are explicitly separate from native trust
+reads and real installer execution. G05 is parked and does not block EXE.
+
+Public EXE acceptance still requires the approved production signer, backend
+contract/uploader extension, verified public HTTPS artifact/feed and a real
+user-confirmed N-to-N+1 cycle. No public release is declared. Native Hello remains
+user-deferred; physical DPI/multi-monitor and human screen-reader/visual comparison
+remain open. Earlier MSIX receipts below are preserved without reclassifying them.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

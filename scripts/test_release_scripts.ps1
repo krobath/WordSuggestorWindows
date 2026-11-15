@@ -632,4 +632,15 @@ $conflict=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','B
 Check 'API audit cannot combine with Settings window inspection' ($conflict.ExitCode -ne 0 -and ($conflict.Output+$conflict.Error).Contains('metadata-only'))
 $conflict=Invoke-ReleaseProcess $powershell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'test_settings_platform.ps1'),'-UpdatePolicyApiAudit','-TestPackageFamilyName','WordSuggestor.Windows.Beta_fixture','-OutputDirectory',(Join-Path $root 'api-package-conflict')) 20
 Check 'API audit cannot combine with a package target' ($conflict.ExitCode -ne 0 -and ($conflict.Output+$conflict.Error).Contains('metadata-only'))
+$exeGuards=@(
+    @{name='public EXE requires approved signing before building';args=@('-InstallerFormat','Exe');reason='approved signer'},
+    @{name='EXE cannot publish an active draft';args=@('-InstallerFormat','Exe','-LocalPreview','-ReleaseStatus','active');reason='separate distribution profile'},
+    @{name='EXE cannot reuse MSIX temporary trust mode';args=@('-InstallerFormat','Exe','-LocalPreview','-LocalTestIdentity');reason='separate distribution profile'},
+    @{name='preview identity rejects path traversal before staging';args=@('-InstallerFormat','Exe','-LocalPreview','-PreviewId','../escape');reason='hexadecimal nonce'}
+)
+foreach($guard in $exeGuards){
+    $guardArgs=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'package_app.ps1'))+$guard.args
+    $attempt=Invoke-ReleaseProcess $powershell $guardArgs 20
+    Check $guard.name ($attempt.ExitCode -ne 0 -and ($attempt.Output+$attempt.Error).Contains($guard.reason))
+}
 Write-Output "PASS RELEASE $script:passed checks. Synthetic artifacts: $root"

@@ -1,6 +1,7 @@
 ﻿param(
     [ValidateSet('State', 'Ui', 'Layout', 'Core', 'CommittedWord', 'UnknownWords', 'UnknownWordsUi', 'AutomaticWords', 'UnknownSharing', 'Speech', 'SpeechUi', 'Suggestions', 'SuggestionState', 'AnalysisState', 'AnalysisUi', 'AccountState', 'AccountUi', 'HelloNative', 'UpdateState', 'UpdateUi', 'UpdateNative', 'AdvancedState', 'AdvancedUi', 'All')][string]$Mode = 'All',
     [switch]$SkipBuild,
+    [switch]$ExeUpdates,
     [string]$RunnerPath
 )
 $ErrorActionPreference = 'Stop'
@@ -11,6 +12,7 @@ if (-not $SkipBuild) {
 }
 $runner = Join-Path $windowsRepo 'tests\WordSuggestorWindows.Smoke\bin\Debug\net10.0-windows\WordSuggestorWindows.Smoke.exe'
 if ($RunnerPath) { $runner = [IO.Path]::GetFullPath($RunnerPath) }
+if($ExeUpdates){& $runner --exe-updates;if($LASTEXITCODE -ne 0){throw 'EXE updater checks failed.'};return}
 if ($Mode -in @('Layout', 'All')) {
     & $runner --settings-layout
     if ($LASTEXITCODE -ne 0) { throw "Settings layout/accessibility smoke failed ($LASTEXITCODE)." }

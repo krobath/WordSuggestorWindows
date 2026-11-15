@@ -1,5 +1,17 @@
 # WSA-UX-029: approved closing slices 12-15
 
+## Current continuation (2026-11-15)
+
+The user parked G05 and prioritised normal EXE installation plus human parity
+review. [WSA-RT-032](WSA-RT-032_windows_exe_beta_distribution.md) records the new
+local preview, verified per-user upgrades and user-confirmed update implementation.
+G05 stays unqualified/read-only; this is a scope decision, not a retroactive PASS.
+Public EXE signing/backend/live-update qualification remains outstanding.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

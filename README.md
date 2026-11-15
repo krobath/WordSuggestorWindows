@@ -1,5 +1,34 @@
 # WordSuggestorWindows
 
+## Current priority: EXE beta and parity review (2026-11-15)
+
+The conventional EXE installer and user-confirmed updater are implemented. Local
+preview installation/upgrade/uninstall and 38 updater checks pass. Public EXE
+release still needs the approved signing identity and backend contract extension.
+G05/App Installer investigation is **parked at the user's request**. The dated
+G05/MSIX material below is historical evidence, not the next task or an EXE gate.
+
+- [EXE build, installation, signing and update runbook](docs/ExeBetaRelease.md)
+- [Current Windows sprint and measured tests](docs/sprints/WSA-RT-032_windows_exe_beta_distribution.md)
+- [Prompt for the macOS/backend agent](docs/handoffs/WSA-RT-032_exe_beta_backend_agent_prompt.md)
+- [Dated implementation note](docs/changes/2026-11-15_wsa_rt_032_exe_beta_distribution.md)
+
+From this repository, build an isolated local installer (no production secrets):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package_app.ps1 `
+  -InstallerFormat Exe -LocalPreview -PackageVersion 0.2.0.1 -DisplayVersion 0.2.0-beta.1
+```
+
+Open the returned InstallerPath and use the Start menu entry. Preview data is
+isolated and public updates are disabled. The public build signs app/setup/
+uninstaller; no unsigned production update channel is enabled. Existing MSIX
+build remains the script default for compatibility. No macOS/Core/backend edits.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

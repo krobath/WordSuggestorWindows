@@ -10,6 +10,7 @@ public sealed class AppSettingsSnapshot
     public string InterfaceLocalePreference { get; set; } = "system_default";
 
     public bool FollowCaretOptionEnabled { get; set; } = true;
+    public bool CheckExeUpdatesAutomatically { get; set; } = true;
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement> AdditionalProperties { get; set; } = [];
@@ -80,6 +81,7 @@ public sealed class AppSettingsSnapshot
             SchemaVersion = SchemaVersion,
             InterfaceLocalePreference = InterfaceLocalePreference,
             FollowCaretOptionEnabled = FollowCaretOptionEnabled,
+            CheckExeUpdatesAutomatically = CheckExeUpdatesAutomatically,
             AdditionalProperties = AdditionalProperties.ToDictionary(p => p.Key, p => p.Value.Clone()),
             IsGlobalCaptureEnabled = IsGlobalCaptureEnabled,
             SelectedLanguageCode = SelectedLanguageCode,

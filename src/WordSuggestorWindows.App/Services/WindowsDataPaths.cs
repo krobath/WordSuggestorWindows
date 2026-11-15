@@ -7,6 +7,7 @@ public static class WindowsDataPaths
     private static readonly Lazy<string?> LocalTestId = new(() =>
     {
         var name = WindowsUpdateService.ReadInstalledRelease()?.Name;
+        if (name is null && DirectInstallation.Current?.PreviewId is { } preview) return preview;
         const string prefix = "WordSuggestor.Windows.LocalTest.";
         return name is not null && name.StartsWith(prefix, StringComparison.Ordinal) &&
             System.Text.RegularExpressions.Regex.IsMatch(name[prefix.Length..], "^[A-Za-z0-9]{8,32}$") ? name[prefix.Length..] : null;

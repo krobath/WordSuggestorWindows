@@ -30,7 +30,9 @@ public sealed class WindowsUpdateService : IDisposable
 
     public static string DisplayVersion => Assembly.GetExecutingAssembly()
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "ukendt";
-    public string VersionLabel => _installed is null
+    public string VersionLabel => _installed is null && DirectInstallation.Current is { } direct
+        ? SettingsText.Format("VersionInstalled", direct.DisplayVersion, direct.PackageVersion)
+        : _installed is null
         ? SettingsText.Format("VersionDevelopment", DisplayVersion)
         : SettingsText.Format("VersionInstalled", DisplayVersion, _installed.Version);
     public bool IsProductionInstalled => _installed?.Name == PackageName;

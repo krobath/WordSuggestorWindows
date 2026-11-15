@@ -19,7 +19,11 @@
     [switch]$TestUpdatePolicyCapabilities,
     [string]$TestUpdatePolicyNativeControlPath,
     [string]$TestPackageName,
-    [string]$LocalTestFeedDirectory
+    [string]$LocalTestFeedDirectory,
+    [ValidateSet('Msix','Exe')][string]$InstallerFormat='Msix',
+    [switch]$LocalPreview,
+    [string]$PreviewId,
+    [string]$InstallerCompilerPath
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'dotnet_env.ps1')
@@ -28,6 +32,11 @@ $Version = $PackageVersion
 Assert-PackageVersion $PackageVersion
 Assert-ReleaseText $DisplayVersion 128
 Assert-ReleaseText $BuildNumber 128
+if($InstallerFormat -eq 'Exe'){
+    if($LocalTestIdentity -or $PrepareUntrustedLocalTest -or $TestUpdatePolicyCapabilities -or $TestUpdatePolicyNativeControlPath -or $FrameworkDependent -or $FeedBaseUri -or $ReleaseStatus -eq 'active'){throw 'EXE packaging uses a self-contained separate distribution profile; MSIX test/feed/active switches are not accepted.'}
+    if($LocalPreview){if(-not $PreviewId){$PreviewId=[guid]::NewGuid().ToString('N').Substring(0,12)};if($PreviewId -cnotmatch '^[a-f0-9]{12}$'){throw 'Preview identity must be an isolated twelve-digit hexadecimal nonce.'};if($CertificateThumbprint){throw 'Unsigned local preview cannot impersonate a signed public release.'}}
+    elseif(-not $CertificateThumbprint -or $Publisher -match 'Local.?Test|Development|Test Only'){throw 'Public EXE packaging needs the approved signer. Use LocalPreview for isolated local installer testing.'}
+}elseif($LocalPreview -or $PreviewId -or $InstallerCompilerPath){throw 'Direct installer parameters require InstallerFormat Exe.'}
 $packageName = $script:ProductionPackageName
 if($TestUpdatePolicyCapabilities -and -not $LocalTestIdentity){throw 'Update-policy capability experiments require LocalTestIdentity.'}
 if($TestUpdatePolicyNativeControlPath -and -not $LocalTestIdentity){throw 'Native policy controls require LocalTestIdentity.'}
@@ -48,7 +57,7 @@ if ($LocalTestIdentity) {
     }
     $FeedBaseUri = [uri]($testFeedPath.TrimEnd('\') + '\')
 } elseif ($TestPackageName -or $LocalTestFeedDirectory) { throw 'Test parameters require LocalTestIdentity.' }
-elseif ($CertificateThumbprint) {
+elseif ($CertificateThumbprint -and $InstallerFormat -eq 'Msix') {
     if (-not $FeedBaseUri) { $FeedBaseUri = [uri]$script:CanonicalBetaBase }
     if ($FeedBaseUri.AbsoluteUri -cne $script:CanonicalBetaBase -or $Publisher -match 'Local.?Test|Development|Test Only') {
         throw 'Production builds require the canonical feed and a production publisher.'
@@ -112,6 +121,16 @@ if($TestUpdatePolicyNativeControlPath){
     $diagnostics=Join-Path $stage 'Diagnostics'
     New-Item -ItemType Directory -Path $diagnostics -Force | Out-Null
     Copy-Item -LiteralPath $TestUpdatePolicyNativeControlPath -Destination (Join-Path $diagnostics 'UpdatePolicyControl.exe')
+}
+$buildInfo=@{version=$Version;displayVersion=$DisplayVersion;buildNumber=$BuildNumber;packageName=$packageName;localTestIdentity=[bool]$LocalTestIdentity;frameworkDependent=[bool]$FrameworkDependent;coreCommit='provided-binary';coreSha256=(Get-FileHash $CoreCliPath -Algorithm SHA256).Hash;danishPackSha256=(Get-FileHash $DanishPackPath -Algorithm SHA256).Hash}
+if($InstallerFormat -eq 'Exe'){
+    $buildInfo.distribution='exe'
+    $buildInfo.packageName=if($LocalPreview){'WordSuggestor.Windows.Preview.'+$PreviewId}else{'WordSuggestor.Windows.Beta.Direct'}
+    $buildInfo.localTestIdentity=[bool]$LocalPreview
+    $buildInfo|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $stage 'build-info.json') -Encoding UTF8
+    . (Join-Path $PSScriptRoot 'exe_installer.ps1')
+    New-WordSuggestorExeInstaller $stage $bundle $PackageVersion $DisplayVersion $Publisher $CertificateThumbprint ([bool]$LocalPreview) $PreviewId $InstallerCompilerPath
+    return
 }
 $manifest = [xml](Get-Content -LiteralPath (Join-Path $windowsRepo 'packaging\AppxManifest.xml') -Raw -Encoding UTF8)
 $manifest.Package.Identity.Version = $Version

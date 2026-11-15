@@ -1,5 +1,23 @@
 # Windows smoke and qualification
 
+## Current EXE beta smoke scope (2026-11-15)
+
+Follow [ExeBetaRelease.md](ExeBetaRelease.md) to build/install a fresh isolated
+preview. Native scripted install, Core/DA, upgrade, retention, downgrade rejection
+and uninstall: six PASS. Updater tests: 38 PASS; no real production update claim.
+Use the [sprint's human matrix](sprints/WSA-RT-032_windows_exe_beta_distribution.md)
+to record toolbar/editor/tabs/Settings/overlay differences before public beta.
+
+Production-signed EXE install, real HTTPS offer/confirmation/install, production
+OCR callback registration, multiple physical DPI/monitors and spoken screen-reader
+review remain NOT RUN. Windows Hello is user-deferred. No certificate trust
+change or administrator access is needed for the preview. G05/MSIX tests below
+are historical and parked; do not rerun them to qualify this EXE route.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

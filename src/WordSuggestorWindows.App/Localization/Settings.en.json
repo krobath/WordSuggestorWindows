@@ -440,5 +440,12 @@
   "UnknownAutomatic": "Look up unknown words while typing",
   "UnknownAutomaticConsent": "Allow automatic online lookup of completed Danish words in the editor and supported Notepad? Individual words are sent to ordregister.dk or ordnet.dk. Surrounding document text is not sent to the dictionary. Results are stored locally. This is separate consent from manual lookup.",
   "UnknownSharingConsent": "Share existing imported Danish words and their dictionary metadata with the WordSuggestor backend under the current account? Document text, failed lookups and credentials are excluded. You can revoke consent and clear pending sharing. Data already received by the server cannot be recalled from the app.",
-  "UnknownSharingUnavailable": "Sharing imported words is unavailable. Check the account and consent. Turn sharing off to clear the pending queue."
+  "UnknownSharingUnavailable": "Sharing imported words is unavailable. Check the account and consent. Turn sharing off to clear the pending queue.",
+  "ExeUpdateConfirm": "Download the new Windows beta and open its installer? The installer is verified first. WordSuggestor will ask you to save any changes before closing.",
+  "ExeUpdateOffer": "A new WordSuggestor beta ({0}) is available. Download and install it now? Choose No to keep working and update later from Settings.",
+  "UpdatePolicy.exe_confirmation": "Checks for new beta releases. You choose when an update is installed.",
+  "UpdatePolicy.exe_preview": "Local preview installation. Public updates are disabled.",
+  "UpdateFlow.local_preview": "This local preview does not download public updates.",
+  "UpdateFlow.installer_unavailable": "The installer could not be downloaded or verified. You can keep working and try again later.",
+  "UpdateFlow.offer_changed": "The available release changed. Check again before confirming the new installer."
 }

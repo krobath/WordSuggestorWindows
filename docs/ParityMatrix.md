@@ -1,5 +1,22 @@
 # Windows evidence-based parity matrix
 
+## Current EXE distribution delta (2026-11-15)
+
+| Area | Evidence | Remaining |
+| --- | --- | --- |
+| Native WPF/Core/DA reuse | Preserved; installed preview probes real Core/DA/user word | No macOS/Core/pack changes |
+| Per-user EXE install/upgrade/uninstall | Six native checks PASS, data retained, downgrade rejected | Approved signed public build |
+| Update prompt/confirmation/trust | 38 contract/native trust checks PASS | Real backend-hosted signed update cycle |
+| Existing UI/settings | App 105, MSIX update state 38, layout 1201 PASS | Human screenshot comparison, physical DPI/screen reader |
+| G05 App Installer policy | Historical read-only evidence below | Parked by user, not an EXE gate |
+
+See [current sprint and human review](sprints/WSA-RT-032_windows_exe_beta_distribution.md).
+Historical MSIX acceptance must not be mistaken for production EXE qualification.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false

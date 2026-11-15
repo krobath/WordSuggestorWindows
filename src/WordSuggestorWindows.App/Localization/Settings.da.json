@@ -440,5 +440,12 @@
   "UnknownAutomatic": "Slå ukendte ord op under skrivning",
   "UnknownAutomaticConsent": "Vil du tillade automatiske onlineopslag af afsluttede danske ord i editoren og understøttet Notepad? De enkelte ord sendes til ordregister.dk eller ordnet.dk. Ingen omgivende dokumenttekst sendes til ordbogen. Resultater gemmes lokalt. Dette er et ekstra samtykke ud over manuelle opslag.",
   "UnknownSharingConsent": "Vil du dele allerede importerede danske ord og deres ordbogsmetadata med WordSuggestor-backenden under den aktuelle konto? Ingen dokumenttekst, mislykkede opslag eller adgangsoplysninger deles. Du kan tilbagekalde samtykket og rydde ventende deling. Data, serveren allerede har modtaget, kan ikke tilbagekaldes fra appen.",
-  "UnknownSharingUnavailable": "Deling af importerede ord er ikke tilgængelig. Kontrollér konto og samtykke. Slå deling fra for at rydde den ventende kø."
+  "UnknownSharingUnavailable": "Deling af importerede ord er ikke tilgængelig. Kontrollér konto og samtykke. Slå deling fra for at rydde den ventende kø.",
+  "ExeUpdateConfirm": "Vil du hente den nye Windows-beta og åbne installationsprogrammet? Installeren kontrolleres først. WordSuggestor beder dig gemme eventuelle ændringer før lukning.",
+  "ExeUpdateOffer": "En ny WordSuggestor-beta ({0}) er klar. Vil du hente og installere den nu? Vælg Nej for at fortsætte og opdatere senere fra Indstillinger.",
+  "UpdatePolicy.exe_confirmation": "Søger efter nye betaudgaver. Du vælger selv, hvornår en opdatering installeres.",
+  "UpdatePolicy.exe_preview": "Lokal prøveinstallation. Offentlige opdateringer er slået fra.",
+  "UpdateFlow.local_preview": "Denne lokale prøveinstallation henter ikke offentlige opdateringer.",
+  "UpdateFlow.installer_unavailable": "Installeren kunne ikke hentes eller verificeres. Du kan fortsætte med at arbejde og prøve igen senere.",
+  "UpdateFlow.offer_changed": "Den tilgængelige udgave er ændret. Søg igen, før du godkender den nye installer."
 }

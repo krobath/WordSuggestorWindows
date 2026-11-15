@@ -13,7 +13,7 @@ internal sealed class SingleInstance : IDisposable
     public SingleInstance()
     {
         var identity = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
-        var packageName = WindowsUpdateService.ReadInstalledRelease()?.Name ?? "WordSuggestor.Windows.Beta";
+        var packageName = WindowsUpdateService.ReadInstalledRelease()?.Name ?? (DirectInstallation.Current?.IsPreview == true ? DirectInstallation.Current.ProductId : "WordSuggestor.Windows.Beta");
         if (Environment.GetEnvironmentVariable("WORDSUGGESTOR_DATA_ROOT") is { Length: > 0 } root)
         {
             var bytes = System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(root).ToUpperInvariant());

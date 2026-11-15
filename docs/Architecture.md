@@ -1,5 +1,26 @@
 # WordSuggestorWindows architecture
 
+## Direct EXE distribution (2026-11-15)
+
+[WSA-RT-032](ExeBetaRelease.md) retains the existing three layers: Core/pack
+boundary, WPF shell/orchestration, Windows platform adapters. No suggestion or
+language logic moves to C#. package_app.ps1 shares self-contained staging with
+MSIX, then compiles an Inno per-user EXE. A bounded direct-install.json selects
+stable production versus isolated preview identity/data/mutex and bundled Core.
+
+WindowsExeUpdateService validates a bounded fixed-host JSON offer, downloads the
+complete installer, verifies hash/length/Windows Authenticode and exact publisher,
+then uses the existing one-use ticket and save/cancel close path. Trust and hash
+are checked again with a no-write/no-delete handle before installer launch.
+ExeUpdateMonitor defers offers until a normal WordSuggestor window is active;
+Settings supports manual checking and a persisted EXE auto-check preference.
+Preview never checks the public feed. G05 native MSIX writes remain read-only
+and investigation is parked. Historical dated architecture findings follow.
+
+---
+
+Historical dated evidence follows.
+
 ## G05 Settings page verification (2026-11-14)
 
 The operator reached Installed apps; the old nonce-anywhere check was a false
